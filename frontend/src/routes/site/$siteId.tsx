@@ -18,6 +18,7 @@ import {
   Download,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { Skeleton } from "../../components/ui/skeleton";
 
 interface SiteSearch {
   lat: number;
@@ -61,7 +62,7 @@ function SiteInspector() {
   const [showMagnets, setShowMagnets] = useState(true);
 
   // Fetch Site Analysis
-  const { data: analysis } = useQuery({
+  const { data: analysis, isLoading: isAnalysisLoading } = useQuery({
     queryKey: ["site", lat, lon],
     queryFn: () =>
       api.analyzeSite({
@@ -253,30 +254,64 @@ function SiteInspector() {
       <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
         <h3 className="text-lg font-semibold text-white mb-4">Demographics</h3>
         <div className="space-y-4">
-          <DemographicRow
-            label="Residents"
-            count={Math.round((analysis?.summary.total_population || 0) * 0.6)}
-            total={analysis?.summary.total_population || 1}
-            icon={User}
-            color="text-blue-400"
-            bg="bg-blue-400"
-          />
-          <DemographicRow
-            label="Workers"
-            count={Math.round((analysis?.summary.total_population || 0) * 0.3)}
-            total={analysis?.summary.total_population || 1}
-            icon={Briefcase}
-            color="text-purple-400"
-            bg="bg-purple-400"
-          />
-          <DemographicRow
-            label="Students"
-            count={Math.round((analysis?.summary.total_population || 0) * 0.1)}
-            total={analysis?.summary.total_population || 1}
-            icon={GraduationCap}
-            color="text-yellow-400"
-            bg="bg-yellow-400"
-          />
+          {isAnalysisLoading ? (
+            <>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-16" />
+                </div>
+                <Skeleton className="h-2 w-full rounded-full" />
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-16" />
+                </div>
+                <Skeleton className="h-2 w-full rounded-full" />
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-16" />
+                </div>
+                <Skeleton className="h-2 w-full rounded-full" />
+              </div>
+            </>
+          ) : (
+            <>
+              <DemographicRow
+                label="Residents"
+                count={Math.round(
+                  (analysis?.summary.total_population || 0) * 0.6
+                )}
+                total={analysis?.summary.total_population || 1}
+                icon={User}
+                color="text-blue-400"
+                bg="bg-blue-400"
+              />
+              <DemographicRow
+                label="Workers"
+                count={Math.round(
+                  (analysis?.summary.total_population || 0) * 0.3
+                )}
+                total={analysis?.summary.total_population || 1}
+                icon={Briefcase}
+                color="text-purple-400"
+                bg="bg-purple-400"
+              />
+              <DemographicRow
+                label="Students"
+                count={Math.round(
+                  (analysis?.summary.total_population || 0) * 0.1
+                )}
+                total={analysis?.summary.total_population || 1}
+                icon={GraduationCap}
+                color="text-yellow-400"
+                bg="bg-yellow-400"
+              />
+            </>
+          )}
         </div>
       </div>
 

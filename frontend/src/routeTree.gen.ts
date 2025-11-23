@@ -9,10 +9,16 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as CompareRouteImport } from './routes/compare'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SiteSiteIdRouteImport } from './routes/site/$siteId'
 
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CompareRoute = CompareRouteImport.update({
   id: '/compare',
   path: '/compare',
@@ -32,35 +38,46 @@ const SiteSiteIdRoute = SiteSiteIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/compare': typeof CompareRoute
+  '/settings': typeof SettingsRoute
   '/site/$siteId': typeof SiteSiteIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/compare': typeof CompareRoute
+  '/settings': typeof SettingsRoute
   '/site/$siteId': typeof SiteSiteIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/compare': typeof CompareRoute
+  '/settings': typeof SettingsRoute
   '/site/$siteId': typeof SiteSiteIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/compare' | '/site/$siteId'
+  fullPaths: '/' | '/compare' | '/settings' | '/site/$siteId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/compare' | '/site/$siteId'
-  id: '__root__' | '/' | '/compare' | '/site/$siteId'
+  to: '/' | '/compare' | '/settings' | '/site/$siteId'
+  id: '__root__' | '/' | '/compare' | '/settings' | '/site/$siteId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CompareRoute: typeof CompareRoute
+  SettingsRoute: typeof SettingsRoute
   SiteSiteIdRoute: typeof SiteSiteIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/compare': {
       id: '/compare'
       path: '/compare'
@@ -88,6 +105,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CompareRoute: CompareRoute,
+  SettingsRoute: SettingsRoute,
   SiteSiteIdRoute: SiteSiteIdRoute,
 }
 export const routeTree = rootRouteImport

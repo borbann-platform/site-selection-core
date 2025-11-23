@@ -15,6 +15,7 @@ import { GeoJsonLayer, ScatterplotLayer } from "@deck.gl/layers";
 import { cn } from "../lib/utils";
 import { useState, useMemo, useEffect } from "react";
 import { api } from "../lib/api";
+import { Skeleton } from "../components/ui/skeleton";
 
 interface CompareSearch {
   lat1: number;
@@ -304,6 +305,8 @@ function BattleRoom() {
   const handleExportComparison = () => {
     if (!siteA || !siteB) return;
 
+    const winner = siteA.site_score > siteB.site_score ? "A" : "B";
+
     const reportData = {
       type: "Site Comparison Report",
       generated_at: new Date().toISOString(),
@@ -339,10 +342,8 @@ function BattleRoom() {
     URL.revokeObjectURL(url);
   };
 
-  if (isLoading || !siteA || !siteB)
-    return <div className="text-white p-8">Loading Battle Room...</div>;
-
-  const winner = siteA.site_score > siteB.site_score ? "A" : "B";
+  const winner =
+    siteA && siteB ? (siteA.site_score > siteB.site_score ? "A" : "B") : null;
 
   return (
     <Shell>
@@ -360,7 +361,8 @@ function BattleRoom() {
           </div>
           <button
             onClick={handleExportComparison}
-            className="bg-white text-black px-4 py-1.5 rounded text-sm font-bold flex items-center gap-2 hover:bg-gray-200 transition-colors"
+            disabled={isLoading || !siteA || !siteB}
+            className="bg-white text-black px-4 py-1.5 rounded text-sm font-bold flex items-center gap-2 hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Download size={16} /> Export Report
           </button>
@@ -472,88 +474,116 @@ function BattleRoom() {
             </div>
 
             <div className="divide-y divide-white/10">
-              {/* Score Row */}
-              <div className="grid grid-cols-3 items-center p-4">
-                <div
-                  className={cn(
-                    "text-3xl font-bold text-center flex items-center justify-center gap-2",
-                    winner === "A" ? "text-yellow-400" : "text-white/60"
-                  )}
-                >
-                  {siteA.site_score}
-                  {siteA.location_warning && (
-                    <div className="group relative">
-                      <AlertTriangle className="w-5 h-5 text-red-500" />
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-red-900/90 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-                        {siteA.location_warning}
-                      </div>
+              {isLoading || !siteA || !siteB ? (
+                <div className="p-8 space-y-4">
+                  <div className="flex justify-between items-center">
+                    <Skeleton className="h-8 w-16" />
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-8 w-16" />
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <Skeleton className="h-6 w-12" />
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-6 w-12" />
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <Skeleton className="h-6 w-12" />
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-6 w-12" />
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* Score Row */}
+                  <div className="grid grid-cols-3 items-center p-4">
+                    <div
+                      className={cn(
+                        "text-3xl font-bold text-center flex items-center justify-center gap-2",
+                        winner === "A" ? "text-yellow-400" : "text-white/60"
+                      )}
+                    >
+                      {siteA.site_score}
+                      {siteA.location_warning && (
+                        <div className="group relative">
+                          <AlertTriangle className="w-5 h-5 text-red-500" />
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-red-900/90 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                            {siteA.location_warning}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-                <div className="text-xs text-center text-white/40">
-                  POTENTIAL SCORE
-                </div>
-                <div
-                  className={cn(
-                    "text-3xl font-bold text-center flex items-center justify-center gap-2",
-                    winner === "B" ? "text-yellow-400" : "text-white/60"
-                  )}
-                >
-                  {siteB.site_score}
-                  {siteB.location_warning && (
-                    <div className="group relative">
-                      <AlertTriangle className="w-5 h-5 text-red-500" />
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-red-900/90 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-                        {siteB.location_warning}
-                      </div>
+                    <div className="text-xs text-center text-white/40">
+                      POTENTIAL SCORE
                     </div>
-                  )}
-                </div>
-              </div>
+                    <div
+                      className={cn(
+                        "text-3xl font-bold text-center flex items-center justify-center gap-2",
+                        winner === "B" ? "text-yellow-400" : "text-white/60"
+                      )}
+                    >
+                      {siteB.site_score}
+                      {siteB.location_warning && (
+                        <div className="group relative">
+                          <AlertTriangle className="w-5 h-5 text-red-500" />
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-red-900/90 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                            {siteB.location_warning}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
 
-              {/* Competitors Row */}
-              <div className="grid grid-cols-3 items-center p-4">
-                <div className="text-center text-white">
-                  {siteA.summary.competitors_count}
-                </div>
-                <div className="text-xs text-center text-white/40">
-                  COMPETITORS
-                </div>
-                <div className="text-center text-white">
-                  {siteB.summary.competitors_count}
-                </div>
-              </div>
+                  {/* Competitors Row */}
+                  <div className="grid grid-cols-3 items-center p-4">
+                    <div className="text-center text-white">
+                      {siteA.summary.competitors_count}
+                    </div>
+                    <div className="text-xs text-center text-white/40">
+                      COMPETITORS
+                    </div>
+                    <div className="text-center text-white">
+                      {siteB.summary.competitors_count}
+                    </div>
+                  </div>
 
-              {/* Magnets Row */}
-              <div className="grid grid-cols-3 items-center p-4">
-                <div className="text-center text-white">
-                  {siteA.summary.magnets_count}
-                </div>
-                <div className="text-xs text-center text-white/40">MAGNETS</div>
-                <div className="text-center text-white">
-                  {siteB.summary.magnets_count}
-                </div>
-              </div>
+                  {/* Magnets Row */}
+                  <div className="grid grid-cols-3 items-center p-4">
+                    <div className="text-center text-white">
+                      {siteA.summary.magnets_count}
+                    </div>
+                    <div className="text-xs text-center text-white/40">
+                      MAGNETS
+                    </div>
+                    <div className="text-center text-white">
+                      {siteB.summary.magnets_count}
+                    </div>
+                  </div>
 
-              {/* Traffic Row */}
-              <div className="grid grid-cols-3 items-center p-4">
-                <div className="text-center text-emerald-400 font-bold">
-                  {siteA.summary.traffic_potential}
-                </div>
-                <div className="text-xs text-center text-white/40">TRAFFIC</div>
-                <div className="text-center text-yellow-400 font-bold">
-                  {siteB.summary.traffic_potential}
-                </div>
-              </div>
+                  {/* Traffic Row */}
+                  <div className="grid grid-cols-3 items-center p-4">
+                    <div className="text-center text-emerald-400 font-bold">
+                      {siteA.summary.traffic_potential}
+                    </div>
+                    <div className="text-xs text-center text-white/40">
+                      TRAFFIC
+                    </div>
+                    <div className="text-center text-yellow-400 font-bold">
+                      {siteB.summary.traffic_potential}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Winner Banner */}
-            <div className="bg-yellow-500/20 p-3 text-center border-t border-yellow-500/30">
-              <div className="text-yellow-400 font-bold flex items-center justify-center gap-2">
-                <Trophy size={16} />
-                Site {winner} is the Winner
+            {winner && (
+              <div className="bg-yellow-500/20 p-3 text-center border-t border-yellow-500/30">
+                <div className="text-yellow-400 font-bold flex items-center justify-center gap-2">
+                  <Trophy size={16} />
+                  Site {winner} is the Winner
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
