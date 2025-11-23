@@ -6,6 +6,7 @@ import { Shell } from "../components/Shell";
 import { HexagonLayer } from "@deck.gl/aggregation-layers";
 import { ScatterplotLayer } from "@deck.gl/layers";
 import { MVTLayer } from "@deck.gl/geo-layers";
+import { GeoJsonLayer } from "@deck.gl/layers";
 import { Eye, EyeOff } from "lucide-react";
 import { cn } from "../lib/utils";
 import { api, API_URL } from "../lib/api";
@@ -39,10 +40,42 @@ function GodMode() {
     upperPercentile: 100,
   });
 
+  const [mode, setMode] = useState<"hex" | "iso">("hex");
+  const [isoCenter, setIsoCenter] = useState<{
+    lat: number;
+    lon: number;
+  } | null>(null);
+  const [isoSettings, setIsoSettings] = useState({
+    minutes: 15,
+    mode: "drive" as "walk" | "drive",
+  });
+
   // Fetch Grid Data
   const { data: gridData } = useQuery({
     queryKey: ["grid"],
     queryFn: api.getGrid,
+    enabled: mode === "hex",
+  });
+
+  // Fetch Isochrone
+  const { data: isoData } = useQuery({
+    queryKey: [
+      "isochrone",
+      isoCenter?.lat,
+      isoCenter?.lon,
+      isoSettings.minutes,
+      isoSettings.mode,
+    ],
+    queryFn: () =>
+      isoCenter
+        ? api.getIsochrone({
+            latitude: isoCenter.lat,
+            longitude: isoCenter.lon,
+            minutes: isoSettings.minutes,
+            mode: isoSettings.mode,
+          })
+        : Promise.resolve(null),
+    enabled: mode === "iso" && !!isoCenter,
   });
 
   // Fetch Competitors
@@ -73,7 +106,8 @@ function GodMode() {
 
   const layers = useMemo(() => {
     return [
-      gridData &&
+      mode === "hex" &&
+        gridData &&
         new HexagonLayer({
           id: "heatmap",
           data: gridData.hexagons,
@@ -101,6 +135,29 @@ function GodMode() {
           ],
           pickable: true,
           opacity: 0.6,
+        }),
+      mode === "iso" &&
+        isoData &&
+        new GeoJsonLayer({
+          id: "iso-layer",
+          data: isoData,
+          stroked: true,
+          filled: true,
+          lineWidthMinPixels: 2,
+          getFillColor: [0, 100, 255, 40],
+          getLineColor: [0, 100, 255, 200],
+        }),
+      mode === "iso" &&
+        isoCenter &&
+        new ScatterplotLayer({
+          id: "iso-center",
+          data: [{ position: [isoCenter.lon, isoCenter.lat] }],
+          getPosition: (d: any) => d.position,
+          getFillColor: [255, 255, 255],
+          getLineColor: [0, 0, 0],
+          stroked: true,
+          getRadius: 100,
+          lineWidthMinPixels: 2,
         }),
       // POI Vector Tiles (Zoomed In)
       new MVTLayer({
@@ -211,12 +268,16 @@ function GodMode() {
 
   const handleMapClick = (info: any) => {
     if (info.coordinate) {
-      console.log("Clicked:", info.coordinate);
-      navigate({
-        to: "/site/$siteId",
-        params: { siteId: "new" },
-        search: { lat: info.coordinate[1], lon: info.coordinate[0] },
-      });
+      if (mode === "hex") {
+        console.log("Clicked:", info.coordinate);
+        navigate({
+          to: "/site/$siteId",
+          params: { siteId: "new" },
+          search: { lat: info.coordinate[1], lon: info.coordinate[0] },
+        });
+      } else {
+        setIsoCenter({ lat: info.coordinate[1], lon: info.coordinate[0] });
+      }
     }
   };
 
@@ -251,70 +312,170 @@ function GodMode() {
       </div>
 
       <div className="pt-6 border-t border-white/10">
-        <h3 className="text-sm font-bold text-white mb-3">Hexagon Settings</h3>
-        <div className="space-y-4">
-          <div className="space-y-1">
-            <div className="flex justify-between text-xs text-white/60">
-              <span>Radius</span>
-              <span>{hexSettings.radius}m</span>
+        <h3 className="text-sm font-bold text-white mb-3">Analysis Mode</h3>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => setMode("hex")}
+            className={cn(
+              "p-3 rounded text-left transition-colors border",
+              mode === "hex"
+                ? "bg-white/10 border-emerald-500/50"
+                : "bg-black/40 hover:bg-white/10 border-white/5"
+            )}
+          >
+            <div
+              className={cn(
+                "font-bold text-lg",
+                mode === "hex" ? "text-emerald-400" : "text-white/40"
+              )}
+            >
+              Hex
             </div>
-            <input
-              type="range"
-              min="50"
-              max="1000"
-              step="50"
-              value={hexSettings.radius}
-              onChange={(e) =>
-                setHexSettings((s) => ({
-                  ...s,
-                  radius: Number(e.target.value),
-                }))
-              }
-              className="w-full h-1 bg-white/20 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-            />
-          </div>
-          <div className="space-y-1">
-            <div className="flex justify-between text-xs text-white/60">
-              <span>Coverage</span>
-              <span>{Math.round(hexSettings.coverage * 100)}%</span>
+            <div className="text-[10px] text-white/60">Opportunity Grid</div>
+          </button>
+          <button
+            onClick={() => setMode("iso")}
+            className={cn(
+              "p-3 rounded text-left transition-colors border",
+              mode === "iso"
+                ? "bg-white/10 border-emerald-500/50"
+                : "bg-black/40 hover:bg-white/10 border-white/5"
+            )}
+          >
+            <div
+              className={cn(
+                "font-bold text-lg",
+                mode === "iso" ? "text-emerald-400" : "text-white/40"
+              )}
+            >
+              Iso
             </div>
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.05"
-              value={hexSettings.coverage}
-              onChange={(e) =>
-                setHexSettings((s) => ({
-                  ...s,
-                  coverage: Number(e.target.value),
-                }))
-              }
-              className="w-full h-1 bg-white/20 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-            />
-          </div>
-          <div className="space-y-1">
-            <div className="flex justify-between text-xs text-white/60">
-              <span>Percentile</span>
-              <span>{hexSettings.upperPercentile}%</span>
-            </div>
-            <input
-              type="range"
-              min="80"
-              max="100"
-              step="1"
-              value={hexSettings.upperPercentile}
-              onChange={(e) =>
-                setHexSettings((s) => ({
-                  ...s,
-                  upperPercentile: Number(e.target.value),
-                }))
-              }
-              className="w-full h-1 bg-white/20 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-            />
-          </div>
+            <div className="text-[10px] text-white/60">Travel Time</div>
+          </button>
         </div>
       </div>
+
+      {mode === "hex" ? (
+        <div className="pt-6 border-t border-white/10">
+          <h3 className="text-sm font-bold text-white mb-3">
+            Hexagon Settings
+          </h3>
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs text-white/60">
+                <span>Radius</span>
+                <span>{hexSettings.radius}m</span>
+              </div>
+              <input
+                type="range"
+                min="50"
+                max="1000"
+                step="50"
+                value={hexSettings.radius}
+                onChange={(e) =>
+                  setHexSettings((s) => ({
+                    ...s,
+                    radius: Number(e.target.value),
+                  }))
+                }
+                className="w-full h-1 bg-white/20 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+              />
+            </div>
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs text-white/60">
+                <span>Coverage</span>
+                <span>{Math.round(hexSettings.coverage * 100)}%</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={hexSettings.coverage}
+                onChange={(e) =>
+                  setHexSettings((s) => ({
+                    ...s,
+                    coverage: Number(e.target.value),
+                  }))
+                }
+                className="w-full h-1 bg-white/20 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+              />
+            </div>
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs text-white/60">
+                <span>Percentile</span>
+                <span>{hexSettings.upperPercentile}%</span>
+              </div>
+              <input
+                type="range"
+                min="80"
+                max="100"
+                step="1"
+                value={hexSettings.upperPercentile}
+                onChange={(e) =>
+                  setHexSettings((s) => ({
+                    ...s,
+                    upperPercentile: Number(e.target.value),
+                  }))
+                }
+                className="w-full h-1 bg-white/20 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+              />
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="pt-6 border-t border-white/10">
+          <h3 className="text-sm font-bold text-white mb-3">
+            Isochrone Settings
+          </h3>
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs text-white/60">
+                <span>Travel Time</span>
+                <span>{isoSettings.minutes} min</span>
+              </div>
+              <input
+                type="range"
+                min="5"
+                max="60"
+                step="5"
+                value={isoSettings.minutes}
+                onChange={(e) =>
+                  setIsoSettings((s) => ({
+                    ...s,
+                    minutes: Number(e.target.value),
+                  }))
+                }
+                className="w-full h-1 bg-white/20 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+              />
+            </div>
+            <div className="flex bg-black/50 rounded-lg p-1 border border-white/10">
+              <button
+                onClick={() => setIsoSettings((s) => ({ ...s, mode: "walk" }))}
+                className={cn(
+                  "flex-1 px-3 py-1 rounded text-xs font-bold transition-colors",
+                  isoSettings.mode === "walk"
+                    ? "bg-white/20 text-white"
+                    : "text-white/40 hover:text-white"
+                )}
+              >
+                Walk
+              </button>
+              <button
+                onClick={() => setIsoSettings((s) => ({ ...s, mode: "drive" }))}
+                className={cn(
+                  "flex-1 px-3 py-1 rounded text-xs font-bold transition-colors",
+                  isoSettings.mode === "drive"
+                    ? "bg-white/20 text-white"
+                    : "text-white/40 hover:text-white"
+                )}
+              >
+                Drive
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="pt-6 border-t border-white/10">
         <h3 className="text-sm font-bold text-white mb-3">Legend</h3>
@@ -346,23 +507,11 @@ function GodMode() {
         </div>
       </div>
 
-      <div className="pt-6 border-t border-white/10">
-        <h3 className="text-sm font-bold text-white mb-3">Analysis Mode</h3>
-        <div className="grid grid-cols-2 gap-2">
-          <button className="p-3 rounded bg-white/10 hover:bg-white/20 text-left transition-colors border border-transparent hover:border-emerald-500/50">
-            <div className="text-emerald-400 font-bold text-lg">Hex</div>
-            <div className="text-[10px] text-white/60">Opportunity Grid</div>
-          </button>
-          <button className="p-3 rounded bg-black/40 hover:bg-white/10 text-left transition-colors border border-white/5">
-            <div className="text-white/40 font-bold text-lg">Iso</div>
-            <div className="text-[10px] text-white/40">Drive Time</div>
-          </button>
-        </div>
-      </div>
-
       <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded text-xs text-blue-200">
-        <span className="font-bold">Hint:</span> Zoom in to see individual POI
-        dots. The heatmap shows aggregated density of opportunities.
+        <span className="font-bold">Hint:</span>{" "}
+        {mode === "hex"
+          ? "Zoom in to see individual POI dots. The heatmap shows aggregated density of opportunities."
+          : "Click anywhere on the map to generate a travel-time isochrone from that point."}
       </div>
     </div>
   );
