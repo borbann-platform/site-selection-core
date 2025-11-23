@@ -27,6 +27,7 @@ class SiteResponse(BaseModel):
     site_score: float
     summary: AnalysisSummary
     details: AnalysisDetails
+    location_warning: str | None = None
 
 
 class GeoJSONFeature(BaseModel):

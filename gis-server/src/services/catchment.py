@@ -124,3 +124,32 @@ class CatchmentService:
         except Exception:
             logger.exception("Error calculating population")
             return 0
+
+    def get_nearest_road_type(self, lat: float, lon: float) -> str | None:
+        """
+        Finds the type of the nearest road (highway tag) to the given coordinates.
+        """
+        try:
+            if self.graph is None:
+                self.load_graph()
+
+            if self.graph is None:
+                return None
+
+            # Find nearest edge
+            # X is longitude, Y is latitude
+            u, v, key = ox.nearest_edges(self.graph, X=lon, Y=lat)
+            edge_data = self.graph.get_edge_data(u, v, key)
+            highway = edge_data.get("highway")
+
+            # Handle list of tags (sometimes an edge has multiple types)
+            if isinstance(highway, list):
+                return highway[0]
+            return highway
+        except Exception:
+            logger.exception("Error finding nearest road type")
+            return None
+
+
+# Singleton instance to be shared across routes
+catchment_service = CatchmentService()

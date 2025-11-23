@@ -113,3 +113,18 @@ Base URL: `http://localhost:8000/api/v1`
   "notes": "Good foot traffic"
 }
 ```
+
+---
+
+## 4. Scoring Methodology
+
+### Road Tier Filter (Implemented)
+We use a "Road Tier Filter" to adjust the site score based on the accessibility of the nearest road.
+- **Highways/Expressways:** Score multiplier = 0.0 (Location is inaccessible). Returns a warning.
+- **Service Roads:** Score multiplier = 0.6 (Low visibility). Returns a warning.
+- **Pedestrian/Footways:** Score multiplier = 1.2 (High foot traffic bonus).
+- **Other Roads:** Score multiplier = 1.0.
+
+### Future Improvements (Not Implemented)
+- **Snapping Validator:** Reject points that are too far (>50m) or too close (<2m) to a road.
+- **Projection Correction:** Automatically snap user clicks to the nearest valid building frontage before analysis.

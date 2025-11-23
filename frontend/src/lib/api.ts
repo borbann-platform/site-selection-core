@@ -27,6 +27,7 @@ export interface SiteAnalysisResponse {
     nearby_competitors: string[];
     nearby_magnets: string[];
   };
+  location_warning?: string | null;
 }
 
 export interface IsochroneRequest {
@@ -73,6 +74,7 @@ export interface SiteDetailsResponse {
     nearby_competitors: string[];
     nearby_magnets: string[];
   };
+  location_warning?: string | null;
 }
 
 export const api = {

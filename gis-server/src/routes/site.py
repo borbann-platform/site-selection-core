@@ -13,6 +13,7 @@ from src.models.site import (
     SiteRequest,
     SiteResponse,
 )
+from src.services.catchment import catchment_service
 
 router = APIRouter()
 
@@ -179,11 +180,36 @@ def analyze_site(payload: SiteRequest, db: Session = Depends(get_db_session)):
                 if row.names:
                     nearby_magnets = [name.strip() for name in row.names.split(",")]
 
+        # --- Road Tier Filter (Method 2) ---
+        road_type = catchment_service.get_nearest_road_type(
+            payload.latitude, payload.longitude
+        )
+        road_multiplier = 1.0
+        location_warning = None
+
+        if road_type:
+            # Normalize to string if it's a list (take first) or just string
+            rt = road_type[0] if isinstance(road_type, list) else road_type
+
+            if rt in ["motorway", "trunk", "motorway_link", "trunk_link"]:
+                road_multiplier = 0.0
+                location_warning = f"Site is on a {rt} (Highway/Expressway). Accessibility is effectively zero."
+            elif rt == "service":
+                road_multiplier = 0.6
+                location_warning = "Site is on a service road (low visibility)."
+            elif rt in ["pedestrian", "footway", "living_street"]:
+                road_multiplier = 1.2
+                # No warning, this is good!
+
         # Calculate the site score (avoid division by zero)
         # Add 1 to the denominator to prevent zero division and moderate the score
         site_score = (magnets_count * 10 + total_population / 1000) / (
             competitors_count + 1
         )
+
+        # Apply Road Multiplier
+        site_score *= road_multiplier
+
         site_score = min(max(site_score, 0), 100)  # Normalize to 0-100 roughly
 
         # Determine traffic potential
@@ -209,6 +235,7 @@ def analyze_site(payload: SiteRequest, db: Session = Depends(get_db_session)):
                 nearby_competitors=nearby_competitors,
                 nearby_magnets=nearby_magnets,
             ),
+            location_warning=location_warning,
         )
 
     except Exception as e:

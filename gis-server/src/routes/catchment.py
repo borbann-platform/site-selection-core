@@ -1,16 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-
 from src.config.database import get_db_session
 from src.models.catchment import (
     CatchmentAnalysisResponse,
     CatchmentRequest,
     CatchmentResponse,
 )
-from src.services.catchment import CatchmentService
+from src.services.catchment import catchment_service
 
 router = APIRouter()
-catchment_service = CatchmentService()
 
 
 @router.post(

@@ -15,6 +15,7 @@ import {
   MapPin,
   Eye,
   EyeOff,
+  Download,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 
@@ -178,21 +179,75 @@ function SiteInspector() {
     return null;
   };
 
+  const handleExportReport = () => {
+    if (!analysis) return;
+
+    const reportData = {
+      siteId: siteId === "new" ? "Draft Site" : siteId,
+      coordinates: { lat, lon },
+      score: analysis.site_score,
+      traffic_potential: analysis.summary.traffic_potential,
+      population: analysis.summary.total_population,
+      competitors: analysis.summary.competitors_count,
+      magnets: analysis.summary.magnets_count,
+      location_warning: analysis.location_warning || "None",
+      generated_at: new Date().toISOString(),
+    };
+
+    const blob = new Blob([JSON.stringify(reportData, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `site-report-${siteId}-${new Date().toISOString().split("T")[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const PanelContent = (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <div className="text-xs font-bold text-white/40 uppercase tracking-widest mb-1">
-          Site Inspector
+        <div className="flex justify-between items-start">
+          <div>
+            <div className="text-xs font-bold text-white/40 uppercase tracking-widest mb-1">
+              Site Inspector
+            </div>
+            <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+              <MapPin className="text-emerald-400" />
+              Site #{siteId === "new" ? "Draft" : siteId}
+            </h2>
+            <p className="text-white/60 text-sm mt-1">
+              Lat: {lat.toFixed(4)}, Lon: {lon.toFixed(4)}
+            </p>
+          </div>
+          <button
+            onClick={handleExportReport}
+            className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors"
+            title="Export Report"
+          >
+            <Download size={20} />
+          </button>
         </div>
-        <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-          <MapPin className="text-emerald-400" />
-          Site #{siteId === "new" ? "Draft" : siteId}
-        </h2>
-        <p className="text-white/60 text-sm mt-1">
-          Lat: {lat.toFixed(4)}, Lon: {lon.toFixed(4)}
-        </p>
       </div>
+
+      {/* Location Warning */}
+      {analysis?.location_warning && (
+        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+          <div>
+            <h4 className="text-red-400 font-medium text-sm">
+              Accessibility Issue
+            </h4>
+            <p className="text-red-400/80 text-xs mt-1">
+              {analysis.location_warning}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Demographics Card */}
       <div className="bg-white/5 rounded-2xl p-6 border border-white/10">

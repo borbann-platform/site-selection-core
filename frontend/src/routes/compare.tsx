@@ -2,7 +2,14 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQueries } from "@tanstack/react-query";
 import { MapContainer } from "../components/MapContainer";
 import { Shell } from "../components/Shell";
-import { Trophy, Download, MapPin, MousePointerClick, X } from "lucide-react";
+import {
+  Trophy,
+  Download,
+  MapPin,
+  MousePointerClick,
+  X,
+  AlertTriangle,
+} from "lucide-react";
 import { GeoJsonLayer, ScatterplotLayer } from "@deck.gl/layers";
 
 import { cn } from "../lib/utils";
@@ -294,6 +301,44 @@ function BattleRoom() {
     ].filter(Boolean);
   }, [isochroneB, competitorsB, magnetsB, lat2, lon2]);
 
+  const handleExportComparison = () => {
+    if (!siteA || !siteB) return;
+
+    const reportData = {
+      type: "Site Comparison Report",
+      generated_at: new Date().toISOString(),
+      winner: winner,
+      site_a: {
+        coordinates: { lat: lat1, lon: lon1 },
+        score: siteA.site_score,
+        traffic: siteA.summary.traffic_potential,
+        competitors: siteA.summary.competitors_count,
+        magnets: siteA.summary.magnets_count,
+        warning: siteA.location_warning || "None",
+      },
+      site_b: {
+        coordinates: { lat: lat2, lon: lon2 },
+        score: siteB.site_score,
+        traffic: siteB.summary.traffic_potential,
+        competitors: siteB.summary.competitors_count,
+        magnets: siteB.summary.magnets_count,
+        warning: siteB.location_warning || "None",
+      },
+    };
+
+    const blob = new Blob([JSON.stringify(reportData, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `comparison-report-${new Date().toISOString().split("T")[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   if (isLoading || !siteA || !siteB)
     return <div className="text-white p-8">Loading Battle Room...</div>;
 
@@ -313,7 +358,10 @@ function BattleRoom() {
               Comparing 2 Potential Sites
             </div>
           </div>
-          <button className="bg-white text-black px-4 py-1.5 rounded text-sm font-bold flex items-center gap-2 hover:bg-gray-200 transition-colors">
+          <button
+            onClick={handleExportComparison}
+            className="bg-white text-black px-4 py-1.5 rounded text-sm font-bold flex items-center gap-2 hover:bg-gray-200 transition-colors"
+          >
             <Download size={16} /> Export Report
           </button>
         </header>
@@ -428,22 +476,38 @@ function BattleRoom() {
               <div className="grid grid-cols-3 items-center p-4">
                 <div
                   className={cn(
-                    "text-3xl font-bold text-center",
+                    "text-3xl font-bold text-center flex items-center justify-center gap-2",
                     winner === "A" ? "text-yellow-400" : "text-white/60"
                   )}
                 >
                   {siteA.site_score}
+                  {siteA.location_warning && (
+                    <div className="group relative">
+                      <AlertTriangle className="w-5 h-5 text-red-500" />
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-red-900/90 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                        {siteA.location_warning}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="text-xs text-center text-white/40">
                   POTENTIAL SCORE
                 </div>
                 <div
                   className={cn(
-                    "text-3xl font-bold text-center",
+                    "text-3xl font-bold text-center flex items-center justify-center gap-2",
                     winner === "B" ? "text-yellow-400" : "text-white/60"
                   )}
                 >
                   {siteB.site_score}
+                  {siteB.location_warning && (
+                    <div className="group relative">
+                      <AlertTriangle className="w-5 h-5 text-red-500" />
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-red-900/90 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                        {siteB.location_warning}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
