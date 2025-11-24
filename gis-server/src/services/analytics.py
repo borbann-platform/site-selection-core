@@ -38,7 +38,7 @@ class AnalyticsService:
                     ST_Y(ST_Centroid(geometry::geometry)) as lat, 
                     ST_X(ST_Centroid(geometry::geometry)) as lon,
                     (COALESCE(population_density, 0) * (ST_Area(geometry::geography) / 1000000.0)) as population
-                FROM demographics
+                FROM population_grid
                 LIMIT 5000 -- Limit for performance in MVP
             """
             )
