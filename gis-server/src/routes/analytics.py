@@ -62,6 +62,71 @@ def get_pois_tile(z: int, x: int, y: int, db: Session = Depends(get_db_session))
     return Response(content=result, media_type="application/vnd.mapbox-vector-tile")
 
 
+@router.get("/all-pois/tile/{z}/{x}/{y}", tags=["Maps"])
+def get_all_pois_tile(z: int, x: int, y: int, db: Session = Depends(get_db_session)):
+    """
+    Serves Mapbox Vector Tiles (MVT) for All POIs (Unified View).
+    """
+    sql = text("""
+        WITH mvtgeom AS (
+            SELECT 
+                ST_AsMVTGeom(
+                    ST_Transform(geometry, 3857),
+                    ST_TileEnvelope(:z, :x, :y)
+                ) AS geom,
+                id,
+                name,
+                type,
+                source
+            FROM view_all_pois
+            WHERE ST_Intersects(
+                ST_Transform(geometry, 3857),
+                ST_TileEnvelope(:z, :x, :y)
+            )
+        )
+        SELECT ST_AsMVT(mvtgeom.*, 'default', 4096, 'geom') AS mvt
+        FROM mvtgeom;
+    """)
+
+    with db.bind.connect() as conn:
+        result = conn.execute(sql, {"z": z, "x": x, "y": y}).scalar()
+
+    return Response(content=result, media_type="application/vnd.mapbox-vector-tile")
+
+
+@router.get("/residential/tile/{z}/{x}/{y}", tags=["Maps"])
+def get_residential_tile(z: int, x: int, y: int, db: Session = Depends(get_db_session)):
+    """
+    Serves Mapbox Vector Tiles (MVT) for Residential Supply (Unified View).
+    """
+    sql = text("""
+        WITH mvtgeom AS (
+            SELECT 
+                ST_AsMVTGeom(
+                    ST_Transform(geometry, 3857),
+                    ST_TileEnvelope(:z, :x, :y)
+                ) AS geom,
+                id,
+                name,
+                type,
+                price,
+                source
+            FROM view_residential_supply
+            WHERE ST_Intersects(
+                ST_Transform(geometry, 3857),
+                ST_TileEnvelope(:z, :x, :y)
+            )
+        )
+        SELECT ST_AsMVT(mvtgeom.*, 'default', 4096, 'geom') AS mvt
+        FROM mvtgeom;
+    """)
+
+    with db.bind.connect() as conn:
+        result = conn.execute(sql, {"z": z, "x": x, "y": y}).scalar()
+
+    return Response(content=result, media_type="application/vnd.mapbox-vector-tile")
+
+
 @router.get("/grid", response_model=GridResponse)
 def get_analytics_grid(db: Session = Depends(get_db_session)):
     """

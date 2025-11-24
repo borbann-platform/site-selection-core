@@ -32,6 +32,8 @@ function GodMode() {
     competitors: true,
     schools: false,
     traffic: true,
+    allPois: false,
+    residential: false,
   });
 
   const [hexSettings, setHexSettings] = useState({
@@ -161,10 +163,11 @@ function GodMode() {
         }),
       // POI Vector Tiles (Zoomed In)
       new MVTLayer({
-        id: "poi-layer",
-        data: `${API_URL}/analytics/pois/tile/{z}/{x}/{y}`,
+        id: "all-pois-layer",
+        data: `${API_URL}/analytics/all-pois/tile/{z}/{x}/{y}`,
         minZoom: 13,
         maxZoom: 20,
+        visible: filters.allPois,
         pickable: true,
         autoHighlight: true,
         highlightColor: [255, 255, 255, 100],
@@ -172,22 +175,36 @@ function GodMode() {
         pointRadiusScale: 1,
         getPointRadius: 4,
         getFillColor: (d: any) => {
-          const amenity = d.properties.amenity;
-          // Magnets (Traffic Generators)
-          if (["mall", "marketplace", "attraction", "park"].includes(amenity))
-            return [255, 0, 128]; // Pink
-          if (
-            ["train_station", "subway_station", "bus_station"].includes(amenity)
-          )
-            return [255, 165, 0]; // Orange
-          if (["school", "university", "college"].includes(amenity))
-            return [0, 128, 255]; // Blue
-          if (["hospital", "clinic"].includes(amenity)) return [255, 50, 50]; // Red
-
-          // Competitors (Coffee/Cafe)
-          if (["cafe", "coffee_shop"].includes(amenity)) return [50, 200, 50]; // Green
-
+          const type = d.properties.type;
+          if (type === "school") return [0, 128, 255]; // Blue
+          if (type === "police_station") return [0, 0, 128]; // Navy
+          if (type === "museum") return [128, 0, 128]; // Purple
+          if (type === "gas_station") return [255, 165, 0]; // Orange
+          if (type === "traffic_point") return [255, 0, 0]; // Red
+          if (type === "water_transport") return [0, 255, 255]; // Cyan
+          if (type === "tourist_attraction") return [255, 105, 180]; // Pink
+          if (type === "bus_shelter") return [0, 255, 0]; // Green
+          if (type === "transit_stop") return [255, 215, 0]; // Gold
           return [120, 120, 120]; // Grey default
+        },
+      }),
+      new MVTLayer({
+        id: "residential-layer",
+        data: `${API_URL}/analytics/residential/tile/{z}/{x}/{y}`,
+        minZoom: 13,
+        maxZoom: 20,
+        visible: filters.residential,
+        pickable: true,
+        autoHighlight: true,
+        highlightColor: [255, 255, 255, 100],
+        pointRadiusMinPixels: 3,
+        pointRadiusScale: 1,
+        getPointRadius: 4,
+        getFillColor: (d: any) => {
+          const type = d.properties.type;
+          if (type === "condo_project") return [255, 215, 0]; // Gold
+          if (type === "listing") return [0, 255, 255]; // Cyan
+          return [120, 120, 120];
         },
       }),
       filters.competitors &&
@@ -232,32 +249,18 @@ function GodMode() {
     // MVT Layer (POI) Tooltip
     if (object.properties) {
       const props = object.properties;
-      const amenity =
-        props.amenity?.replace(/_/g, " ").toUpperCase() || "UNKNOWN";
       const name = props.name || "Unnamed Location";
-
-      let typeColor = "text-zinc-400";
-      if (["mall", "marketplace", "attraction", "park"].includes(props.amenity))
-        typeColor = "text-pink-400";
-      if (
-        ["train_station", "subway_station", "bus_station"].includes(
-          props.amenity
-        )
-      )
-        typeColor = "text-orange-400";
-      if (["school", "university", "college"].includes(props.amenity))
-        typeColor = "text-blue-400";
-      if (["hospital", "clinic"].includes(props.amenity))
-        typeColor = "text-red-400";
-      if (["cafe", "coffee_shop"].includes(props.amenity))
-        typeColor = "text-green-400";
+      const type = props.type || "Unknown Type";
+      const source = props.source || "Unknown Source";
+      const price = props.price ? `Price: ${props.price}` : "";
 
       return {
         html: `<div class="p-3 bg-zinc-900/90 border border-zinc-700 text-white rounded-lg shadow-xl backdrop-blur-md min-w-[200px]">
           <div class="font-bold text-sm mb-1">${name}</div>
-          <div class="text-xs font-medium ${typeColor} mb-2">${amenity}</div>
+          <div class="text-xs font-medium text-zinc-400 mb-2">${type}</div>
+          ${price ? `<div class="text-xs text-emerald-400 mb-1">${price}</div>` : ""}
           <div class="grid grid-cols-2 gap-2 text-[10px] text-zinc-400 border-t border-zinc-800 pt-2">
-            <div>OSM ID:</div><div class="text-right font-mono text-zinc-500">${props.osm_id || "-"}</div>
+            <div>Source:</div><div class="text-right font-mono text-zinc-500">${source}</div>
           </div>
         </div>`,
       };
@@ -308,6 +311,20 @@ function GodMode() {
           active={filters.traffic}
           color="bg-yellow-500"
           onClick={() => setFilters((f) => ({ ...f, traffic: !f.traffic }))}
+        />
+        <LayerToggle
+          label="All POIs"
+          active={filters.allPois}
+          color="bg-purple-500"
+          onClick={() => setFilters((f) => ({ ...f, allPois: !f.allPois }))}
+        />
+        <LayerToggle
+          label="Residential Supply"
+          active={filters.residential}
+          color="bg-cyan-500"
+          onClick={() =>
+            setFilters((f) => ({ ...f, residential: !f.residential }))
+          }
         />
       </div>
 

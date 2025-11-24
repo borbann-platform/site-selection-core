@@ -43,6 +43,10 @@ def load_bus_shelters(db: Session):
         return
 
     logger.info("Loading Bus Shelters...")
+    # Clear existing data to ensure idempotency for this table (no stable PK in CSV)
+    db.query(BusShelter).delete()
+    db.commit()
+
     count = 0
     with open(file_path, encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
@@ -93,7 +97,7 @@ def load_schools(db: Session):
                     phone=row.get("TEL"),
                     geometry=from_shape(point, srid=4326),
                 )
-                db.add(school)
+                db.merge(school)
                 count += 1
     db.commit()
     logger.info(f"Loaded {count} Schools.")
@@ -123,7 +127,7 @@ def load_police_stations(db: Session):
                     division=row.get("division"),
                     geometry=from_shape(point, srid=4326),
                 )
-                db.add(station)
+                db.merge(station)
                 count += 1
     db.commit()
     logger.info(f"Loaded {count} Police Stations.")
@@ -152,7 +156,7 @@ def load_museums(db: Session):
                     phone=row.get("tel"),
                     geometry=from_shape(point, srid=4326),
                 )
-                db.add(museum)
+                db.merge(museum)
                 count += 1
     db.commit()
     logger.info(f"Loaded {count} Museums.")
@@ -181,7 +185,7 @@ def load_gas_stations(db: Session):
                     brand_type=row.get("type"),
                     geometry=from_shape(point, srid=4326),
                 )
-                db.add(station)
+                db.merge(station)
                 count += 1
     db.commit()
     logger.info(f"Loaded {count} Gas Stations.")
@@ -209,7 +213,7 @@ def load_traffic_points(db: Session):
                     afternoon_time=row.get("afternoon_t"),
                     geometry=from_shape(point, srid=4326),
                 )
-                db.add(tp)
+                db.merge(tp)
                 count += 1
     db.commit()
     logger.info(f"Loaded {count} Traffic Points.")
@@ -222,6 +226,10 @@ def load_water_transport(db: Session):
         return
 
     logger.info("Loading Water Transport Piers...")
+    # Clear existing data to ensure idempotency
+    db.query(WaterTransport).delete()
+    db.commit()
+
     count = 0
     with open(file_path, encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
@@ -265,7 +273,7 @@ def load_tourist_attractions(db: Session):
                     open_time=row.get("oc_time"),
                     geometry=from_shape(point, srid=4326),
                 )
-                db.add(attraction)
+                db.merge(attraction)
                 count += 1
     db.commit()
     logger.info(f"Loaded {count} Tourist Attractions.")

@@ -37,9 +37,16 @@ def load_condo_projects(db: Session):
 
     logger.info("Loading Condo Projects (Hipflat)...")
     count = 0
+    seen_urls = set()
+
     with open(file_path, encoding="utf-8") as f:
         data = json.load(f)
         for item in data:
+            url = item.get("project_base_url")
+            if url in seen_urls:
+                continue
+            seen_urls.add(url)
+
             lat = clean_float(item.get("latitude"))
             lon = clean_float(item.get("longitude"))
 
@@ -51,34 +58,54 @@ def load_condo_projects(db: Session):
             # Check if exists
             existing = (
                 db.query(CondoProject)
-                .filter(CondoProject.project_base_url == item.get("project_base_url"))
+                .filter(CondoProject.project_base_url == url)
                 .first()
             )
-            if existing:
-                continue
 
-            project = CondoProject(
-                project_base_url=item.get("project_base_url"),
-                name=item.get("name"),
-                location=item.get("location"),
-                completed_date=item.get("completed_date"),
-                floors=item.get("floors"),
-                units=item.get("units"),
-                buildings=item.get("buildings"),
-                price_sale=item.get("price_sale"),
-                sale_units=item.get("sale_units"),
-                price_rent=item.get("price_rent"),
-                rent_units=item.get("rent_units"),
-                description=item.get("description"),
-                facilities=item.get("facilities"),
-                nearby_projects=item.get("nearby_projects"),
-                images=item.get("images"),
-                units_for_sale=item.get("units_for_sale"),
-                units_for_rent=item.get("units_for_rent"),
-                market_stats=item.get("market_stats"),
-                geometry=geometry,
-            )
-            db.add(project)
+            if existing:
+                # Update existing record
+                existing.name = item.get("name")
+                existing.location = item.get("location")
+                existing.completed_date = item.get("completed_date")
+                existing.floors = item.get("floors")
+                existing.units = item.get("units")
+                existing.buildings = item.get("buildings")
+                existing.price_sale = item.get("price_sale")
+                existing.sale_units = item.get("sale_units")
+                existing.price_rent = item.get("price_rent")
+                existing.rent_units = item.get("rent_units")
+                existing.description = item.get("description")
+                existing.facilities = item.get("facilities")
+                existing.nearby_projects = item.get("nearby_projects")
+                existing.images = item.get("images")
+                existing.units_for_sale = item.get("units_for_sale")
+                existing.units_for_rent = item.get("units_for_rent")
+                existing.market_stats = item.get("market_stats")
+                existing.geometry = geometry
+            else:
+                # Create new record
+                project = CondoProject(
+                    project_base_url=url,
+                    name=item.get("name"),
+                    location=item.get("location"),
+                    completed_date=item.get("completed_date"),
+                    floors=item.get("floors"),
+                    units=item.get("units"),
+                    buildings=item.get("buildings"),
+                    price_sale=item.get("price_sale"),
+                    sale_units=item.get("sale_units"),
+                    price_rent=item.get("price_rent"),
+                    rent_units=item.get("rent_units"),
+                    description=item.get("description"),
+                    facilities=item.get("facilities"),
+                    nearby_projects=item.get("nearby_projects"),
+                    images=item.get("images"),
+                    units_for_sale=item.get("units_for_sale"),
+                    units_for_rent=item.get("units_for_rent"),
+                    market_stats=item.get("market_stats"),
+                    geometry=geometry,
+                )
+                db.add(project)
             count += 1
 
             if count % 100 == 0:
@@ -93,6 +120,11 @@ def load_real_estate_listings(db: Session):
     if not os.path.exists(bania_dir):
         logger.warning(f"Directory not found: {bania_dir}")
         return
+
+    # Clear existing data to ensure idempotency
+    logger.info("Clearing existing Real Estate Listings...")
+    db.query(RealEstateListing).delete()
+    db.commit()
 
     csv_files = glob.glob(os.path.join(bania_dir, "*.csv"))
 

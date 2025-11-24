@@ -19,17 +19,17 @@ router = APIRouter()
 
 # Define the categories for magnets
 MAGNET_CATEGORIES = [
-    "office",
     "school",
-    "train_station",
-    "subway_station",
-    "university",
-    "mall",
+    "transit_stop",
+    "tourist_attraction",
+    "museum",
+    "water_transport",
+    "police_station",
+    # Add others if they exist in contributed_pois or other sources
     "hospital",
-    "hotel",
-    "attraction",
+    "mall",
+    "university",
     "park",
-    "condominiums",
 ]
 
 
@@ -107,12 +107,12 @@ def analyze_site(payload: SiteRequest, db: Session = Depends(get_db_session)):
         WITH nearby_pois AS (
             SELECT
                 name,
-                amenity,
+                type,
                 CASE
-                    WHEN amenity = :target_category THEN 'competitor'
-                    WHEN amenity = ANY(:magnet_categories) THEN 'magnet'
+                    WHEN type = :target_category THEN 'competitor'
+                    WHEN type = ANY(:magnet_categories) THEN 'magnet'
                 END as poi_type
-            FROM pois
+            FROM view_all_pois
             WHERE ST_DWithin(
                 geometry,
                 ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography,
@@ -242,7 +242,7 @@ def analyze_site(payload: SiteRequest, db: Session = Depends(get_db_session)):
         # For production, log the error and return a more generic message
         raise HTTPException(
             status_code=500,
-            detail=f"An error occurred during analysis: {e}. Please check if the 'pois' table exists and is populated.",
+            detail=f"An error occurred during analysis: {e}. Please check if the 'view_all_pois' view exists and is populated.",
         )
 
 
@@ -260,15 +260,15 @@ def get_nearby_pois(payload: NearbyRequest, db: Session = Depends(get_db_session
         """
         SELECT
             name,
-            amenity,
+            type,
             ST_AsGeoJSON(geometry) as geom_json
-        FROM pois
+        FROM view_all_pois
         WHERE ST_DWithin(
             geometry,
             ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography,
             :radius
         )
-        AND amenity = ANY(:categories)
+        AND type = ANY(:categories)
     """
     )
 
@@ -291,7 +291,7 @@ def get_nearby_pois(payload: NearbyRequest, db: Session = Depends(get_db_session
                     geometry=json.loads(row.geom_json),
                     properties={
                         "name": row.name,
-                        "amenity": row.amenity,
+                        "amenity": row.type,
                     },
                 )
             )
