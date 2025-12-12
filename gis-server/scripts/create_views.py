@@ -146,7 +146,17 @@ def create_views():
             price,
             'bania' AS source,
             geometry
-        FROM real_estate_listings;
+        FROM real_estate_listings
+        UNION ALL
+        SELECT 
+            'house_' || id::text AS id,
+            id::text as original_id,
+            COALESCE(village, amphur || ' ' || building_style_desc) AS name,
+            building_style_desc AS type,
+            total_price::text AS price,
+            'treasury' AS source,
+            geometry
+        FROM house_prices;
         """
 
         db.execute(text(sql_residential))

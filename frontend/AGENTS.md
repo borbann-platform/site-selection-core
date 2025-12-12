@@ -1,3 +1,15 @@
+# Real Estate Information Platform - Frontend
+
+This is the frontend for a Real Estate Information Platform with Price Prediction AI.
+
+## Project Focus
+- Real estate property browsing and visualization
+- Price prediction AI interface
+- Property analytics and market insights
+- Interactive maps for property exploration
+
+## Code Guidelines
+
 - Don't use `accessKey` attribute on any HTML element.
 - Don't set `aria-hidden="true"` on focusable elements.
 - Don't add ARIA roles, states, and properties to elements that don't support them.

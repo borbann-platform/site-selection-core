@@ -33,7 +33,12 @@ export function MapContainer({
         onClick={onClick}
         getTooltip={getTooltip}
       >
-        <Map mapStyle={MAP_STYLE} reuseMaps attributionControl={false}>
+        <Map
+          {...viewState}
+          mapStyle={MAP_STYLE}
+          reuseMaps
+          attributionControl={false}
+        >
           <NavigationControl position="bottom-right" />
         </Map>
       </DeckGL>

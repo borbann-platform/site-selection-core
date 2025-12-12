@@ -1,6 +1,6 @@
 # Data Dictionary
 
-This document describes the database schema for the GIS Server.
+This document describes the database schema for the Real Estate Information Platform.
 
 ## Places (POIs)
 
@@ -126,3 +126,62 @@ This document describes the database schema for the GIS Server.
     *   `grid_id`: Integer
     *   `population_density`: Float
     *   `geometry`: Polygon (4326)
+
+## Real Estate
+
+### `condo_projects`
+*   **Source**: `hipflat-scrape/condos_data_bangkok.json`
+*   **Description**: Condo projects scraped from Hipflat.
+*   **Columns**:
+    *   `id`: Integer (PK)
+    *   `project_base_url`: String (Unique)
+    *   `name`: String
+    *   `location`: Text
+    *   `completed_date`, `floors`, `units`, `buildings`: String
+    *   `price_sale`, `sale_units`, `price_rent`, `rent_units`: String
+    *   `description`: Text
+    *   `facilities`, `nearby_projects`, `images`, `units_for_sale`, `units_for_rent`, `market_stats`: JSON
+    *   `geometry`: Point (4326)
+
+### `real_estate_listings`
+*   **Source**: `bania-scrape/Data/*.csv`
+*   **Description**: Real estate listings scraped from Bania.
+*   **Columns**:
+    *   `id`: Integer (PK)
+    *   `source_file`: String
+    *   `title`: String
+    *   `property_type`: String
+    *   `price`: String
+    *   Various property attributes (bedrooms, bathrooms, area, etc.)
+    *   `geometry`: Point (4326)
+
+### `house_prices`
+*   **Source**: `bkk_house_price.parquet`
+*   **Description**: Appraised house prices from Treasury Department (กรมธนารักษ์).
+*   **Columns**:
+    *   `id`: Integer (PK)
+    *   `updated_date`: Date - Appraisal date
+    *   `land_type_desc`: String - จัดสรรโครงการเก่า/ใหม่
+    *   `building_style_desc`: String - บ้านเดี่ยว, ทาวน์เฮ้าส์, บ้านแฝด, อาคารพาณิชย์, อื่นๆ
+    *   `tumbon`: String - Sub-district (แขวง/ตำบล)
+    *   `amphur`: String - District (เขต/อำเภอ)
+    *   `province`: String - Province (always กรุงเทพมหานคร)
+    *   `village`: String - Village/Project name (หมู่บ้าน)
+    *   `building_age`: Float - Age in years
+    *   `land_area`: Float - Area in square wah (ตร.ว.)
+    *   `building_area`: Float - Area in square meters (ตร.ม.)
+    *   `no_of_floor`: Float - Number of floors
+    *   `total_price`: Float - Appraised price in THB
+    *   `geometry`: Point (4326)
+
+## Materialized Views
+
+### `view_all_pois`
+*   **Description**: Unified view of all POIs with standardized schema.
+*   **Sources**: schools, police_stations, museums, gas_stations, traffic_points, water_transport_piers, tourist_attractions, bus_shelters, transit_stops, contributed_pois
+*   **Columns**: id, original_id, name, type, source, geometry
+
+### `view_residential_supply`
+*   **Description**: Unified view of all residential supply data.
+*   **Sources**: condo_projects, real_estate_listings, house_prices
+*   **Columns**: id, original_id, name, type, price, source, geometry

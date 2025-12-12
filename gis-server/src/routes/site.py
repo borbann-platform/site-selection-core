@@ -256,12 +256,39 @@ def get_nearby_pois(payload: NearbyRequest, db: Session = Depends(get_db_session
     Returns a GeoJSON FeatureCollection of POIs within the specified radius
     matching the given categories.
     """
+    # Expand categories to match DB types
+    expanded_categories = []
+    for cat in payload.categories:
+        if cat == "competitor":
+            expanded_categories.extend(
+                [
+                    "Coffee Shop",
+                    "Cafe' Amazon",
+                    "Starbucks",
+                    "TrueCoffee",
+                    "PunThai Coffee",
+                    "Chao Doi Coffee",
+                    "Black Canyon Coffee",
+                    "Au Bon Pain",
+                    "Inthanin",
+                    "Dunkin' Donuts",
+                    "Mister Donut",
+                    "Krispy Kreme",
+                ]
+            )
+        elif cat == "coffee_shop":
+            expanded_categories.extend(
+                ["Coffee Shop", "Cafe' Amazon", "Starbucks", "TrueCoffee"]
+            )
+        else:
+            expanded_categories.append(cat)
+
     query = text(
         """
         SELECT
             name,
             type,
-            ST_AsGeoJSON(geometry) as geom_json
+            ST_AsGeoJSON(geometry, 6) as geom_json
         FROM view_all_pois
         WHERE ST_DWithin(
             geometry,
@@ -280,7 +307,7 @@ def get_nearby_pois(payload: NearbyRequest, db: Session = Depends(get_db_session
                     "lon": payload.longitude,
                     "lat": payload.latitude,
                     "radius": payload.radius_meters,
-                    "categories": payload.categories,
+                    "categories": expanded_categories,
                 },
             ).fetchall()
 

@@ -10,6 +10,7 @@ sys.path.append(
 from scripts.etl.load_contributed_pois import load_contributed_pois
 from scripts.etl.load_gtfs import DATA_ROOT as GTFS_DATA_ROOT
 from scripts.etl.load_gtfs import GTFS_SOURCES, load_shapes, load_stops
+from scripts.etl.load_house_prices import load_house_prices
 from scripts.etl.load_places import (
     load_bus_shelters,
     load_gas_stations,
@@ -60,6 +61,7 @@ def main():
         # Real Estate
         load_condo_projects(db)
         load_real_estate_listings(db)
+        load_house_prices(db)
 
     except Exception as e:
         logger.error(f"An error occurred during data loading: {e}")

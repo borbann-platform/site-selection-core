@@ -77,6 +77,80 @@ export interface SiteDetailsResponse {
   location_warning?: string | null;
 }
 
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface ChatRequest {
+  messages: ChatMessage[];
+}
+
+export interface HousePriceItem {
+  id: number;
+  updated_date: string | null;
+  land_type_desc: string | null;
+  building_style_desc: string | null;
+  tumbon: string | null;
+  amphur: string | null;
+  village: string | null;
+  building_age: number | null;
+  land_area: number | null;
+  building_area: number | null;
+  no_of_floor: number | null;
+  total_price: number | null;
+  lat: number;
+  lon: number;
+}
+
+export interface HousePriceListResponse {
+  count: number;
+  items: HousePriceItem[];
+}
+
+export interface HousePriceFilters {
+  amphur?: string;
+  tumbon?: string;
+  building_style?: string;
+  min_price?: number;
+  max_price?: number;
+  min_area?: number;
+  max_area?: number;
+  limit?: number;
+  offset?: number;
+}
+
+export interface DistrictOption {
+  amphur: string;
+  count: number;
+}
+
+export interface BuildingStyleOption {
+  building_style_desc: string;
+  count: number;
+}
+
+export interface DistrictStats {
+  amphur: string;
+  count: number;
+  avg_price: number;
+  min_price: number;
+  max_price: number;
+  avg_price_per_sqm: number | null;
+}
+
+export interface BuildingStyleStats {
+  building_style_desc: string;
+  count: number;
+  avg_price: number;
+}
+
+export interface HousePriceStatsResponse {
+  total_count: number;
+  by_district: DistrictStats[];
+  by_building_style: BuildingStyleStats[];
+}
+
 export const api = {
   analyzeSite: async (
     data: SiteAnalysisRequest
@@ -120,5 +194,85 @@ export const api = {
     const res = await fetch(`${API_URL}/site/${siteId}`);
     if (!res.ok) throw new Error("Failed to get site details");
     return res.json();
+  },
+
+  getHousePrices: async (
+    filters: HousePriceFilters = {}
+  ): Promise<HousePriceListResponse> => {
+    const params = new URLSearchParams();
+    if (filters.amphur) params.set("amphur", filters.amphur);
+    if (filters.tumbon) params.set("tumbon", filters.tumbon);
+    if (filters.building_style)
+      params.set("building_style", filters.building_style);
+    if (filters.min_price !== undefined)
+      params.set("min_price", String(filters.min_price));
+    if (filters.max_price !== undefined)
+      params.set("max_price", String(filters.max_price));
+    if (filters.min_area !== undefined)
+      params.set("min_area", String(filters.min_area));
+    if (filters.max_area !== undefined)
+      params.set("max_area", String(filters.max_area));
+    if (filters.limit !== undefined) params.set("limit", String(filters.limit));
+    if (filters.offset !== undefined)
+      params.set("offset", String(filters.offset));
+
+    const url = `${API_URL}/house-prices${params.toString() ? `?${params}` : ""}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Failed to get house prices");
+    return res.json();
+  },
+
+  getDistricts: async (): Promise<DistrictOption[]> => {
+    const res = await fetch(`${API_URL}/house-prices/districts`);
+    if (!res.ok) throw new Error("Failed to get districts");
+    return res.json();
+  },
+
+  getBuildingStyles: async (): Promise<BuildingStyleOption[]> => {
+    const res = await fetch(`${API_URL}/house-prices/building-styles`);
+    if (!res.ok) throw new Error("Failed to get building styles");
+    return res.json();
+  },
+
+  getHousePriceStats: async (): Promise<HousePriceStatsResponse> => {
+    const res = await fetch(`${API_URL}/house-prices/stats`);
+    if (!res.ok) throw new Error("Failed to get house price stats");
+    return res.json();
+  },
+
+  /**
+   * Stream chat response from the AI agent.
+   * Returns an async generator that yields text chunks.
+   */
+  streamChat: async function* (
+    messages: ChatMessage[]
+  ): AsyncGenerator<string, void, unknown> {
+    const res = await fetch(`${API_URL}/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages }),
+    });
+
+    if (!res.ok) throw new Error("Failed to start chat stream");
+    if (!res.body) throw new Error("No response body");
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      const lines = chunk.split("\n");
+
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          const data = line.slice(6);
+          if (data === "[DONE]") return;
+          yield data;
+        }
+      }
+    }
   },
 };

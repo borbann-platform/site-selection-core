@@ -1,9 +1,68 @@
-# API Documentation
+# Real Estate Information Platform - API Documentation
 
 Base URL: `http://localhost:8000/api/v1`
 
-## 1. Site Analysis
-**Analyze a potential location.**
+## Overview
+This API provides real estate information, property data, and price prediction services.
+
+---
+
+## 1. House Prices (Primary Feature)
+**Access appraised house prices and price prediction AI.**
+
+### List House Prices
+`GET /house-prices`
+
+**Query Parameters:**
+- `amphur` - Filter by district
+- `tumbon` - Filter by sub-district
+- `building_style` - Filter by building type
+- `min_price`, `max_price` - Price range filter
+- `min_area`, `max_area` - Building area filter
+- `limit`, `offset` - Pagination
+
+**Response:**
+```json
+{
+  "count": 100,
+  "items": [
+    {
+      "id": 1,
+      "amphur": "บางกะปิ",
+      "tumbon": "คลองจั่น",
+      "building_style_desc": "บ้านเดี่ยว",
+      "total_price": 5500000,
+      "building_area": 150,
+      "lat": 13.7563,
+      "lon": 100.5018
+    }
+  ]
+}
+```
+
+### Get Price Statistics
+`GET /house-prices/stats`
+
+**Response:**
+```json
+{
+  "total_count": 50000,
+  "by_district": [
+    {
+      "amphur": "บางกะปิ",
+      "count": 1200,
+      "avg_price": 4500000,
+      "avg_price_per_sqm": 30000
+    }
+  ],
+  "by_building_style": [...]
+}
+```
+
+---
+
+## 2. Location Analysis
+**Analyze locations for property context.**
 
 ### Analyze Site
 `POST /site/analyze`
@@ -82,7 +141,7 @@ Base URL: `http://localhost:8000/api/v1`
 ---
 
 ## 3. Projects & Persistence
-**Manage user projects and saved sites.**
+**Manage user projects and saved properties.**
 
 ### Create Project
 `POST /projects`
@@ -90,41 +149,35 @@ Base URL: `http://localhost:8000/api/v1`
 **Request:**
 ```json
 {
-  "name": "My New Branch",
-  "description": "Expansion plan Q4"
+  "name": "My Property Search",
+  "description": "Looking for properties in Bangkok"
 }
 ```
 
 ### Get Project Dashboard
 `GET /projects/{project_id}/dashboard`
 
-**Response:** List of saved sites with their analysis data.
+**Response:** List of saved properties with their analysis data.
 
-### Save Site to Project
+### Save Property to Project
 `POST /projects/{project_id}/sites`
 
 **Request:**
 ```json
 {
-  "name": "Site A - Siam",
+  "name": "Property A - Sukhumvit",
   "latitude": 13.7563,
   "longitude": 100.5018,
   "score": 0.75,
-  "notes": "Good foot traffic"
+  "notes": "Good location, near BTS"
 }
 ```
 
 ---
 
-## 4. Scoring Methodology
+## 4. Price Prediction AI (Planned)
 
-### Road Tier Filter (Implemented)
-We use a "Road Tier Filter" to adjust the site score based on the accessibility of the nearest road.
-- **Highways/Expressways:** Score multiplier = 0.0 (Location is inaccessible). Returns a warning.
-- **Service Roads:** Score multiplier = 0.6 (Low visibility). Returns a warning.
-- **Pedestrian/Footways:** Score multiplier = 1.2 (High foot traffic bonus).
-- **Other Roads:** Score multiplier = 1.0.
-
-### Future Improvements (Not Implemented)
-- **Snapping Validator:** Reject points that are too far (>50m) or too close (<2m) to a road.
-- **Projection Correction:** Automatically snap user clicks to the nearest valid building frontage before analysis.
+### Future Improvements
+- **Price Prediction Model:** ML model to predict property prices based on location, area, and amenities.
+- **Market Trend Analysis:** Historical price trends and market insights.
+- **Comparable Properties:** Find similar properties for price comparison.

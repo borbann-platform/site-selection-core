@@ -1,6 +1,6 @@
-# GIS Analysis Server
+# Real Estate Information Platform API
 
-A FastAPI backend for geospatial site selection, catchment analysis, and project management using PostGIS and OSMnx.
+A FastAPI backend for real estate information, price prediction AI, and property analysis using PostGIS.
 
 ## Prerequisites
 - Python 3.13+
@@ -40,7 +40,7 @@ A FastAPI backend for geospatial site selection, catchment analysis, and project
 
 ## Project Structure
 
-- `src/routes/`: API endpoints (Site, Catchment, Projects).
-- `src/services/`: Business logic (Isochrones, Scoring).
-- `src/models/`: Pydantic schemas.
-- `data/`: GeoJSON and GraphML storage.
+- `src/routes/`: API endpoints (House Prices, Analytics, Projects).
+- `src/services/`: Business logic (Price Analysis, Isochrones).
+- `src/models/`: Pydantic schemas for real estate data.
+- `data/`: Property data, GeoJSON, and GraphML storage.
