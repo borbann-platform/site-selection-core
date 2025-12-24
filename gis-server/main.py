@@ -11,6 +11,7 @@ from src.routes.location_intelligence import router as location_intelligence_rou
 from src.routes.price_prediction import router as price_prediction_router
 from src.routes.projects import router as projects_router
 from src.routes.site import router as site_router
+from src.routes.transit import router as transit_router
 
 
 @asynccontextmanager
@@ -53,6 +54,7 @@ app.include_router(
     location_intelligence_router, prefix="/api/v1", tags=["Location Intelligence"]
 )
 app.include_router(price_prediction_router, prefix="/api/v1", tags=["Price Prediction"])
+app.include_router(transit_router, prefix="/api/v1", tags=["Transit"])
 
 
 @app.get("/", tags=["Root"])

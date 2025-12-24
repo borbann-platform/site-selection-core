@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
 import { MapContainer } from "../components/MapContainer";
 import { Shell } from "../components/Shell";
-import { ScatterplotLayer } from "@deck.gl/layers";
+import { PathLayer, IconLayer } from "@deck.gl/layers";
 import { MVTLayer } from "@deck.gl/geo-layers";
 import {
   Eye,
@@ -12,9 +12,12 @@ import {
   ChevronUp,
   Home,
   BarChart3,
+  Train,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { api, API_URL } from "../lib/api";
+import type { TransitLineFeature } from "../lib/api";
+import { generateIconAtlas, getIconNameForType } from "../lib/map-icons";
 import {
   PropertyFilters,
   type PropertyFiltersState,
@@ -92,6 +95,7 @@ function PropertyExplorer() {
     pois: false,
     schools: false,
     priceDensity: false,
+    transitRail: false,
   });
 
   // Collapsible sections
@@ -129,18 +133,42 @@ function PropertyExplorer() {
     enabled: overlays.schools,
   });
 
+  // Fetch Transit Lines (rail only: BTS=0, MRT=1, ARL=2)
+  const { data: transitLines } = useQuery({
+    queryKey: ["transitLines", "rail"],
+    queryFn: async () => {
+      // Fetch BTS (0), MRT (1), and Rail/ARL (2) separately and combine
+      const [bts, mrt, rail] = await Promise.all([
+        api.getTransitLines(0),
+        api.getTransitLines(1),
+        api.getTransitLines(2),
+      ]);
+      return {
+        type: "FeatureCollection" as const,
+        features: [...bts.features, ...mrt.features, ...rail.features],
+      };
+    },
+    enabled: overlays.transitRail,
+  });
+
+  // Generate icon atlas for POIs
+  const iconAtlas = useMemo(() => generateIconAtlas(), []);
+
   const layers = useMemo(() => {
     const layerList = [];
 
     // Primary: House Prices Layer (always shown when data available)
     if (housePrices && viewState.zoom < 13) {
-      // Use ScatterplotLayer for low zoom
+      // Use IconLayer for low zoom
       layerList.push(
-        new ScatterplotLayer({
-          id: "house-prices-scatter",
+        new IconLayer({
+          id: "house-prices-icon",
           data: housePrices.items,
+          iconAtlas: iconAtlas.atlas,
+          iconMapping: iconAtlas.mapping,
+          getIcon: () => "home",
           getPosition: (d: DeckGLObject) => [d.lon || 0, d.lat || 0],
-          getFillColor: (d: DeckGLObject) => {
+          getColor: (d: DeckGLObject) => {
             const price = d.total_price || 0;
             const minPrice = propertyFilters.minPrice;
             const maxPrice = propertyFilters.maxPrice;
@@ -151,16 +179,18 @@ function PropertyExplorer() {
             // Green -> Yellow -> Red gradient
             if (t < 0.5) {
               const r = Math.round(t * 2 * 255);
-              return [r, 200, 50, 200];
+              return [r, 200, 50];
             }
             const g = Math.round((1 - (t - 0.5) * 2) * 200);
-            return [255, g, 50, 200];
+            return [255, g, 50];
           },
-          getRadius: 80,
+          getSize: 20,
+          sizeScale: 1,
+          sizeMinPixels: 12,
+          sizeMaxPixels: 30,
           pickable: true,
-          opacity: 0.9,
-          radiusMinPixels: 4,
-          radiusMaxPixels: 15,
+          autoHighlight: true,
+          highlightColor: [255, 255, 255, 100],
         })
       );
     }
@@ -176,54 +206,93 @@ function PropertyExplorer() {
           pickable: true,
           autoHighlight: true,
           highlightColor: [255, 255, 255, 100],
-          pointRadiusMinPixels: 4,
-          pointRadiusScale: 1,
-          getPointRadius: 6,
-          getFillColor: (d: DeckGLObject) => {
-            const price = d.properties?.total_price || 0;
-            const minPrice = propertyFilters.minPrice;
-            const maxPrice = propertyFilters.maxPrice;
-            const t = Math.min(
-              1,
-              Math.max(0, (price - minPrice) / (maxPrice - minPrice))
-            );
-            if (t < 0.5) {
-              const r = Math.round(t * 2 * 255);
-              return [r, 200, 50, 200];
-            }
-            const g = Math.round((1 - (t - 0.5) * 2) * 200);
-            return [255, g, 50, 200];
+          binary: false,
+          renderSubLayers: (props) => {
+            return new IconLayer(props, {
+              id: `${props.id}-icon`,
+              iconAtlas: iconAtlas.atlas,
+              iconMapping: iconAtlas.mapping,
+              getIcon: () => "home",
+              getPosition: (d: DeckGLObject) => d.geometry?.coordinates,
+              getSize: 24,
+              getColor: (d: DeckGLObject) => {
+                const price = d.properties?.total_price || 0;
+                const minPrice = propertyFilters.minPrice;
+                const maxPrice = propertyFilters.maxPrice;
+                const t = Math.min(
+                  1,
+                  Math.max(0, (price - minPrice) / (maxPrice - minPrice))
+                );
+                if (t < 0.5) {
+                  const r = Math.round(t * 2 * 255);
+                  return [r, 200, 50];
+                }
+                const g = Math.round((1 - (t - 0.5) * 2) * 200);
+                return [255, g, 50];
+              },
+              sizeScale: 1,
+              sizeMinPixels: 12,
+              sizeMaxPixels: 40,
+              pickable: true,
+              autoHighlight: true,
+              highlightColor: [255, 255, 255, 100],
+            });
           },
         })
       );
     }
 
-    // Overlay: POIs
+    // Overlay: POIs with improved styling (Icons)
     if (overlays.pois) {
       layerList.push(
         new MVTLayer({
           id: "all-pois-layer",
           data: `${API_URL}/analytics/all-pois/tile/{z}/{x}/{y}`,
-          minZoom: 13,
+          minZoom: 12,
           maxZoom: 20,
-          pickable: true,
-          autoHighlight: true,
-          highlightColor: [255, 255, 255, 100],
-          pointRadiusMinPixels: 3,
-          pointRadiusScale: 1,
-          getPointRadius: 4,
-          getFillColor: (d: DeckGLObject) => {
-            const type = d.properties?.type;
-            if (type === "school") return [0, 128, 255];
-            if (type === "police_station") return [0, 0, 128];
-            if (type === "museum") return [128, 0, 128];
-            if (type === "gas_station") return [255, 165, 0];
-            if (type === "traffic_point") return [255, 0, 0];
-            if (type === "water_transport") return [0, 255, 255];
-            if (type === "tourist_attraction") return [255, 105, 180];
-            if (type === "bus_shelter") return [0, 255, 0];
-            if (type === "transit_stop") return [255, 215, 0];
-            return [120, 120, 120];
+          binary: false,
+          renderSubLayers: (props) => {
+            return new IconLayer(props, {
+              id: `${props.id}-icon`,
+              iconAtlas: iconAtlas.atlas,
+              iconMapping: iconAtlas.mapping,
+              getIcon: (d: DeckGLObject) =>
+                getIconNameForType(d.properties?.type || ""),
+              getPosition: (d: DeckGLObject) => d.geometry?.coordinates,
+              getSize: (d: DeckGLObject) => {
+                const type = d.properties?.type;
+                if (type === "transit_stop") return 28;
+                if (type === "school") return 24;
+                return 20;
+              },
+              getColor: (d: DeckGLObject) => {
+                const type = d.properties?.type;
+                // Transit - Gold
+                if (type === "transit_stop") return [255, 200, 50];
+                // Education - Blue
+                if (type === "school") return [59, 130, 246];
+                // Safety - Navy
+                if (type === "police_station") return [30, 58, 138];
+                // Culture - Purple
+                if (type === "museum") return [147, 51, 234];
+                if (type === "tourist_attraction") return [236, 72, 153];
+                // Transport - Cyan/Teal
+                if (type === "water_transport") return [6, 182, 212];
+                if (type === "bus_shelter") return [34, 197, 94];
+                // Utilities - Orange
+                if (type === "gas_station") return [249, 115, 22];
+                // Traffic - Red
+                if (type === "traffic_point") return [239, 68, 68];
+                // Default gray
+                return [148, 163, 184];
+              },
+              sizeScale: 1,
+              sizeMinPixels: 12,
+              sizeMaxPixels: 40,
+              pickable: true,
+              autoHighlight: true,
+              highlightColor: [255, 255, 255, 100],
+            });
           },
         })
       );
@@ -232,20 +301,69 @@ function PropertyExplorer() {
     // Overlay: Schools
     if (overlays.schools && schools) {
       layerList.push(
-        new ScatterplotLayer({
+        new IconLayer({
           id: "schools",
           data: schools.features,
+          iconAtlas: iconAtlas.atlas,
+          iconMapping: iconAtlas.mapping,
+          getIcon: () => "school",
           getPosition: (d: DeckGLObject) => d.geometry?.coordinates || [0, 0],
-          getFillColor: [0, 100, 255],
-          getRadius: 150,
+          getColor: [59, 130, 246], // Blue
+          getSize: 32,
+          sizeScale: 1,
+          sizeMinPixels: 20,
+          sizeMaxPixels: 40,
           pickable: true,
-          opacity: 0.8,
+          autoHighlight: true,
+          highlightColor: [255, 255, 255, 100],
+        })
+      );
+    }
+
+    // Overlay: Transit Rail Lines (BTS, MRT, ARL)
+    if (overlays.transitRail && transitLines) {
+      layerList.push(
+        new PathLayer<TransitLineFeature>({
+          id: "transit-lines",
+          data: transitLines.features,
+          getPath: (d) => d.geometry.coordinates,
+          getColor: (d) => {
+            // Parse route_color from hex or use defaults based on route_type
+            const color = d.properties.route_color;
+            if (color) {
+              const hex = color.replace("#", "");
+              const r = Number.parseInt(hex.substring(0, 2), 16);
+              const g = Number.parseInt(hex.substring(2, 4), 16);
+              const b = Number.parseInt(hex.substring(4, 6), 16);
+              return [r, g, b, 220];
+            }
+            // Fallback colors by route type
+            const routeType = d.properties.route_type;
+            if (routeType === 0) return [101, 183, 36, 220]; // BTS Green
+            if (routeType === 1) return [25, 100, 183, 220]; // MRT Blue
+            if (routeType === 2) return [227, 32, 32, 220]; // ARL Red
+            return [150, 150, 150, 180];
+          },
+          getWidth: 4,
+          widthMinPixels: 2,
+          widthMaxPixels: 8,
+          pickable: true,
+          capRounded: true,
+          jointRounded: true,
         })
       );
     }
 
     return layerList;
-  }, [housePrices, schools, overlays, viewState.zoom, propertyFilters]);
+  }, [
+    housePrices,
+    schools,
+    transitLines,
+    overlays,
+    viewState.zoom,
+    propertyFilters,
+    iconAtlas,
+  ]);
 
   const getTooltip = ({ object }: { object?: DeckGLObject | null }) => {
     if (!object) return null;
@@ -292,6 +410,34 @@ function PropertyExplorer() {
         html: `<div class="p-3 bg-zinc-900/90 border border-zinc-700 text-white rounded-lg shadow-xl backdrop-blur-md min-w-50">
           <div class="font-bold text-sm mb-1">${name}</div>
           <div class="text-xs font-medium text-zinc-400">${type}</div>
+        </div>`,
+      };
+    }
+
+    // Transit Line Tooltip
+    if (object.properties?.route_short_name !== undefined) {
+      const props = object.properties;
+      const routeName = props.route_short_name || "Transit Line";
+      const longName = props.route_long_name || "";
+      const routeType = props.route_type;
+      const typeLabel =
+        routeType === 0
+          ? "🚈 BTS Skytrain"
+          : routeType === 1
+            ? "🚇 MRT Metro"
+            : routeType === 2
+              ? "🚆 Rail/ARL"
+              : "🚌 Transit";
+      const color = props.route_color ? `#${props.route_color}` : "#888";
+
+      return {
+        html: `<div class="p-3 bg-zinc-900/90 border border-zinc-700 text-white rounded-lg shadow-xl backdrop-blur-md min-w-50">
+          <div class="flex items-center gap-2 mb-1">
+            <div class="w-3 h-3 rounded-full" style="background-color: ${color}"></div>
+            <span class="font-bold text-sm">${routeName}</span>
+          </div>
+          <div class="text-xs text-zinc-400 mb-1">${typeLabel}</div>
+          ${longName ? `<div class="text-xs text-zinc-500">${longName}</div>` : ""}
         </div>`,
       };
     }
@@ -396,6 +542,15 @@ function PropertyExplorer() {
           <CollapsibleContent>
             <div className="p-3 bg-black/20 space-y-2">
               <LayerToggle
+                label="Transit Lines (BTS/MRT)"
+                active={overlays.transitRail}
+                color="bg-emerald-500"
+                icon={<Train className="w-4 h-4" />}
+                onClick={() =>
+                  setOverlays((o) => ({ ...o, transitRail: !o.transitRail }))
+                }
+              />
+              <LayerToggle
                 label="All POIs"
                 active={overlays.pois}
                 color="bg-purple-500"
@@ -467,11 +622,13 @@ function LayerToggle({
   label,
   active,
   color,
+  icon,
   onClick,
 }: {
   label: string;
   active: boolean;
   color: string;
+  icon?: React.ReactNode;
   onClick: () => void;
 }) {
   return (
@@ -486,13 +643,19 @@ function LayerToggle({
       )}
     >
       <div className="flex items-center gap-3">
-        <div
-          className={cn(
-            "w-3 h-3 rounded-full shadow-[0_0_10px_currentColor]",
-            color,
-            !active && "opacity-20 shadow-none"
-          )}
-        />
+        {icon ? (
+          <span className={cn(active ? "text-white" : "text-white/30")}>
+            {icon}
+          </span>
+        ) : (
+          <div
+            className={cn(
+              "w-3 h-3 rounded-full shadow-[0_0_10px_currentColor]",
+              color,
+              !active && "opacity-20 shadow-none"
+            )}
+          />
+        )}
         <span
           className={cn(
             "text-sm font-medium",

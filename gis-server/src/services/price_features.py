@@ -251,8 +251,3 @@ class FeatureExtractionService:
 
 # Singleton instance
 feature_extraction_service = FeatureExtractionService()
-        ]
-
-
-# Singleton instance
-feature_extraction_service = FeatureExtractionService()

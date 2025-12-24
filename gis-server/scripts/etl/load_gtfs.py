@@ -14,7 +14,7 @@ sys.path.append(
 
 from scripts.etl.utils import clean_float
 from src.config.database import SessionLocal
-from src.models.transit import TransitShape, TransitStop
+from src.models.transit import TransitRoute, TransitShape, TransitStop, TransitTrip
 
 # Configure logging
 logging.basicConfig(
@@ -104,6 +104,65 @@ def load_shapes(db: Session, data_dir: str, source_name: str):
     logger.info(f"Loaded {count} GTFS Shapes from {source_name}.")
 
 
+def load_routes(db: Session, data_dir: str, source_name: str):
+    """Load GTFS routes.txt - transit line definitions with colors."""
+    file_path = os.path.join(data_dir, "routes.txt")
+    if not os.path.exists(file_path):
+        logger.warning(f"File not found: {file_path}")
+        return
+
+    logger.info(f"Loading GTFS Routes from {source_name}...")
+    count = 0
+    with open(file_path, encoding="utf-8-sig") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            route_type_str = row.get("route_type", "")
+            route_type = int(route_type_str) if route_type_str.isdigit() else None
+
+            route = TransitRoute(
+                route_id=row.get("route_id"),
+                agency_id=row.get("agency_id"),
+                route_short_name=row.get("route_short_name"),
+                route_long_name=row.get("route_long_name"),
+                route_type=route_type,
+                route_color=row.get("route_color"),
+                source=source_name,
+            )
+            db.merge(route)
+            count += 1
+    db.commit()
+    logger.info(f"Loaded {count} GTFS Routes from {source_name}.")
+
+
+def load_trips(db: Session, data_dir: str, source_name: str):
+    """Load GTFS trips.txt - links routes to shapes."""
+    file_path = os.path.join(data_dir, "trips.txt")
+    if not os.path.exists(file_path):
+        logger.warning(f"File not found: {file_path}")
+        return
+
+    logger.info(f"Loading GTFS Trips from {source_name}...")
+    count = 0
+    with open(file_path, encoding="utf-8-sig") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            direction_str = row.get("direction_id", "")
+            direction_id = int(direction_str) if direction_str.isdigit() else None
+
+            trip = TransitTrip(
+                trip_id=row.get("trip_id"),
+                route_id=row.get("route_id"),
+                shape_id=row.get("shape_id"),
+                trip_headsign=row.get("trip_headsign"),
+                direction_id=direction_id,
+                source=source_name,
+            )
+            db.merge(trip)
+            count += 1
+    db.commit()
+    logger.info(f"Loaded {count} GTFS Trips from {source_name}.")
+
+
 def main():
     db = SessionLocal()
     try:
@@ -111,6 +170,8 @@ def main():
             data_dir = os.path.join(DATA_ROOT, source["folder"])
             load_stops(db, data_dir, source["source_name"])
             load_shapes(db, data_dir, source["source_name"])
+            load_routes(db, data_dir, source["source_name"])
+            load_trips(db, data_dir, source["source_name"])
     finally:
         db.close()
 

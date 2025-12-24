@@ -242,6 +242,31 @@ export interface PriceExplanationResponse {
   price_vs_district: number;
 }
 
+// Transit Types
+export interface TransitLineProperties {
+  shape_id: string;
+  route_id: string;
+  route_short_name: string | null;
+  route_long_name: string | null;
+  route_type: number | null;
+  route_color: string | null;
+  agency_id: string | null;
+}
+
+export interface TransitLineFeature {
+  type: "Feature";
+  properties: TransitLineProperties;
+  geometry: {
+    type: "LineString";
+    coordinates: [number, number][];
+  };
+}
+
+export interface TransitLinesResponse {
+  type: "FeatureCollection";
+  features: TransitLineFeature[];
+}
+
 export const api = {
   analyzeSite: async (
     data: SiteAnalysisRequest
@@ -420,6 +445,21 @@ export const api = {
       }
       throw new Error("Failed to get price explanation");
     }
+    return res.json();
+  },
+
+  /**
+   * Get transit lines as GeoJSON FeatureCollection.
+   * @param routeType - Filter by type: 0=BTS, 1=MRT, 2=Rail, 3=Bus
+   */
+  getTransitLines: async (
+    routeType?: number
+  ): Promise<TransitLinesResponse> => {
+    const params = new URLSearchParams();
+    if (routeType !== undefined) params.set("route_type", String(routeType));
+    const url = `${API_URL}/transit/lines${params.toString() ? `?${params}` : ""}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Failed to get transit lines");
     return res.json();
   },
 };

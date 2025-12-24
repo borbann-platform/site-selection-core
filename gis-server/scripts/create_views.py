@@ -162,6 +162,30 @@ def create_views():
         db.execute(text(sql_residential))
         logger.info("view_residential_supply created successfully.")
 
+        # Create view_transit_lines - joins shapes with route metadata
+        logger.info("Creating view_transit_lines...")
+        db.execute(text("DROP VIEW IF EXISTS view_transit_lines"))
+
+        sql_transit_lines = """
+        CREATE OR REPLACE VIEW view_transit_lines AS
+        SELECT DISTINCT ON (s.shape_id)
+            s.shape_id,
+            r.route_id,
+            r.route_short_name,
+            r.route_long_name,
+            r.route_type,
+            r.route_color,
+            r.agency_id,
+            s.geometry
+        FROM transit_shapes s
+        JOIN transit_trips t ON s.shape_id = t.shape_id
+        JOIN transit_routes r ON t.route_id = r.route_id
+        ORDER BY s.shape_id, r.route_type;
+        """
+
+        db.execute(text(sql_transit_lines))
+        logger.info("view_transit_lines created successfully.")
+
         db.commit()
 
     except Exception as e:
