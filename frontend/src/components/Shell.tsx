@@ -33,7 +33,7 @@ export function Shell({ children, panelContent }: ShellProps) {
 
         <div className="flex flex-col gap-6 w-full">
           <NavItem to="/" icon={MapIcon} label="Map" />
-          <NavItem to="/compare" icon={BarChart2} label="Compare" />
+          <NavItem to="/districts" icon={BarChart2} label="Districts" />
           <NavItem to="/settings" icon={Settings} label="Settings" />
         </div>
 

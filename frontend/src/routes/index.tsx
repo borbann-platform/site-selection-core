@@ -1,11 +1,18 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
 import { MapContainer } from "../components/MapContainer";
 import { Shell } from "../components/Shell";
 import { ScatterplotLayer } from "@deck.gl/layers";
 import { MVTLayer } from "@deck.gl/geo-layers";
-import { Eye, EyeOff, ChevronDown, ChevronUp, Home } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  ChevronDown,
+  ChevronUp,
+  Home,
+  BarChart3,
+} from "lucide-react";
 import { cn } from "../lib/utils";
 import { api, API_URL } from "../lib/api";
 import {
@@ -45,12 +52,21 @@ interface DeckGLObject {
 
 export const Route = createFileRoute("/")({
   component: PropertyExplorer,
+  validateSearch: (search: Record<string, unknown>) => {
+    return {
+      district:
+        typeof search.district === "string" ? search.district : undefined,
+    };
+  },
 });
 
 const BANGKOK_LAT = 13.7563;
 const BANGKOK_LON = 100.5018;
 
 function PropertyExplorer() {
+  const navigate = useNavigate();
+  const { district: districtFromUrl } = Route.useSearch();
+
   const [viewState, setViewState] = useState<ViewState>({
     longitude: BANGKOK_LON,
     latitude: BANGKOK_LAT,
@@ -60,14 +76,16 @@ function PropertyExplorer() {
   });
 
   // Property filters - main feature
-  const [propertyFilters, setPropertyFilters] = useState<PropertyFiltersState>({
-    district: null,
-    buildingStyle: null,
-    minPrice: 500_000,
-    maxPrice: 50_000_000,
-    minArea: 20,
-    maxArea: 500,
-  });
+  const [propertyFilters, setPropertyFilters] = useState<PropertyFiltersState>(
+    () => ({
+      district: districtFromUrl || null,
+      buildingStyle: null,
+      minPrice: 500_000,
+      maxPrice: 50_000_000,
+      minArea: 20,
+      maxArea: 500,
+    })
+  );
 
   // Overlays - secondary features
   const [overlays, setOverlays] = useState({
@@ -281,9 +299,15 @@ function PropertyExplorer() {
     return null;
   };
 
-  const handleMapClick = (info: { coordinate?: [number, number] }) => {
-    // For future: could enable clicking to see property details
-    console.log("Clicked:", info);
+  const handleMapClick = (info: { object?: DeckGLObject | null }) => {
+    // Navigate to property details when clicking a property
+    const id = info.object?.id || info.object?.properties?.id;
+    if (id) {
+      navigate({
+        to: "/property/$propertyId",
+        params: { propertyId: String(id) },
+      });
+    }
   };
 
   const PanelContent = (
@@ -392,10 +416,18 @@ function PropertyExplorer() {
 
       {/* Info Section */}
       <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded text-xs text-amber-200">
-        <span className="font-bold">💡 Tip:</span> Zoom in past level 13 to see
-        detailed MVT tiles. Use filters to narrow down properties by district,
-        type, price, and area.
+        <span className="font-bold">💡 Tip:</span> Click on a property to see
+        full details. Zoom in past level 13 for MVT tiles.
       </div>
+
+      {/* District Analysis Link */}
+      <Link
+        to="/districts"
+        className="flex items-center justify-center gap-2 w-full py-3 bg-white/5 hover:bg-white/10 rounded-lg text-sm text-white/70 hover:text-white transition-colors border border-white/10"
+      >
+        <BarChart3 className="w-4 h-4" />
+        View District Analysis
+      </Link>
     </div>
   );
 

@@ -342,3 +342,41 @@ def list_building_styles(db: Session = Depends(get_db_session)):
         {"building_style_desc": s.building_style_desc or "Unknown", "count": s.count}
         for s in styles
     ]
+
+
+@router.get("/{property_id}")
+def get_property_by_id(
+    property_id: int,
+    db: Session = Depends(get_db_session),
+):
+    """
+    Get a single property by ID with full details.
+    """
+    item = db.query(HousePrice).filter(HousePrice.id == property_id).first()
+    if not item:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=404, detail="Property not found")
+
+    # Extract coordinates from geometry
+    coords = db.execute(
+        text("SELECT ST_X(geometry), ST_Y(geometry) FROM house_prices WHERE id = :id"),
+        {"id": item.id},
+    ).fetchone()
+
+    return {
+        "id": item.id,
+        "updated_date": str(item.updated_date) if item.updated_date else None,
+        "land_type_desc": item.land_type_desc,
+        "building_style_desc": item.building_style_desc,
+        "tumbon": item.tumbon,
+        "amphur": item.amphur,
+        "village": item.village,
+        "building_age": item.building_age,
+        "land_area": item.land_area,
+        "building_area": item.building_area,
+        "no_of_floor": item.no_of_floor,
+        "total_price": item.total_price,
+        "lon": coords[0],
+        "lat": coords[1],
+    }

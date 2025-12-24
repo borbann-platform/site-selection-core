@@ -1,0 +1,330 @@
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useState, useMemo } from "react";
+import { Shell } from "@/components/Shell";
+import { MapContainer } from "@/components/MapContainer";
+import { api } from "@/lib/api";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ScatterplotLayer } from "@deck.gl/layers";
+import type { MapViewState } from "@deck.gl/core";
+import {
+  Home,
+  MapPin,
+  Ruler,
+  Calendar,
+  Layers,
+  Building2,
+  ArrowLeft,
+  Navigation,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+
+export const Route = createFileRoute("/property/$propertyId")({
+  component: PropertyDetailPage,
+});
+
+const formatPrice = (price: number | null): string => {
+  if (price === null) return "-";
+  return `฿${price.toLocaleString("th-TH")}`;
+};
+
+const formatArea = (area: number | null): string => {
+  if (area === null) return "-";
+  return `${area.toLocaleString("th-TH")} sqm`;
+};
+
+function PropertyDetailPage() {
+  const { propertyId } = Route.useParams();
+  const id = Number(propertyId);
+
+  const [viewState, setViewState] = useState<MapViewState | null>(null);
+
+  const {
+    data: property,
+    isLoading: isPropertyLoading,
+    isError: isPropertyError,
+  } = useQuery({
+    queryKey: ["property", id],
+    queryFn: () => api.getPropertyById(id),
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // Update viewState when property loads
+  const initialViewState = useMemo(() => {
+    if (!property) return null;
+    return {
+      longitude: property.lon,
+      latitude: property.lat,
+      zoom: 15,
+      pitch: 0,
+      bearing: 0,
+    };
+  }, [property]);
+
+  // Fetch nearby properties once we have the property location
+  const { data: nearbyData } = useQuery({
+    queryKey: ["nearbyProperties", property?.lat, property?.lon],
+    queryFn: () => {
+      if (!property) throw new Error("No property");
+      return api.getNearbyProperties({
+        lat: property.lat,
+        lon: property.lon,
+        radius_m: 1000,
+        limit: 20,
+      });
+    },
+    enabled: !!property,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // Map layers
+  const layers = useMemo(() => {
+    if (!property) return [];
+
+    const propertyLayer = new ScatterplotLayer({
+      id: "current-property",
+      data: [property],
+      getPosition: (d) => [d.lon, d.lat],
+      // Emerald accent (matches Shell)
+      getFillColor: [16, 185, 129, 255],
+      getRadius: 40,
+      radiusMinPixels: 10,
+      radiusMaxPixels: 20,
+      pickable: true,
+    });
+
+    const nearbyLayer = nearbyData
+      ? new ScatterplotLayer({
+          id: "nearby-properties",
+          data: nearbyData.items.filter((p) => p.id !== id),
+          getPosition: (d) => [d.lon, d.lat],
+          // Subtle white markers on dark map
+          getFillColor: [255, 255, 255, 140],
+          getRadius: 25,
+          radiusMinPixels: 6,
+          radiusMaxPixels: 12,
+          pickable: true,
+        })
+      : null;
+
+    return nearbyLayer ? [nearbyLayer, propertyLayer] : [propertyLayer];
+  }, [property, nearbyData, id]);
+
+  if (isPropertyError) {
+    return (
+      <Shell>
+        <div className="flex h-full items-center justify-center bg-black text-white">
+          <div className="text-center">
+            <p className="mb-4 text-rose-400">Property not found</p>
+            <Link to="/" search={{ district: undefined }}>
+              <Button
+                variant="outline"
+                className="border-white/10 bg-white/5 text-white hover:bg-white/10"
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Explorer
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </Shell>
+    );
+  }
+
+  return (
+    <Shell>
+      <div className="flex h-full bg-black text-white">
+        {/* Left Panel - Property Details */}
+        <div className="w-100 shrink-0 overflow-auto border-r border-white/10 bg-black">
+          {/* Back button */}
+          <div className="border-b border-white/10 p-4">
+            <Link to="/" search={{ district: undefined }}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="-ml-2 text-white/70 hover:bg-white/10 hover:text-white"
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Explorer
+              </Button>
+            </Link>
+          </div>
+
+          {isPropertyLoading ? (
+            <div className="space-y-4 p-6">
+              <Skeleton className="h-8 w-3/4" />
+              <Skeleton className="h-6 w-1/2" />
+              <div className="space-y-3 pt-4">
+                {[1, 2, 3, 4, 5, 6].map((n) => (
+                  <Skeleton
+                    key={`property-skeleton-row-${n}`}
+                    className="h-12 w-full"
+                  />
+                ))}
+              </div>
+            </div>
+          ) : property ? (
+            <div className="p-6">
+              {/* Header */}
+              <div className="mb-6">
+                <div className="flex items-start gap-3">
+                  <div className="rounded-lg bg-emerald-500/15 p-2">
+                    <Home className="h-5 w-5 text-emerald-400" />
+                  </div>
+                  <div>
+                    <h1 className="text-lg font-semibold">
+                      {property.building_style_desc || "Property"}
+                    </h1>
+                    <p className="text-sm text-white/50">ID: {property.id}</p>
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <p className="text-2xl font-bold text-emerald-400">
+                    {formatPrice(property.total_price)}
+                  </p>
+                  {property.building_area && property.total_price && (
+                    <p className="text-sm text-white/50">
+                      ฿
+                      {Math.round(
+                        property.total_price / property.building_area
+                      ).toLocaleString()}{" "}
+                      / sqm
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Details Grid */}
+              <div className="space-y-4">
+                <DetailRow
+                  icon={MapPin}
+                  label="Location"
+                  value={
+                    [property.tumbon, property.amphur]
+                      .filter(Boolean)
+                      .join(", ") || "-"
+                  }
+                />
+                {property.village && (
+                  <DetailRow
+                    icon={Building2}
+                    label="Village/Project"
+                    value={property.village}
+                  />
+                )}
+                <DetailRow
+                  icon={Ruler}
+                  label="Building Area"
+                  value={formatArea(property.building_area)}
+                />
+                <DetailRow
+                  icon={Ruler}
+                  label="Land Area"
+                  value={
+                    property.land_area
+                      ? `${property.land_area.toLocaleString()} sqm`
+                      : "-"
+                  }
+                />
+                <DetailRow
+                  icon={Layers}
+                  label="Floors"
+                  value={property.no_of_floor?.toString() || "-"}
+                />
+                <DetailRow
+                  icon={Calendar}
+                  label="Building Age"
+                  value={
+                    property.building_age
+                      ? `${property.building_age} years`
+                      : "-"
+                  }
+                />
+                {property.land_type_desc && (
+                  <DetailRow
+                    icon={Home}
+                    label="Land Type"
+                    value={property.land_type_desc}
+                  />
+                )}
+              </div>
+
+              {/* Nearby Properties */}
+              {nearbyData && nearbyData.items.length > 1 && (
+                <div className="mt-8">
+                  <h2 className="mb-3 flex items-center gap-2 font-semibold">
+                    <Navigation className="h-4 w-4" />
+                    Nearby Properties ({nearbyData.count - 1})
+                  </h2>
+                  <div className="space-y-2">
+                    {nearbyData.items
+                      .filter((p) => p.id !== id)
+                      .slice(0, 5)
+                      .map((nearby) => (
+                        <Link
+                          key={nearby.id}
+                          to="/property/$propertyId"
+                          params={{ propertyId: String(nearby.id) }}
+                          className="block rounded-lg border border-white/10 bg-white/5 p-3 transition-colors hover:bg-white/10"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium">
+                                {nearby.building_style_desc || "Property"}
+                              </p>
+                              <p className="text-xs text-white/50">
+                                {Math.round(nearby.distance_m)}m away
+                              </p>
+                            </div>
+                            <p className="text-sm font-semibold text-emerald-300">
+                              {formatPrice(nearby.total_price)}
+                            </p>
+                          </div>
+                        </Link>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : null}
+        </div>
+
+        {/* Right Panel - Map */}
+        <div className="relative flex-1">
+          {initialViewState ? (
+            <MapContainer
+              viewState={viewState || initialViewState}
+              onViewStateChange={({ viewState: vs }) => setViewState(vs)}
+              layers={layers}
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center bg-black">
+              <Skeleton className="h-full w-full" />
+            </div>
+          )}
+        </div>
+      </div>
+    </Shell>
+  );
+}
+
+// Helper component for detail rows
+function DetailRow({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex items-start gap-3 rounded-lg border border-white/10 bg-white/5 p-3">
+      <Icon className="mt-0.5 h-4 w-4 text-white/40" />
+      <div>
+        <p className="text-xs text-white/50">{label}</p>
+        <p className="text-sm font-medium text-white">{value}</p>
+      </div>
+    </div>
+  );
+}

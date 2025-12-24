@@ -240,6 +240,37 @@ export const api = {
     return res.json();
   },
 
+  getPropertyById: async (id: number): Promise<HousePriceItem> => {
+    const res = await fetch(`${API_URL}/house-prices/${id}`);
+    if (!res.ok) throw new Error("Failed to get property");
+    return res.json();
+  },
+
+  getNearbyProperties: async (params: {
+    lat: number;
+    lon: number;
+    radius_m?: number;
+    building_style?: string;
+    limit?: number;
+  }): Promise<{
+    center: { lat: number; lon: number };
+    radius_m: number;
+    count: number;
+    items: (HousePriceItem & { distance_m: number })[];
+  }> => {
+    const searchParams = new URLSearchParams();
+    searchParams.set("lat", String(params.lat));
+    searchParams.set("lon", String(params.lon));
+    if (params.radius_m) searchParams.set("radius_m", String(params.radius_m));
+    if (params.building_style)
+      searchParams.set("building_style", params.building_style);
+    if (params.limit) searchParams.set("limit", String(params.limit));
+
+    const res = await fetch(`${API_URL}/house-prices/nearby?${searchParams}`);
+    if (!res.ok) throw new Error("Failed to get nearby properties");
+    return res.json();
+  },
+
   /**
    * Stream chat response from the AI agent.
    * Returns an async generator that yields text chunks.
