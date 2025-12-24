@@ -151,6 +151,78 @@ export interface HousePriceStatsResponse {
   by_building_style: BuildingStyleStats[];
 }
 
+// Location Intelligence Types
+export interface TransitDetail {
+  name: string;
+  type: string;
+  distance_m: number;
+}
+
+export interface TransitScore {
+  score: number;
+  nearest_rail: TransitDetail | null;
+  bus_stops_500m: number;
+  ferry_access: TransitDetail | null;
+  description: string;
+}
+
+export interface SchoolDetail {
+  name: string;
+  level: string;
+  distance_m: number;
+}
+
+export interface SchoolsScore {
+  score: number;
+  total_within_2km: number;
+  by_level: Record<string, number>;
+  nearest: SchoolDetail | null;
+  description: string;
+}
+
+export interface WalkabilityCategory {
+  category: string;
+  count: number;
+  examples: string[];
+}
+
+export interface WalkabilityScore {
+  score: number;
+  categories: WalkabilityCategory[];
+  total_amenities: number;
+  description: string;
+}
+
+export interface FloodRiskScore {
+  level: "low" | "medium" | "high" | "unknown";
+  risk_group: number | null;
+  district_warnings: string[];
+  description: string;
+}
+
+export interface NoiseScore {
+  level: "quiet" | "moderate" | "busy" | "unknown";
+  nearest_highway_m: number | null;
+  nearest_major_road_m: number | null;
+  description: string;
+}
+
+export interface LocationIntelligenceResponse {
+  transit: TransitScore;
+  schools: SchoolsScore;
+  walkability: WalkabilityScore;
+  flood_risk: FloodRiskScore;
+  noise: NoiseScore;
+  composite_score: number;
+  location: { lat: number; lon: number };
+}
+
+export interface LocationIntelligenceRequest {
+  latitude: number;
+  longitude: number;
+  radius_meters?: number;
+}
+
 export const api = {
   analyzeSite: async (
     data: SiteAnalysisRequest
@@ -305,5 +377,17 @@ export const api = {
         }
       }
     }
+  },
+
+  getLocationIntelligence: async (
+    params: LocationIntelligenceRequest
+  ): Promise<LocationIntelligenceResponse> => {
+    const res = await fetch(`${API_URL}/location-intelligence/analyze`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    });
+    if (!res.ok) throw new Error("Failed to get location intelligence");
+    return res.json();
   },
 };

@@ -7,6 +7,7 @@ from src.routes.catchment import catchment_service
 from src.routes.catchment import router as catchment_router
 from src.routes.chat import router as chat_router
 from src.routes.house_prices import router as house_prices_router
+from src.routes.location_intelligence import router as location_intelligence_router
 from src.routes.projects import router as projects_router
 from src.routes.site import router as site_router
 
@@ -47,6 +48,9 @@ app.include_router(projects_router, prefix="/api/v1", tags=["Projects"])
 app.include_router(analytics_router, prefix="/api/v1", tags=["Analytics"])
 app.include_router(house_prices_router, prefix="/api/v1", tags=["House Prices"])
 app.include_router(chat_router, prefix="/api/v1", tags=["Chat"])
+app.include_router(
+    location_intelligence_router, prefix="/api/v1", tags=["Location Intelligence"]
+)
 
 
 @app.get("/", tags=["Root"])

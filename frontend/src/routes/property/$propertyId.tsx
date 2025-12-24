@@ -5,6 +5,7 @@ import { Shell } from "@/components/Shell";
 import { MapContainer } from "@/components/MapContainer";
 import { api } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
+import { LocationIntelligencePanel } from "@/components/LocationIntelligence";
 import { ScatterplotLayer } from "@deck.gl/layers";
 import type { MapViewState } from "@deck.gl/core";
 import {
@@ -76,6 +77,23 @@ function PropertyDetailPage() {
     enabled: !!property,
     staleTime: 1000 * 60 * 5,
   });
+
+  // Fetch location intelligence
+  const { data: locationIntelligence, isLoading: isLocationLoading } = useQuery(
+    {
+      queryKey: ["locationIntelligence", property?.lat, property?.lon],
+      queryFn: () => {
+        if (!property) throw new Error("No property");
+        return api.getLocationIntelligence({
+          latitude: property.lat,
+          longitude: property.lon,
+          radius_meters: 1000,
+        });
+      },
+      enabled: !!property,
+      staleTime: 1000 * 60 * 10, // Cache for 10 minutes
+    }
+  );
 
   // Map layers
   const layers = useMemo(() => {
@@ -285,6 +303,29 @@ function PropertyDetailPage() {
                   </div>
                 </div>
               )}
+
+              {/* Location Intelligence */}
+              <div className="mt-8 border-t border-white/10 pt-6">
+                {locationIntelligence && (
+                  <LocationIntelligencePanel
+                    data={locationIntelligence}
+                    isLoading={isLocationLoading}
+                  />
+                )}
+                {isLocationLoading && !locationIntelligence && (
+                  <div className="space-y-4">
+                    <div className="h-6 w-48 animate-pulse rounded bg-white/10" />
+                    <div className="grid grid-cols-3 gap-3">
+                      {[1, 2, 3].map((n) => (
+                        <div
+                          key={`li-skeleton-${n}`}
+                          className="h-24 animate-pulse rounded-lg bg-white/10"
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           ) : null}
         </div>
