@@ -91,7 +91,7 @@ class LocationIntelligenceService:
         # Query for nearest rail station (BTS/MRT/ARL)
         rail_query = text(
             """
-            SELECT name, source as type,
+            SELECT stop_name as name, source as type,
                    ST_Distance(geometry::geography, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography) as distance_m
             FROM transit_stops
             WHERE source IN ('bangkok-gtfs')
@@ -370,8 +370,9 @@ class LocationIntelligenceService:
             SELECT amphur
             FROM house_prices
             WHERE amphur IS NOT NULL
+              AND geometry IS NOT NULL
             ORDER BY ST_Distance(
-                ST_SetSRID(ST_MakePoint(lon, lat), 4326)::geography,
+                geometry::geography,
                 ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography
             )
             LIMIT 1

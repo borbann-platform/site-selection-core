@@ -223,6 +223,25 @@ export interface LocationIntelligenceRequest {
   radius_meters?: number;
 }
 
+// Price Explanation Types
+export interface FeatureContribution {
+  feature: string;
+  feature_display: string;
+  value: number;
+  contribution: number;
+  direction: "positive" | "negative";
+}
+
+export interface PriceExplanationResponse {
+  property_id: number;
+  predicted_price: number;
+  base_price: number;
+  actual_price: number | null;
+  feature_contributions: FeatureContribution[];
+  district_avg_price: number;
+  price_vs_district: number;
+}
+
 export const api = {
   analyzeSite: async (
     data: SiteAnalysisRequest
@@ -388,6 +407,19 @@ export const api = {
       body: JSON.stringify(params),
     });
     if (!res.ok) throw new Error("Failed to get location intelligence");
+    return res.json();
+  },
+
+  getPriceExplanation: async (
+    propertyId: number
+  ): Promise<PriceExplanationResponse> => {
+    const res = await fetch(`${API_URL}/house-prices/${propertyId}/explain`);
+    if (!res.ok) {
+      if (res.status === 503) {
+        throw new Error("Model not trained yet");
+      }
+      throw new Error("Failed to get price explanation");
+    }
     return res.json();
   },
 };

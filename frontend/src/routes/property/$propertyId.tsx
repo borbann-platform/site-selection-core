@@ -6,6 +6,7 @@ import { MapContainer } from "@/components/MapContainer";
 import { api } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LocationIntelligencePanel } from "@/components/LocationIntelligence";
+import { PriceExplanation } from "@/components/PriceExplanation";
 import { ScatterplotLayer } from "@deck.gl/layers";
 import type { MapViewState } from "@deck.gl/core";
 import {
@@ -325,6 +326,14 @@ function PropertyDetailPage() {
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* Price Explanation */}
+              <div className="mt-6">
+                <PriceExplanation
+                  propertyId={id}
+                  actualPrice={property.total_price}
+                />
               </div>
             </div>
           ) : null}
