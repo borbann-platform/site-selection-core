@@ -3,7 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
 import { MapContainer } from "../components/MapContainer";
 import { Shell } from "../components/Shell";
-import { PathLayer, IconLayer } from "@deck.gl/layers";
+import type { Attachment } from "../components/ChatPanel";
+import { PathLayer, IconLayer, ScatterplotLayer } from "@deck.gl/layers";
 import { MVTLayer } from "@deck.gl/geo-layers";
 import {
   Eye,
@@ -97,6 +98,12 @@ function PropertyExplorer() {
     priceDensity: false,
     transitRail: false,
   });
+
+  // Chat interaction state
+  const [selectionMode, setSelectionMode] = useState<"none" | "location">(
+    "none"
+  );
+  const [chatAttachments, setChatAttachments] = useState<Attachment[]>([]);
 
   // Collapsible sections
   const [openSections, setOpenSections] = useState({
@@ -354,6 +361,28 @@ function PropertyExplorer() {
       );
     }
 
+    // Overlay: Chat Selection Markers
+    const locationAttachments = chatAttachments.filter(
+      (a) => a.type === "location"
+    );
+    if (locationAttachments.length > 0) {
+      layerList.push(
+        new ScatterplotLayer({
+          id: "chat-selection-markers",
+          data: locationAttachments,
+          getPosition: (d: Attachment) => [d.data.lon, d.data.lat],
+          getFillColor: [255, 0, 255], // Magenta
+          getRadius: 200,
+          pickable: false,
+          opacity: 0.8,
+          stroked: true,
+          getLineColor: [255, 255, 255],
+          getLineWidth: 2,
+          radiusMinPixels: 5,
+        })
+      );
+    }
+
     return layerList;
   }, [
     housePrices,
@@ -363,6 +392,7 @@ function PropertyExplorer() {
     viewState.zoom,
     propertyFilters,
     iconAtlas,
+    chatAttachments,
   ]);
 
   const getTooltip = ({ object }: { object?: DeckGLObject | null }) => {
@@ -445,7 +475,24 @@ function PropertyExplorer() {
     return null;
   };
 
-  const handleMapClick = (info: { object?: DeckGLObject | null }) => {
+  const handleMapClick = (info: {
+    coordinate?: [number, number];
+    object?: DeckGLObject;
+  }) => {
+    // Handle Selection Mode
+    if (selectionMode === "location" && info.coordinate) {
+      const [lon, lat] = info.coordinate;
+      const newAttachment: Attachment = {
+        id: `loc-${Date.now()}`,
+        type: "location",
+        data: { lat, lon },
+        label: `Location (${lat.toFixed(4)}, ${lon.toFixed(4)})`,
+      };
+      setChatAttachments((prev) => [...prev, newAttachment]);
+      setSelectionMode("none");
+      return;
+    }
+
     // Navigate to property details when clicking a property
     const id = info.object?.id || info.object?.properties?.id;
     if (id) {
@@ -587,7 +634,14 @@ function PropertyExplorer() {
   );
 
   return (
-    <Shell panelContent={PanelContent}>
+    <Shell
+      panelContent={PanelContent}
+      chatAttachments={chatAttachments}
+      onChatPickLocation={() => setSelectionMode("location")}
+      onChatRemoveAttachment={(id) =>
+        setChatAttachments((prev) => prev.filter((a) => a.id !== id))
+      }
+    >
       <div className="w-full h-full bg-black relative overflow-hidden">
         <MapContainer
           viewState={viewState}
@@ -613,6 +667,13 @@ function PropertyExplorer() {
             </span>
           </div>
         </div>
+
+        {/* Selection Mode Overlay */}
+        {selectionMode === "location" && (
+          <div className="absolute top-20 left-1/2 -translate-x-1/2 z-50 bg-emerald-500 text-black px-4 py-2 rounded-full font-bold shadow-lg animate-pulse pointer-events-none">
+            Click on map to select location
+          </div>
+        )}
       </div>
     </Shell>
   );

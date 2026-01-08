@@ -6,6 +6,7 @@ from src.routes.analytics import router as analytics_router
 from src.routes.catchment import catchment_service
 from src.routes.catchment import router as catchment_router
 from src.routes.chat import router as chat_router
+from src.routes.hgt_prediction import router as hgt_prediction_router
 from src.routes.house_prices import router as house_prices_router
 from src.routes.location_intelligence import router as location_intelligence_router
 from src.routes.price_prediction import router as price_prediction_router
@@ -54,6 +55,9 @@ app.include_router(
     location_intelligence_router, prefix="/api/v1", tags=["Location Intelligence"]
 )
 app.include_router(price_prediction_router, prefix="/api/v1", tags=["Price Prediction"])
+app.include_router(
+    hgt_prediction_router, prefix="/api/v1", tags=["HGT Price Prediction"]
+)
 app.include_router(transit_router, prefix="/api/v1", tags=["Transit"])
 
 

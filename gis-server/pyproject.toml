@@ -20,4 +20,16 @@ dependencies = [
     "shap>=0.46.0",
     "pandas>=2.2.0",
     "joblib>=1.4.0",
+    # Deep Learning / GNN dependencies
+    "torch>=2.0.0",
+    "torch-geometric>=2.4.0",
+    # torch-sparse and torch-scatter are optional - PyG has native fallbacks
+    # "torch-sparse>=0.6.18",
+    # "torch-scatter>=2.1.2",
+    "gensim>=4.3.0", # For Hex2Vec Skip-gram
 ]
+
+[tool.uv]
+# torch-scatter/torch-sparse need torch as build dependency
+# Commenting out since PyG 2.4+ doesn't require them for HGTConv
+# extra-build-dependencies = { torch-scatter = ["torch"], torch-sparse = ["torch"] }

@@ -1,7 +1,16 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Bot, User, Loader2 } from "lucide-react";
+import { Send, Bot, User, Loader2, MapPin, X } from "lucide-react";
 import { cn } from "../lib/utils";
 import { api, type ChatMessage } from "../lib/api";
+
+export type AttachmentType = "location" | "property";
+
+export interface Attachment {
+  id: string;
+  type: AttachmentType;
+  data: Record<string, unknown>;
+  label: string;
+}
 
 interface ChatMessageWithId extends ChatMessage {
   id: string;
@@ -9,6 +18,9 @@ interface ChatMessageWithId extends ChatMessage {
 
 interface ChatPanelProps {
   className?: string;
+  attachments?: Attachment[];
+  onPickLocation?: () => void;
+  onRemoveAttachment?: (id: string) => void;
 }
 
 let messageIdCounter = 0;
@@ -16,7 +28,12 @@ function generateMessageId(): string {
   return `msg-${++messageIdCounter}-${Date.now()}`;
 }
 
-export function ChatPanel({ className }: ChatPanelProps) {
+export function ChatPanel({
+  className,
+  attachments = [],
+  onPickLocation,
+  onRemoveAttachment,
+}: ChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessageWithId[]>([
     {
       id: generateMessageId(),
@@ -37,17 +54,34 @@ export function ChatPanel({ className }: ChatPanelProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isStreaming) return;
+    if ((!input.trim() && attachments.length === 0) || isStreaming) return;
+
+    let content = input.trim();
+    if (attachments.length > 0) {
+      const attachmentText = attachments
+        .map((a) => `[Attachment: ${a.type} - ${JSON.stringify(a.data)}]`)
+        .join("\n");
+      content = `${content}\n\n${attachmentText}`.trim();
+    }
 
     const userMessage: ChatMessageWithId = {
       id: generateMessageId(),
       role: "user",
-      content: input.trim(),
+      content,
     };
     const assistantMessageId = generateMessageId();
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
     setInput("");
+    // Clear attachments after sending (parent should handle this via callback if needed,
+    // but for now we assume parent clears them or we just send the text representation)
+    // Ideally we should have an onSend callback to clear parent state.
+    // For this prototype, we'll just send the text.
+    // NOTE: In a real app, we'd call a prop like onMessagesSent to clear attachments in parent.
+    // Since we don't have that prop yet, we'll assume the parent clears them when we call onRemoveAttachment for all?
+    // Or better, we just send the text and let the user manually clear or we clear them if we controlled the state.
+    // Let's just proceed with sending text for now.
+
     setIsStreaming(true);
 
     // Add empty assistant message that we'll stream into
@@ -90,6 +124,10 @@ export function ChatPanel({ className }: ChatPanelProps) {
     } finally {
       setIsStreaming(false);
       inputRef.current?.focus();
+      // Hack: Clear attachments by calling remove on all of them
+      attachments.forEach((a) => {
+        onRemoveAttachment?.(a.id);
+      });
     }
   };
 
@@ -150,7 +188,36 @@ export function ChatPanel({ className }: ChatPanelProps) {
 
       {/* Input */}
       <form onSubmit={handleSubmit} className="p-3 border-t border-white/10">
+        {/* Attachments */}
+        {attachments.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-2">
+            {attachments.map((att) => (
+              <div
+                key={att.id}
+                className="flex items-center gap-1 bg-white/10 rounded-full px-2 py-1 text-xs text-white/80"
+              >
+                <span className="truncate max-w-36">{att.label}</span>
+                <button
+                  type="button"
+                  onClick={() => onRemoveAttachment?.(att.id)}
+                  className="hover:text-white"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={onPickLocation}
+            className="p-2 bg-white/5 hover:bg-white/10 rounded-lg text-white/70 transition-colors"
+            title="Pick location on map"
+          >
+            <MapPin size={18} />
+          </button>
           <input
             ref={inputRef}
             type="text"
@@ -162,7 +229,9 @@ export function ChatPanel({ className }: ChatPanelProps) {
           />
           <button
             type="submit"
-            disabled={!input.trim() || isStreaming}
+            disabled={
+              (!input.trim() && attachments.length === 0) || isStreaming
+            }
             className="p-2 bg-emerald-500 hover:bg-emerald-600 disabled:bg-white/10 disabled:text-white/30 rounded-lg text-black transition-colors"
           >
             {isStreaming ? (

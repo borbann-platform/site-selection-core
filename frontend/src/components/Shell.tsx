@@ -10,14 +10,23 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "../lib/utils";
-import { ChatPanel } from "./ChatPanel";
+import { ChatPanel, type Attachment } from "./ChatPanel";
 
 interface ShellProps {
   children: React.ReactNode;
   panelContent?: React.ReactNode;
+  chatAttachments?: Attachment[];
+  onChatPickLocation?: () => void;
+  onChatRemoveAttachment?: (id: string) => void;
 }
 
-export function Shell({ children, panelContent }: ShellProps) {
+export function Shell({
+  children,
+  panelContent,
+  chatAttachments,
+  onChatPickLocation,
+  onChatRemoveAttachment,
+}: ShellProps) {
   const [isPanelOpen, setIsPanelOpen] = useState(true);
   const [isChatOpen, setIsChatOpen] = useState(false);
 
@@ -108,7 +117,12 @@ export function Shell({ children, panelContent }: ShellProps) {
               >
                 <X size={16} />
               </button>
-              <ChatPanel />
+              <ChatPanel
+                className="h-full"
+                attachments={chatAttachments}
+                onPickLocation={onChatPickLocation}
+                onRemoveAttachment={onChatRemoveAttachment}
+              />
             </>
           )}
         </div>
