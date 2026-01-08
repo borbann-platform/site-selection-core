@@ -1,8 +1,11 @@
+- This is a Real Estate Information Platform with Price Prediction AI as the main feature.
 - This project uses `uv` for package management; use `uv add <pkg>` (don't edit `pyproject.toml` directly).
 - App entry: `main.py` (FastAPI).
-- Routes: `src/routes/` — e.g. `src/routes/site.py` exposes `POST /analyze-site`.
+- Routes: `src/routes/` — e.g. `src/routes/house_prices.py` for price data.
 - Config: `src/config/settings.py` and `src/config/database.py` (set `DATABASE_URL` for PostGIS).
 - Models: Pydantic request/response models live in `src/models/`.
 - GIS dependencies: install via `uv add geopandas psycopg[binary] geoalchemy2 shapely` (macOS may need system libs).
 - To run locally: activate your venv and run `uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000`.
 - This project uses `uv` for package management, don't directly update package in `pyproject.toml`, use command like `uv add ...`.
+- For path related python code - use pathlib instead of os.path.
+- Main focus: house price data, price prediction AI, property analytics.

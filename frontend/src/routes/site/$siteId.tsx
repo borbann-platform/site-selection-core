@@ -1,10 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { MapContainer } from "../../components/MapContainer";
 import { Shell } from "../../components/Shell";
 import { GeoJsonLayer, ScatterplotLayer } from "@deck.gl/layers";
+import { FlyToInterpolator } from "@deck.gl/core";
 import { api } from "../../lib/api";
+
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import {
   User,
@@ -58,6 +60,25 @@ function SiteInspector() {
     bearing: 0,
   });
 
+  // Sync viewState with URL params
+  useEffect(() => {
+    setViewState((prev: any) => {
+      if (
+        Math.abs(prev.latitude - lat) < 0.00001 &&
+        Math.abs(prev.longitude - lon) < 0.00001
+      ) {
+        return prev;
+      }
+      return {
+        ...prev,
+        longitude: lon,
+        latitude: lat,
+        transitionDuration: 1000,
+        transitionInterpolator: new FlyToInterpolator(),
+      };
+    });
+  }, [lat, lon]);
+
   const [showCompetitors, setShowCompetitors] = useState(true);
   const [showMagnets, setShowMagnets] = useState(true);
 
@@ -70,6 +91,7 @@ function SiteInspector() {
         longitude: lon,
         target_category: "competitor", // Default category
       }),
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
   // Fetch Isochrone
@@ -83,6 +105,7 @@ function SiteInspector() {
         mode: "walk",
       }),
     enabled: !!lat && !!lon,
+    staleTime: 1000 * 60 * 60, // 1 hour
   });
 
   // Fetch Nearby Competitors
@@ -96,6 +119,7 @@ function SiteInspector() {
         categories: ["competitor", "cafe", "coffee_shop"],
       }),
     enabled: showCompetitors && !!lat && !!lon,
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
   // Fetch Nearby Magnets
@@ -109,6 +133,7 @@ function SiteInspector() {
         categories: MAGNET_CATEGORIES,
       }),
     enabled: showMagnets && !!lat && !!lon,
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
   const layers = useMemo(() => {

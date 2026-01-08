@@ -10,18 +10,19 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
-import { Route as CompareRouteImport } from './routes/compare'
+import { Route as DistrictsRouteImport } from './routes/districts'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SiteSiteIdRouteImport } from './routes/site/$siteId'
+import { Route as PropertyPropertyIdRouteImport } from './routes/property/$propertyId'
 
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CompareRoute = CompareRouteImport.update({
-  id: '/compare',
-  path: '/compare',
+const DistrictsRoute = DistrictsRouteImport.update({
+  id: '/districts',
+  path: '/districts',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -34,38 +35,63 @@ const SiteSiteIdRoute = SiteSiteIdRouteImport.update({
   path: '/site/$siteId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PropertyPropertyIdRoute = PropertyPropertyIdRouteImport.update({
+  id: '/property/$propertyId',
+  path: '/property/$propertyId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/compare': typeof CompareRoute
+  '/districts': typeof DistrictsRoute
   '/settings': typeof SettingsRoute
+  '/property/$propertyId': typeof PropertyPropertyIdRoute
   '/site/$siteId': typeof SiteSiteIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/compare': typeof CompareRoute
+  '/districts': typeof DistrictsRoute
   '/settings': typeof SettingsRoute
+  '/property/$propertyId': typeof PropertyPropertyIdRoute
   '/site/$siteId': typeof SiteSiteIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/compare': typeof CompareRoute
+  '/districts': typeof DistrictsRoute
   '/settings': typeof SettingsRoute
+  '/property/$propertyId': typeof PropertyPropertyIdRoute
   '/site/$siteId': typeof SiteSiteIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/compare' | '/settings' | '/site/$siteId'
+  fullPaths:
+    | '/'
+    | '/districts'
+    | '/settings'
+    | '/property/$propertyId'
+    | '/site/$siteId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/compare' | '/settings' | '/site/$siteId'
-  id: '__root__' | '/' | '/compare' | '/settings' | '/site/$siteId'
+  to:
+    | '/'
+    | '/districts'
+    | '/settings'
+    | '/property/$propertyId'
+    | '/site/$siteId'
+  id:
+    | '__root__'
+    | '/'
+    | '/districts'
+    | '/settings'
+    | '/property/$propertyId'
+    | '/site/$siteId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  CompareRoute: typeof CompareRoute
+  DistrictsRoute: typeof DistrictsRoute
   SettingsRoute: typeof SettingsRoute
+  PropertyPropertyIdRoute: typeof PropertyPropertyIdRoute
   SiteSiteIdRoute: typeof SiteSiteIdRoute
 }
 
@@ -78,11 +104,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/compare': {
-      id: '/compare'
-      path: '/compare'
-      fullPath: '/compare'
-      preLoaderRoute: typeof CompareRouteImport
+    '/districts': {
+      id: '/districts'
+      path: '/districts'
+      fullPath: '/districts'
+      preLoaderRoute: typeof DistrictsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -99,13 +125,21 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SiteSiteIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/property/$propertyId': {
+      id: '/property/$propertyId'
+      path: '/property/$propertyId'
+      fullPath: '/property/$propertyId'
+      preLoaderRoute: typeof PropertyPropertyIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  CompareRoute: CompareRoute,
+  DistrictsRoute: DistrictsRoute,
   SettingsRoute: SettingsRoute,
+  PropertyPropertyIdRoute: PropertyPropertyIdRoute,
   SiteSiteIdRoute: SiteSiteIdRoute,
 }
 export const routeTree = rootRouteImport

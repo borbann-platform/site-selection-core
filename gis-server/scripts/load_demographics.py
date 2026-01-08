@@ -1,10 +1,15 @@
 import logging
 import os
+import sys
+
+# Add parent directory to path to import from src
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 import geopandas as gpd
 import pandas as pd
 from shapely import wkt
 from sqlalchemy import create_engine, text
+from src.config.settings import settings
 
 # Configure logging
 logging.basicConfig(
@@ -12,9 +17,7 @@ logging.basicConfig(
 )
 
 # --- Configuration ---
-DATABASE_URL = os.getenv(
-    "DATABASE_URL", "postgresql://user:password@localhost:5432/gisdb"
-)
+DATABASE_URL = settings.DATABASE_URL
 CSV_PATH = os.path.join(
     os.path.dirname(__file__), "..", "data", "bangkok-population.csv"
 )

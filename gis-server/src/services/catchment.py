@@ -109,12 +109,12 @@ class CatchmentService:
 
             query = text(
                 """
-                SELECT 
+                SELECT
                     SUM(
-                        population_density * 
+                        population_density *
                         (ST_Area(ST_Intersection(geometry::geography, ST_SetSRID(ST_GeomFromGeoJSON(:geom), 4326)::geography)) / ST_Area(geometry::geography))
                     )
-                FROM demographics
+                FROM population_grid
                 WHERE ST_Intersects(geometry, ST_SetSRID(ST_GeomFromGeoJSON(:geom), 4326))
             """
             )

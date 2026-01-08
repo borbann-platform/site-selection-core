@@ -1,4 +1,14 @@
-Welcome to your new TanStack app! 
+# Real Estate Information Platform - Frontend
+
+A modern real estate information platform with price prediction AI, property browsing, and market analytics.
+
+## Features
+- Interactive property map visualization
+- House price data exploration
+- Price prediction AI interface
+- Property analytics and insights
+
+---
 
 # Getting Started
 

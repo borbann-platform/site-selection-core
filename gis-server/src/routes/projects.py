@@ -4,7 +4,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from geoalchemy2.shape import from_shape
 from shapely.geometry import shape
 from sqlalchemy.orm import Session
-
 from src.config.database import get_db_session
 from src.models.db import Project, SavedSite
 from src.models.project import (

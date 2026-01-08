@@ -19,17 +19,17 @@ router = APIRouter()
 
 # Define the categories for magnets
 MAGNET_CATEGORIES = [
-    "office",
     "school",
-    "train_station",
-    "subway_station",
-    "university",
-    "mall",
+    "transit_stop",
+    "tourist_attraction",
+    "museum",
+    "water_transport",
+    "police_station",
+    # Add others if they exist in contributed_pois or other sources
     "hospital",
-    "hotel",
-    "attraction",
+    "mall",
+    "university",
     "park",
-    "condominiums",
 ]
 
 
@@ -107,12 +107,12 @@ def analyze_site(payload: SiteRequest, db: Session = Depends(get_db_session)):
         WITH nearby_pois AS (
             SELECT
                 name,
-                amenity,
+                type,
                 CASE
-                    WHEN amenity = :target_category THEN 'competitor'
-                    WHEN amenity = ANY(:magnet_categories) THEN 'magnet'
+                    WHEN type = :target_category THEN 'competitor'
+                    WHEN type = ANY(:magnet_categories) THEN 'magnet'
                 END as poi_type
-            FROM pois
+            FROM view_all_pois
             WHERE ST_DWithin(
                 geometry,
                 ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography,
@@ -242,7 +242,7 @@ def analyze_site(payload: SiteRequest, db: Session = Depends(get_db_session)):
         # For production, log the error and return a more generic message
         raise HTTPException(
             status_code=500,
-            detail=f"An error occurred during analysis: {e}. Please check if the 'pois' table exists and is populated.",
+            detail=f"An error occurred during analysis: {e}. Please check if the 'view_all_pois' view exists and is populated.",
         )
 
 
@@ -256,19 +256,46 @@ def get_nearby_pois(payload: NearbyRequest, db: Session = Depends(get_db_session
     Returns a GeoJSON FeatureCollection of POIs within the specified radius
     matching the given categories.
     """
+    # Expand categories to match DB types
+    expanded_categories = []
+    for cat in payload.categories:
+        if cat == "competitor":
+            expanded_categories.extend(
+                [
+                    "Coffee Shop",
+                    "Cafe' Amazon",
+                    "Starbucks",
+                    "TrueCoffee",
+                    "PunThai Coffee",
+                    "Chao Doi Coffee",
+                    "Black Canyon Coffee",
+                    "Au Bon Pain",
+                    "Inthanin",
+                    "Dunkin' Donuts",
+                    "Mister Donut",
+                    "Krispy Kreme",
+                ]
+            )
+        elif cat == "coffee_shop":
+            expanded_categories.extend(
+                ["Coffee Shop", "Cafe' Amazon", "Starbucks", "TrueCoffee"]
+            )
+        else:
+            expanded_categories.append(cat)
+
     query = text(
         """
         SELECT
             name,
-            amenity,
-            ST_AsGeoJSON(geometry) as geom_json
-        FROM pois
+            type,
+            ST_AsGeoJSON(geometry, 6) as geom_json
+        FROM view_all_pois
         WHERE ST_DWithin(
             geometry,
             ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography,
             :radius
         )
-        AND amenity = ANY(:categories)
+        AND type = ANY(:categories)
     """
     )
 
@@ -280,7 +307,7 @@ def get_nearby_pois(payload: NearbyRequest, db: Session = Depends(get_db_session
                     "lon": payload.longitude,
                     "lat": payload.latitude,
                     "radius": payload.radius_meters,
-                    "categories": payload.categories,
+                    "categories": expanded_categories,
                 },
             ).fetchall()
 
@@ -291,7 +318,7 @@ def get_nearby_pois(payload: NearbyRequest, db: Session = Depends(get_db_session
                     geometry=json.loads(row.geom_json),
                     properties={
                         "name": row.name,
-                        "amenity": row.amenity,
+                        "amenity": row.type,
                     },
                 )
             )

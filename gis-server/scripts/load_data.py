@@ -10,10 +10,14 @@ logging.basicConfig(
 )
 
 # --- Configuration ---
-# It's better to load this from environment variables or a config file in a real app
-DATABASE_URL = os.getenv(
-    "DATABASE_URL", "postgresql://user:password@localhost:5432/gisdb"
-)
+# Import settings to ensure consistent database connection
+import sys
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from src.config.settings import settings
+
+DATABASE_URL = settings.DATABASE_URL
+
 GEOJSON_PATH = os.path.join(
     os.path.dirname(__file__), "..", "data", "Bangkok.osm.geojson"
 )
