@@ -5,7 +5,7 @@ import { MapContainer } from "../components/MapContainer";
 import { Shell } from "../components/Shell";
 import type { Attachment } from "../components/ChatPanel";
 import { PathLayer, IconLayer, ScatterplotLayer } from "@deck.gl/layers";
-import { MVTLayer } from "@deck.gl/geo-layers";
+import { MVTLayer, H3HexagonLayer } from "@deck.gl/geo-layers";
 import {
   Eye,
   EyeOff,
@@ -97,7 +97,11 @@ function PropertyExplorer() {
     schools: false,
     priceDensity: false,
     transitRail: false,
+    h3Hexagons: false,
   });
+
+  // H3 Hexagon metric selection
+  const [h3Metric, setH3Metric] = useState<string>("poi_total");
 
   // Chat interaction state
   const [selectionMode, setSelectionMode] = useState<"none" | "location">(
@@ -156,6 +160,18 @@ function PropertyExplorer() {
       };
     },
     enabled: overlays.transitRail,
+  });
+
+  // Fetch H3 Hexagon Analytics Data
+  const { data: h3Data } = useQuery({
+    queryKey: ["h3Hexagons", h3Metric, viewState.zoom],
+    queryFn: () =>
+      api.getH3Hexagons({
+        metric: h3Metric,
+        resolution: viewState.zoom < 12 ? 7 : viewState.zoom < 14 ? 9 : 11,
+      }),
+    enabled: overlays.h3Hexagons,
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
   // Generate icon atlas for POIs
@@ -379,6 +395,37 @@ function PropertyExplorer() {
       );
     }
 
+    // Overlay: H3 Hexagon Analytics (flood risk, POI density, etc.)
+    if (overlays.h3Hexagons && h3Data && h3Data.hexagons.length > 0) {
+      layerList.push(
+        new H3HexagonLayer({
+          id: "h3-hexagons",
+          data: h3Data.hexagons,
+          pickable: true,
+          filled: true,
+          extruded: false,
+          getHexagon: (d: { h3_index: string }) => d.h3_index,
+          getFillColor: (d: { value: number }) => {
+            // Normalize value to 0-1 range
+            const range = h3Data.max_value - h3Data.min_value || 1;
+            const t = (d.value - h3Data.min_value) / range;
+            // Blue -> Yellow -> Red gradient
+            if (t < 0.5) {
+              const r = Math.round(t * 2 * 255);
+              const g = Math.round(t * 2 * 200);
+              return [r, g, 255, 140];
+            }
+            const b = Math.round((1 - (t - 0.5) * 2) * 255);
+            const g = Math.round((1 - (t - 0.5) * 2) * 200);
+            return [255, g, b, 140];
+          },
+          getLineColor: [255, 255, 255, 100],
+          lineWidthMinPixels: 1,
+          opacity: 0.6,
+        })
+      );
+    }
+
     // Overlay: Chat Selection Markers
     const locationAttachments = chatAttachments.filter(
       (a) => a.type === "location"
@@ -406,6 +453,7 @@ function PropertyExplorer() {
     housePrices,
     schools,
     transitLines,
+    h3Data,
     overlays,
     viewState.zoom,
     propertyFilters,
@@ -458,6 +506,20 @@ function PropertyExplorer() {
         html: `<div class="p-3 bg-zinc-900/90 border border-zinc-700 text-white rounded-lg shadow-xl backdrop-blur-md min-w-50">
           <div class="font-bold text-sm mb-1">${name}</div>
           <div class="text-xs font-medium text-zinc-400">${type}</div>
+        </div>`,
+      };
+    }
+
+    // H3 Hexagon Tooltip
+    if (object.h3_index !== undefined) {
+      const metricLabel = h3Metric.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+      const value = typeof object.value === "number" ? object.value.toLocaleString("th-TH", { maximumFractionDigits: 2 }) : object.value;
+
+      return {
+        html: `<div class="p-3 bg-zinc-900/90 border border-zinc-700 text-white rounded-lg shadow-xl backdrop-blur-md min-w-50">
+          <div class="font-bold text-sm mb-1">📊 ${metricLabel}</div>
+          <div class="text-xl font-bold text-cyan-400">${value}</div>
+          <div class="text-xs text-zinc-500 mt-1">H3: ${object.h3_index.slice(0, 12)}...</div>
         </div>`,
       };
     }
@@ -629,6 +691,47 @@ function PropertyExplorer() {
                   setOverlays((o) => ({ ...o, schools: !o.schools }))
                 }
               />
+              <LayerToggle
+                label="H3 Analytics"
+                active={overlays.h3Hexagons}
+                color="bg-cyan-500"
+                onClick={() =>
+                  setOverlays((o) => ({ ...o, h3Hexagons: !o.h3Hexagons }))
+                }
+              />
+              {overlays.h3Hexagons && (
+                <select
+                  value={h3Metric}
+                  onChange={(e) => setH3Metric(e.target.value)}
+                  className="w-full px-2 py-1 text-xs bg-zinc-700 rounded text-white border border-zinc-600 mt-1"
+                >
+                  <optgroup label="POI Counts">
+                    <option value="poi_total">Total POIs</option>
+                    <option value="poi_school">Schools</option>
+                    <option value="poi_transit_stop">Transit Stops</option>
+                    <option value="poi_restaurant">Restaurants</option>
+                    <option value="poi_hospital">Hospitals</option>
+                    <option value="poi_cafe">Cafes</option>
+                    <option value="poi_bank">Banks</option>
+                    <option value="poi_mall">Malls</option>
+                    <option value="poi_park">Parks</option>
+                    <option value="poi_temple">Temples</option>
+                  </optgroup>
+                  <optgroup label="Property">
+                    <option value="avg_price">Avg Price</option>
+                    <option value="median_price">Median Price</option>
+                    <option value="property_count">Property Count</option>
+                    <option value="avg_building_area">Avg Building Area</option>
+                    <option value="avg_land_area">Avg Land Area</option>
+                    <option value="avg_building_age">Avg Building Age</option>
+                  </optgroup>
+                  <optgroup label="Transit">
+                    <option value="transit_total">Transit Accessibility</option>
+                    <option value="transit_bangkok_gtfs">Bangkok GTFS</option>
+                    <option value="transit_longdomap_bus">Bus Routes</option>
+                  </optgroup>
+                </select>
+              )}
             </div>
           </CollapsibleContent>
         </div>

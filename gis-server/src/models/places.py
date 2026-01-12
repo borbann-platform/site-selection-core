@@ -1,9 +1,7 @@
 from geoalchemy2 import Geometry
-from sqlalchemy import Integer, String, Text
+from sqlalchemy import Boolean, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from src.config.database import Base
-
-print(f"Places module loaded. Base id: {id(Base)}")
 
 
 class BusShelter(Base):
@@ -20,6 +18,10 @@ class BusShelter(Base):
     status: Mapped[str | None] = mapped_column(String, nullable=True)
     geometry = mapped_column(Geometry("POINT", srid=4326), nullable=True)
 
+    __table_args__ = (
+        Index("idx_bus_shelters_geometry", "geometry", postgresql_using="gist"),
+    )
+
 
 class School(Base):
     __tablename__ = "schools"
@@ -33,6 +35,10 @@ class School(Base):
     phone: Mapped[str | None] = mapped_column(String, nullable=True)
     geometry = mapped_column(Geometry("POINT", srid=4326), nullable=True)
 
+    __table_args__ = (
+        Index("idx_schools_geometry", "geometry", postgresql_using="gist"),
+    )
+
 
 class PoliceStation(Base):
     __tablename__ = "police_stations"
@@ -45,6 +51,10 @@ class PoliceStation(Base):
     division: Mapped[str | None] = mapped_column(String, nullable=True)
     geometry = mapped_column(Geometry("POINT", srid=4326), nullable=True)
 
+    __table_args__ = (
+        Index("idx_police_stations_geometry", "geometry", postgresql_using="gist"),
+    )
+
 
 class Museum(Base):
     __tablename__ = "museums"
@@ -55,6 +65,10 @@ class Museum(Base):
     address: Mapped[str | None] = mapped_column(Text, nullable=True)
     phone: Mapped[str | None] = mapped_column(String, nullable=True)
     geometry = mapped_column(Geometry("POINT", srid=4326), nullable=True)
+
+    __table_args__ = (
+        Index("idx_museums_geometry", "geometry", postgresql_using="gist"),
+    )
 
 
 class GasStation(Base):
@@ -67,6 +81,10 @@ class GasStation(Base):
     brand_type: Mapped[str | None] = mapped_column(String, nullable=True)
     geometry = mapped_column(Geometry("POINT", srid=4326), nullable=True)
 
+    __table_args__ = (
+        Index("idx_gas_stations_geometry", "geometry", postgresql_using="gist"),
+    )
+
 
 class TrafficPoint(Base):
     __tablename__ = "traffic_points"
@@ -77,6 +95,10 @@ class TrafficPoint(Base):
     afternoon_time: Mapped[str | None] = mapped_column(String, nullable=True)
     geometry = mapped_column(Geometry("POINT", srid=4326), nullable=True)
 
+    __table_args__ = (
+        Index("idx_traffic_points_geometry", "geometry", postgresql_using="gist"),
+    )
+
 
 class WaterTransport(Base):
     __tablename__ = "water_transport_piers"
@@ -85,6 +107,12 @@ class WaterTransport(Base):
     name: Mapped[str | None] = mapped_column(String, nullable=True)
     address: Mapped[str | None] = mapped_column(Text, nullable=True)
     geometry = mapped_column(Geometry("POINT", srid=4326), nullable=True)
+
+    __table_args__ = (
+        Index(
+            "idx_water_transport_piers_geometry", "geometry", postgresql_using="gist"
+        ),
+    )
 
 
 class TouristAttraction(Base):
@@ -97,6 +125,10 @@ class TouristAttraction(Base):
     travel_info: Mapped[str | None] = mapped_column(Text, nullable=True)
     open_time: Mapped[str | None] = mapped_column(String, nullable=True)
     geometry = mapped_column(Geometry("POINT", srid=4326), nullable=True)
+
+    __table_args__ = (
+        Index("idx_tourist_attractions_geometry", "geometry", postgresql_using="gist"),
+    )
 
 
 class ContributedPOI(Base):
@@ -113,3 +145,39 @@ class ContributedPOI(Base):
     poi_type: Mapped[str | None] = mapped_column(String, nullable=True)
     username: Mapped[str | None] = mapped_column(String, nullable=True)
     geometry = mapped_column(Geometry("POINT", srid=4326), nullable=True)
+
+    __table_args__ = (
+        Index("idx_contributed_pois_geometry", "geometry", postgresql_using="gist"),
+    )
+
+
+class OsmPOI(Base):
+    """
+    POIs extracted from OpenStreetMap thailand-260111.osm.pbf.
+    Extends coverage beyond Bangkok-only datasets to match housing data extent.
+    """
+
+    __tablename__ = "osm_pois"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    osm_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    osm_type: Mapped[str | None] = mapped_column(String, nullable=True)  # node/way
+    name: Mapped[str | None] = mapped_column(String, nullable=True)
+    name_en: Mapped[str | None] = mapped_column(String, nullable=True)
+    name_th: Mapped[str | None] = mapped_column(String, nullable=True)
+    poi_type: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    amenity: Mapped[str | None] = mapped_column(String, nullable=True)
+    shop: Mapped[str | None] = mapped_column(String, nullable=True)
+    brand: Mapped[str | None] = mapped_column(String, nullable=True)
+    operator: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Dedup tracking
+    is_duplicate: Mapped[bool] = mapped_column(default=False, nullable=False)
+    duplicate_of: Mapped[str | None] = mapped_column(String, nullable=True)
+    duplicate_reason: Mapped[str | None] = mapped_column(String, nullable=True)
+    geometry = mapped_column(Geometry("POINT", srid=4326), nullable=True)
+
+    __table_args__ = (
+        Index("idx_osm_pois_geometry", "geometry", postgresql_using="gist"),
+        Index("idx_osm_pois_poi_type", "poi_type"),
+        Index("idx_osm_pois_is_duplicate", "is_duplicate"),
+    )

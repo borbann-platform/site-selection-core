@@ -63,6 +63,48 @@ export interface GridResponse {
   hexagons: HexagonData[];
 }
 
+// H3 Hexagon Overlay Types
+export interface H3HexagonItem {
+  h3_index: string;
+  value: number;
+  label?: string;
+}
+
+export interface H3HexagonResponse {
+  metric: string;
+  resolution: number;
+  count: number;
+  min_value: number;
+  max_value: number;
+  hexagons: H3HexagonItem[];
+}
+
+export interface H3HexagonParams {
+  metric?: string;
+  resolution?: number;
+  min_lat?: number;
+  max_lat?: number;
+  min_lon?: number;
+  max_lon?: number;
+  limit?: number;
+}
+
+// Admin API Types
+export interface AdminRefreshResponse {
+  success: boolean;
+  message: string;
+  timestamp: string;
+  details?: {
+    view_name?: string;
+    tiles_cleared?: number;
+  };
+}
+
+export interface AdminCacheStatusResponse {
+  tile_cache_size: number;
+  timestamp: string;
+}
+
 export interface SiteDetailsResponse {
   site_score: number;
   summary: {
@@ -590,6 +632,66 @@ export const api = {
     const url = `${API_URL}/transit/lines${params.toString() ? `?${params}` : ""}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error("Failed to get transit lines");
+    return res.json();
+  },
+
+  /**
+   * Get H3 hexagon data for overlay visualization.
+   */
+  getH3Hexagons: async (
+    params: H3HexagonParams = {}
+  ): Promise<H3HexagonResponse> => {
+    const searchParams = new URLSearchParams();
+    if (params.metric) searchParams.set("metric", params.metric);
+    if (params.resolution)
+      searchParams.set("resolution", String(params.resolution));
+    if (params.min_lat !== undefined)
+      searchParams.set("min_lat", String(params.min_lat));
+    if (params.max_lat !== undefined)
+      searchParams.set("max_lat", String(params.max_lat));
+    if (params.min_lon !== undefined)
+      searchParams.set("min_lon", String(params.min_lon));
+    if (params.max_lon !== undefined)
+      searchParams.set("max_lon", String(params.max_lon));
+    if (params.limit !== undefined)
+      searchParams.set("limit", String(params.limit));
+    const url = `${API_URL}/analytics/h3-hexagons${searchParams.toString() ? `?${searchParams}` : ""}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Failed to get H3 hexagons");
+    return res.json();
+  },
+
+  // ============= Admin APIs =============
+
+  /**
+   * Refresh the POI materialized view.
+   * Call this after POI data is updated.
+   */
+  refreshPOIs: async (): Promise<AdminRefreshResponse> => {
+    const res = await fetch(`${API_URL}/admin/refresh-pois`, {
+      method: "POST",
+    });
+    if (!res.ok) throw new Error("Failed to refresh POI data");
+    return res.json();
+  },
+
+  /**
+   * Clear the server-side tile cache.
+   */
+  clearTileCache: async (): Promise<AdminRefreshResponse> => {
+    const res = await fetch(`${API_URL}/admin/clear-tile-cache`, {
+      method: "POST",
+    });
+    if (!res.ok) throw new Error("Failed to clear tile cache");
+    return res.json();
+  },
+
+  /**
+   * Get current cache status.
+   */
+  getCacheStatus: async (): Promise<AdminCacheStatusResponse> => {
+    const res = await fetch(`${API_URL}/admin/cache-status`);
+    if (!res.ok) throw new Error("Failed to get cache status");
     return res.json();
   },
 };
