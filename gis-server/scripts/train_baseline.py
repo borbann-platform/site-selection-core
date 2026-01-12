@@ -28,8 +28,10 @@ import numpy as np
 import pandas as pd
 import shap
 from scipy.spatial import cKDTree
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import Ridge
 from sklearn.model_selection import GroupKFold, train_test_split
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sqlalchemy import text
 from src.config.database import engine
 
@@ -488,6 +490,147 @@ def train_holdout(
     return model, metrics
 
 
+def train_linear_cv(
+    df: pd.DataFrame,
+    feature_cols: list,
+    target_col: str = "log_price",
+    n_folds: int = 5,
+) -> tuple:
+    """
+    Train Ridge Regression with spatial cross-validation.
+
+    Ridge (L2 regularization) chosen over vanilla LinearRegression
+    for stability with correlated spatial features.
+    """
+    X = df[feature_cols].fillna(0).values
+    y = df[target_col].values
+    groups = df["district"].values
+
+    # Standardize features for linear model
+    scaler = StandardScaler()
+
+    gkf = GroupKFold(n_splits=n_folds)
+    fold_metrics = []
+    oof_predictions = np.zeros(len(df))
+
+    for fold, (train_idx, val_idx) in enumerate(gkf.split(X, y, groups)):
+        X_train, X_val = X[train_idx], X[val_idx]
+        y_train, y_val = y[train_idx], y[val_idx]
+
+        # Fit scaler on train, transform both
+        X_train_scaled = scaler.fit_transform(X_train)
+        X_val_scaled = scaler.transform(X_val)
+
+        val_districts = df.iloc[val_idx]["district"].unique()
+        logger.info(
+            f"LinearReg Fold {fold + 1}/{n_folds}: Val={len(val_idx)} ({len(val_districts)} districts)"
+        )
+
+        # Ridge regression with alpha=1.0
+        model = Ridge(alpha=1.0, random_state=42)
+        model.fit(X_train_scaled, y_train)
+
+        y_pred = model.predict(X_val_scaled)
+        oof_predictions[val_idx] = y_pred
+
+        metrics = compute_metrics(y_val, y_pred, is_log=True)
+        fold_metrics.append(metrics)
+
+        logger.info(
+            f"  Fold {fold + 1} Results: "
+            f"MAPE={metrics['mape']:.2f}%, MAE={metrics['mae']:,.0f} THB, R²={metrics['r2']:.4f}"
+        )
+
+    avg_metrics = {
+        key: np.mean([m[key] for m in fold_metrics]) for key in fold_metrics[0]
+    }
+    std_metrics = {
+        key: np.std([m[key] for m in fold_metrics]) for key in fold_metrics[0]
+    }
+
+    logger.info("\n=== Linear Regression CV Results ===")
+    logger.info(f"MAPE: {avg_metrics['mape']:.2f}% ± {std_metrics['mape']:.2f}%")
+    logger.info(f"MAE:  {avg_metrics['mae']:,.0f} ± {std_metrics['mae']:,.0f} THB")
+    logger.info(f"R²:   {avg_metrics['r2']:.4f} ± {std_metrics['r2']:.4f}")
+
+    return oof_predictions, {
+        "avg": avg_metrics,
+        "std": std_metrics,
+        "folds": fold_metrics,
+    }
+
+
+def train_rf_cv(
+    df: pd.DataFrame,
+    feature_cols: list,
+    target_col: str = "log_price",
+    n_folds: int = 5,
+) -> tuple:
+    """
+    Train Random Forest with spatial cross-validation.
+
+    RF serves as a strong tree-based baseline without boosting.
+    """
+    X = df[feature_cols].fillna(0).values
+    y = df[target_col].values
+    groups = df["district"].values
+
+    gkf = GroupKFold(n_splits=n_folds)
+    fold_metrics = []
+    oof_predictions = np.zeros(len(df))
+    models = []
+
+    for fold, (train_idx, val_idx) in enumerate(gkf.split(X, y, groups)):
+        X_train, X_val = X[train_idx], X[val_idx]
+        y_train, y_val = y[train_idx], y[val_idx]
+
+        val_districts = df.iloc[val_idx]["district"].unique()
+        logger.info(
+            f"RandomForest Fold {fold + 1}/{n_folds}: Val={len(val_idx)} ({len(val_districts)} districts)"
+        )
+
+        model = RandomForestRegressor(
+            n_estimators=200,
+            max_depth=15,
+            min_samples_split=10,
+            min_samples_leaf=5,
+            max_features="sqrt",
+            n_jobs=-1,
+            random_state=42,
+        )
+        model.fit(X_train, y_train)
+
+        y_pred = model.predict(X_val)
+        oof_predictions[val_idx] = y_pred
+
+        metrics = compute_metrics(y_val, y_pred, is_log=True)
+        fold_metrics.append(metrics)
+        models.append(model)
+
+        logger.info(
+            f"  Fold {fold + 1} Results: "
+            f"MAPE={metrics['mape']:.2f}%, MAE={metrics['mae']:,.0f} THB, R²={metrics['r2']:.4f}"
+        )
+
+    avg_metrics = {
+        key: np.mean([m[key] for m in fold_metrics]) for key in fold_metrics[0]
+    }
+    std_metrics = {
+        key: np.std([m[key] for m in fold_metrics]) for key in fold_metrics[0]
+    }
+
+    logger.info("\n=== Random Forest CV Results ===")
+    logger.info(f"MAPE: {avg_metrics['mape']:.2f}% ± {std_metrics['mape']:.2f}%")
+    logger.info(f"MAE:  {avg_metrics['mae']:,.0f} ± {std_metrics['mae']:,.0f} THB")
+    logger.info(f"R²:   {avg_metrics['r2']:.4f} ± {std_metrics['r2']:.4f}")
+
+    return (
+        models,
+        oof_predictions,
+        {"avg": avg_metrics, "std": std_metrics, "folds": fold_metrics},
+    )
+
+
 def analyze_shap(
     model: lgb.LGBMRegressor, X: np.ndarray, feature_names: list, output_dir: Path
 ) -> None:
@@ -568,6 +711,11 @@ def main():
     parser.add_argument(
         "--holdout-only", action="store_true", help="Skip CV, only holdout"
     )
+    parser.add_argument(
+        "--compare-all",
+        action="store_true",
+        help="Train and compare all baseline models (Linear, RF, LightGBM)",
+    )
     args = parser.parse_args()
 
     output_dir = Path(args.output)
@@ -594,8 +742,57 @@ def main():
         f"Price range: {df['total_price'].min():,.0f} - {df['total_price'].max():,.0f} THB"
     )
 
-    # Train
-    if not args.holdout_only:
+    # Compare all models if requested
+    if args.compare_all:
+        logger.info("\n" + "=" * 50)
+        logger.info("COMPARING ALL BASELINE MODELS")
+        logger.info("=" * 50)
+
+        all_metrics = {}
+
+        # 1. Linear Regression (Ridge)
+        logger.info("\n--- Training Linear Regression (Ridge) ---")
+        _, linear_metrics = train_linear_cv(df, feature_cols, n_folds=args.cv_folds)
+        all_metrics["linear"] = linear_metrics
+
+        # 2. Random Forest
+        logger.info("\n--- Training Random Forest ---")
+        rf_models, _, rf_metrics = train_rf_cv(df, feature_cols, n_folds=args.cv_folds)
+        all_metrics["random_forest"] = rf_metrics
+
+        # 3. LightGBM
+        logger.info("\n--- Training LightGBM ---")
+        lgb_models, oof_preds, lgb_metrics = train_spatial_cv(
+            df, feature_cols, n_folds=args.cv_folds
+        )
+        all_metrics["lightgbm"] = lgb_metrics
+
+        # Save comparison results
+        with open(output_dir / "all_models_comparison.json", "w") as f:
+            json.dump(all_metrics, f, indent=2)
+
+        # Print comparison table
+        logger.info("\n" + "=" * 60)
+        logger.info("MODEL COMPARISON SUMMARY (Spatial CV)")
+        logger.info("=" * 60)
+        logger.info(f"{'Model':<20} {'R²':>10} {'MAPE':>10} {'MAE':>12}")
+        logger.info("-" * 60)
+        for model_name, metrics in all_metrics.items():
+            avg = metrics["avg"]
+            std = metrics["std"]
+            logger.info(
+                f"{model_name:<20} "
+                f"{avg['r2']:.4f}±{std['r2']:.3f} "
+                f"{avg['mape']:.1f}%±{std['mape']:.1f}% "
+                f"{avg['mae']:>10,.0f}"
+            )
+        logger.info("-" * 60)
+
+        # Use LightGBM as best model for SHAP
+        best_model = lgb_models[0]
+        save_residuals(df, oof_preds, output_dir)
+
+    elif not args.holdout_only:
         models, oof_preds, cv_metrics = train_spatial_cv(
             df, feature_cols, n_folds=args.cv_folds
         )
@@ -604,7 +801,6 @@ def main():
         with open(output_dir / "cv_metrics.json", "w") as f:
             json.dump(cv_metrics, f, indent=2)
 
-        # Use first fold model for SHAP (or average)
         best_model = models[0]
         save_residuals(df, oof_preds, output_dir)
     else:

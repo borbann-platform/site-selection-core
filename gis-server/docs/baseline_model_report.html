@@ -40,98 +40,276 @@
               <h3 class="font-semibold text-gray-700 mb-3">Objective</h3>
               <p class="text-gray-600 leading-relaxed">
                 Establish a performance baseline for Bangkok property price
-                prediction using
-                <strong>LightGBM</strong> with heavy spatial feature
-                engineering. This model serves as a benchmark before deploying
-                graph neural networks (HGT).
+                prediction by comparing multiple algorithms:
+                <strong>Linear Regression</strong>,
+                <strong>Random Forest</strong>, and <strong>LightGBM</strong>.
+                These models serve as benchmarks before deploying graph neural
+                networks (HGT).
               </p>
             </div>
             <div>
               <h3 class="font-semibold text-gray-700 mb-3">Key Finding</h3>
               <p class="text-gray-600 leading-relaxed">
-                The baseline achieves <strong>R² = 0.80</strong> with spatial
-                cross-validation, indicating strong predictive power. Adding
-                Hex2Vec embeddings improves to <strong>R² = 0.82</strong>,
-                demonstrating value of learned spatial representations.
+                <strong>LightGBM + Hex2Vec</strong> achieves the best
+                performance with <strong>R² = 0.82</strong>, significantly
+                outperforming Linear Regression (R² = 0.67) and Random Forest
+                (R² = 0.73). Gradient boosting captures non-linear spatial
+                relationships.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- Model Comparison Cards -->
+      <!-- Model Comparison Cards - 4 models -->
       <section class="mb-12">
         <h2 class="text-2xl font-bold text-gray-800 mb-6">Model Comparison</h2>
-        <div class="grid md:grid-cols-2 gap-6">
-          <!-- Baseline Model -->
+        <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <!-- Linear Regression -->
           <div
-            class="bg-white rounded-xl p-6 card-shadow border-l-4 border-blue-500"
+            class="bg-white rounded-xl p-5 card-shadow border-l-4 border-gray-400"
           >
-            <div class="flex items-center justify-between mb-4">
-              <h3 class="text-lg font-bold text-gray-800">
-                Baseline (LightGBM)
-              </h3>
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-md font-bold text-gray-800">Linear (Ridge)</h3>
               <span
-                class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium"
+                class="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs font-medium"
+                >Baseline</span
+              >
+            </div>
+            <div class="space-y-2">
+              <div class="text-center p-2 bg-gray-50 rounded-lg">
+                <p class="text-2xl font-bold text-gray-500">0.671</p>
+                <p class="text-xs text-gray-400">R² Score</p>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div class="text-center p-2 bg-gray-50 rounded-lg">
+                  <p class="text-lg font-bold text-gray-500">23.2%</p>
+                  <p class="text-xs text-gray-400">MAPE</p>
+                </div>
+                <div class="text-center p-2 bg-gray-50 rounded-lg">
+                  <p class="text-lg font-bold text-gray-500">891K</p>
+                  <p class="text-xs text-gray-400">MAE</p>
+                </div>
+              </div>
+            </div>
+            <p class="text-xs text-gray-400 mt-3 text-center">
+              L2 regularized, α=1.0
+            </p>
+          </div>
+
+          <!-- Random Forest -->
+          <div
+            class="bg-white rounded-xl p-5 card-shadow border-l-4 border-green-500"
+          >
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-md font-bold text-gray-800">Random Forest</h3>
+              <span
+                class="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium"
+                >200 trees</span
+              >
+            </div>
+            <div class="space-y-2">
+              <div class="text-center p-2 bg-gray-50 rounded-lg">
+                <p class="text-2xl font-bold text-green-600">0.725</p>
+                <p class="text-xs text-gray-400">R² Score</p>
+                <p class="text-xs text-green-600 font-medium">
+                  +8.0% vs Linear
+                </p>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div class="text-center p-2 bg-gray-50 rounded-lg">
+                  <p class="text-lg font-bold text-green-600">20.7%</p>
+                  <p class="text-xs text-gray-400">MAPE</p>
+                </div>
+                <div class="text-center p-2 bg-gray-50 rounded-lg">
+                  <p class="text-lg font-bold text-green-600">717K</p>
+                  <p class="text-xs text-gray-400">MAE</p>
+                </div>
+              </div>
+            </div>
+            <p class="text-xs text-gray-400 mt-3 text-center">
+              max_depth=15, sqrt features
+            </p>
+          </div>
+
+          <!-- LightGBM -->
+          <div
+            class="bg-white rounded-xl p-5 card-shadow border-l-4 border-blue-500"
+          >
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-md font-bold text-gray-800">LightGBM</h3>
+              <span
+                class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium"
                 >23 features</span
               >
             </div>
-            <div class="grid grid-cols-2 gap-4">
-              <div class="text-center p-3 bg-gray-50 rounded-lg">
-                <p class="text-3xl font-bold text-blue-600">0.800</p>
-                <p class="text-sm text-gray-500">R² Score</p>
+            <div class="space-y-2">
+              <div class="text-center p-2 bg-gray-50 rounded-lg">
+                <p class="text-2xl font-bold text-blue-600">0.800</p>
+                <p class="text-xs text-gray-400">R² Score</p>
+                <p class="text-xs text-blue-600 font-medium">+10.4% vs RF</p>
               </div>
-              <div class="text-center p-3 bg-gray-50 rounded-lg">
-                <p class="text-3xl font-bold text-blue-600">17.4%</p>
-                <p class="text-sm text-gray-500">MAPE</p>
-              </div>
-              <div class="text-center p-3 bg-gray-50 rounded-lg">
-                <p class="text-2xl font-bold text-blue-600">633K</p>
-                <p class="text-sm text-gray-500">MAE (THB)</p>
-              </div>
-              <div class="text-center p-3 bg-gray-50 rounded-lg">
-                <p class="text-2xl font-bold text-blue-600">1.16M</p>
-                <p class="text-sm text-gray-500">RMSE (THB)</p>
+              <div class="grid grid-cols-2 gap-2">
+                <div class="text-center p-2 bg-gray-50 rounded-lg">
+                  <p class="text-lg font-bold text-blue-600">17.4%</p>
+                  <p class="text-xs text-gray-400">MAPE</p>
+                </div>
+                <div class="text-center p-2 bg-gray-50 rounded-lg">
+                  <p class="text-lg font-bold text-blue-600">633K</p>
+                  <p class="text-xs text-gray-400">MAE</p>
+                </div>
               </div>
             </div>
+            <p class="text-xs text-gray-400 mt-3 text-center">
+              1000 boosting rounds
+            </p>
           </div>
 
-          <!-- Baseline + Hex2Vec -->
+          <!-- LightGBM + Hex2Vec -->
           <div
-            class="bg-white rounded-xl p-6 card-shadow border-l-4 border-purple-500"
+            class="bg-white rounded-xl p-5 card-shadow border-l-4 border-purple-500 ring-2 ring-purple-200"
           >
-            <div class="flex items-center justify-between mb-4">
-              <h3 class="text-lg font-bold text-gray-800">
-                Baseline + Hex2Vec
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-md font-bold text-gray-800">
+                LightGBM + Hex2Vec
               </h3>
               <span
-                class="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm font-medium"
-                >87 features</span
+                class="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs font-medium"
+                >★ Best</span
               >
             </div>
-            <div class="grid grid-cols-2 gap-4">
-              <div class="text-center p-3 bg-gray-50 rounded-lg">
-                <p class="text-3xl font-bold text-purple-600">0.817</p>
-                <p class="text-sm text-gray-500">R² Score</p>
-                <p class="text-xs text-green-600 font-medium">+2.1%</p>
+            <div class="space-y-2">
+              <div class="text-center p-2 bg-purple-50 rounded-lg">
+                <p class="text-2xl font-bold text-purple-600">0.817</p>
+                <p class="text-xs text-gray-400">R² Score</p>
+                <p class="text-xs text-purple-600 font-medium">
+                  +2.1% vs LightGBM
+                </p>
               </div>
-              <div class="text-center p-3 bg-gray-50 rounded-lg">
-                <p class="text-3xl font-bold text-purple-600">16.8%</p>
-                <p class="text-sm text-gray-500">MAPE</p>
-                <p class="text-xs text-green-600 font-medium">-3.3%</p>
-              </div>
-              <div class="text-center p-3 bg-gray-50 rounded-lg">
-                <p class="text-2xl font-bold text-purple-600">595K</p>
-                <p class="text-sm text-gray-500">MAE (THB)</p>
-                <p class="text-xs text-green-600 font-medium">-6.0%</p>
-              </div>
-              <div class="text-center p-3 bg-gray-50 rounded-lg">
-                <p class="text-2xl font-bold text-purple-600">1.09M</p>
-                <p class="text-sm text-gray-500">RMSE (THB)</p>
-                <p class="text-xs text-green-600 font-medium">-6.5%</p>
+              <div class="grid grid-cols-2 gap-2">
+                <div class="text-center p-2 bg-purple-50 rounded-lg">
+                  <p class="text-lg font-bold text-purple-600">16.8%</p>
+                  <p class="text-xs text-gray-400">MAPE</p>
+                </div>
+                <div class="text-center p-2 bg-purple-50 rounded-lg">
+                  <p class="text-lg font-bold text-purple-600">595K</p>
+                  <p class="text-xs text-gray-400">MAE</p>
+                </div>
               </div>
             </div>
+            <p class="text-xs text-gray-400 mt-3 text-center">
+              +64 spatial embeddings
+            </p>
           </div>
+        </div>
+
+        <!-- Comparison Table -->
+        <div class="bg-white rounded-xl p-6 card-shadow mt-6">
+          <h3 class="font-semibold text-gray-700 mb-4">
+            Full Comparison Table (5-Fold Spatial CV)
+          </h3>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b-2 border-gray-200">
+                  <th class="text-left py-3 px-4 font-semibold text-gray-700">
+                    Model
+                  </th>
+                  <th class="text-right py-3 px-4 font-semibold text-gray-700">
+                    R² ± Std
+                  </th>
+                  <th class="text-right py-3 px-4 font-semibold text-gray-700">
+                    MAPE ± Std
+                  </th>
+                  <th class="text-right py-3 px-4 font-semibold text-gray-700">
+                    MAE ± Std (THB)
+                  </th>
+                  <th class="text-right py-3 px-4 font-semibold text-gray-700">
+                    RMSE (THB)
+                  </th>
+                  <th class="text-center py-3 px-4 font-semibold text-gray-700">
+                    Variance
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="border-b border-gray-100 hover:bg-gray-50">
+                  <td class="py-3 px-4 font-medium">
+                    Linear Regression (Ridge)
+                  </td>
+                  <td class="text-right py-3 px-4 text-gray-500">
+                    0.671 ± 0.101
+                  </td>
+                  <td class="text-right py-3 px-4">23.2% ± 5.2%</td>
+                  <td class="text-right py-3 px-4">891,111 ± 108,430</td>
+                  <td class="text-right py-3 px-4">~1.35M</td>
+                  <td class="text-center py-3 px-4">
+                    <span
+                      class="px-2 py-1 bg-red-100 text-red-700 rounded text-xs"
+                      >High</span
+                    >
+                  </td>
+                </tr>
+                <tr class="border-b border-gray-100 hover:bg-gray-50">
+                  <td class="py-3 px-4 font-medium">Random Forest</td>
+                  <td class="text-right py-3 px-4 text-green-600">
+                    0.725 ± 0.071
+                  </td>
+                  <td class="text-right py-3 px-4">20.7% ± 3.7%</td>
+                  <td class="text-right py-3 px-4">716,709 ± 167,802</td>
+                  <td class="text-right py-3 px-4">~1.25M</td>
+                  <td class="text-center py-3 px-4">
+                    <span
+                      class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs"
+                      >Medium</span
+                    >
+                  </td>
+                </tr>
+                <tr class="border-b border-gray-100 hover:bg-gray-50">
+                  <td class="py-3 px-4 font-medium">LightGBM</td>
+                  <td class="text-right py-3 px-4 text-blue-600">
+                    0.800 ± 0.033
+                  </td>
+                  <td class="text-right py-3 px-4">17.4% ± 1.5%</td>
+                  <td class="text-right py-3 px-4">633,341 ± 144,685</td>
+                  <td class="text-right py-3 px-4">1,162,631</td>
+                  <td class="text-center py-3 px-4">
+                    <span
+                      class="px-2 py-1 bg-green-100 text-green-700 rounded text-xs"
+                      >Low</span
+                    >
+                  </td>
+                </tr>
+                <tr class="hover:bg-purple-50 bg-purple-50/30">
+                  <td class="py-3 px-4 font-bold text-purple-700">
+                    LightGBM + Hex2Vec ★
+                  </td>
+                  <td class="text-right py-3 px-4 font-bold text-purple-600">
+                    0.817 ± 0.031
+                  </td>
+                  <td class="text-right py-3 px-4 font-bold text-purple-600">
+                    16.8% ± 1.7%
+                  </td>
+                  <td class="text-right py-3 px-4 font-bold">
+                    595,327 ± 124,920
+                  </td>
+                  <td class="text-right py-3 px-4 font-bold">1,087,383</td>
+                  <td class="text-center py-3 px-4">
+                    <span
+                      class="px-2 py-1 bg-green-100 text-green-700 rounded text-xs"
+                      >Low</span
+                    >
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="text-sm text-gray-500 mt-4">
+            <strong>Observation:</strong> LightGBM shows lowest variance across
+            folds (±0.033), indicating stable generalization. Linear Regression
+            struggles with non-linear spatial patterns (high MAPE variance
+            ±5.2%).
+          </p>
         </div>
       </section>
 
@@ -745,39 +923,79 @@
       <!-- Model Architecture -->
       <section class="mb-12">
         <h2 class="text-2xl font-bold text-gray-800 mb-6">
-          Model Architecture
+          Model Architectures
         </h2>
         <div class="bg-white rounded-xl p-6 card-shadow">
           <div class="grid md:grid-cols-2 gap-8">
             <div>
               <h4 class="font-semibold text-gray-800 mb-4">
-                LightGBM Configuration
+                Model Configurations
               </h4>
-              <div
-                class="bg-gray-900 rounded-lg p-4 text-sm font-mono text-gray-100 overflow-x-auto"
-              >
-                <pre>
-{
-  "n_estimators": 1000,
-  "learning_rate": 0.05,
-  "num_leaves": 31,
-  "max_depth": -1,
-  "min_child_samples": 20,
-  "subsample": 0.8,
-  "colsample_bytree": 0.8,
-  "reg_alpha": 0.1,
-  "reg_lambda": 0.1,
-  "objective": "regression",
-  "early_stopping_rounds": 50
-}</pre
+
+              <!-- Linear Regression -->
+              <div class="mb-4">
+                <h5 class="text-sm font-semibold text-gray-600 mb-2">
+                  1. Ridge Regression
+                </h5>
+                <div
+                  class="bg-gray-100 rounded-lg p-3 text-xs font-mono text-gray-700"
                 >
+                  <pre>
+Ridge(alpha=1.0, random_state=42)
+# + StandardScaler for feature normalization</pre
+                  >
+                </div>
+              </div>
+
+              <!-- Random Forest -->
+              <div class="mb-4">
+                <h5 class="text-sm font-semibold text-gray-600 mb-2">
+                  2. Random Forest
+                </h5>
+                <div
+                  class="bg-green-50 rounded-lg p-3 text-xs font-mono text-gray-700"
+                >
+                  <pre>
+RandomForestRegressor(
+  n_estimators=200,
+  max_depth=15,
+  min_samples_split=10,
+  min_samples_leaf=5,
+  max_features="sqrt"
+)</pre
+                  >
+                </div>
+              </div>
+
+              <!-- LightGBM -->
+              <div>
+                <h5 class="text-sm font-semibold text-gray-600 mb-2">
+                  3. LightGBM
+                </h5>
+                <div
+                  class="bg-blue-50 rounded-lg p-3 text-xs font-mono text-gray-700"
+                >
+                  <pre>
+LGBMRegressor(
+  n_estimators=1000,
+  learning_rate=0.05,
+  num_leaves=31,
+  subsample=0.8,
+  colsample_bytree=0.8,
+  reg_alpha=0.1, reg_lambda=0.1,
+  early_stopping_rounds=50
+)</pre
+                  >
+                </div>
               </div>
             </div>
             <div>
               <h4 class="font-semibold text-gray-800 mb-4">
                 Target Transformation
               </h4>
-              <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+              <div
+                class="bg-blue-50 rounded-lg p-4 border border-blue-200 mb-4"
+              >
                 <p class="text-sm text-blue-800 mb-2">
                   <strong>Log Transformation:</strong>
                   <code>log_price = log1p(total_price)</code>
@@ -788,14 +1006,48 @@
                   from over-focusing on luxury properties.
                 </p>
               </div>
-              <h4 class="font-semibold text-gray-800 mt-4 mb-4">
-                Why LightGBM?
-              </h4>
-              <ul class="text-sm text-gray-600 space-y-2">
-                <li>✓ Handles categorical features natively</li>
-                <li>✓ Fast training on 300K+ rows</li>
-                <li>✓ Built-in feature importance</li>
-                <li>✓ Robust to outliers with Huber loss option</li>
+
+              <h4 class="font-semibold text-gray-800 mb-4">Why Each Model?</h4>
+              <ul class="text-sm text-gray-600 space-y-3">
+                <li class="flex items-start">
+                  <span
+                    class="w-2 h-2 bg-gray-400 rounded-full mt-1.5 mr-2"
+                  ></span>
+                  <span
+                    ><strong>Ridge:</strong> Simple linear baseline. Fast,
+                    interpretable, but can't capture non-linear spatial
+                    patterns.</span
+                  >
+                </li>
+                <li class="flex items-start">
+                  <span
+                    class="w-2 h-2 bg-green-500 rounded-full mt-1.5 mr-2"
+                  ></span>
+                  <span
+                    ><strong>Random Forest:</strong> Ensemble of decision trees
+                    (bagging). Handles non-linearity, no feature scaling
+                    needed.</span
+                  >
+                </li>
+                <li class="flex items-start">
+                  <span
+                    class="w-2 h-2 bg-blue-500 rounded-full mt-1.5 mr-2"
+                  ></span>
+                  <span
+                    ><strong>LightGBM:</strong> Gradient boosting. Sequential
+                    learning corrects previous errors. Best for tabular
+                    data.</span
+                  >
+                </li>
+                <li class="flex items-start">
+                  <span
+                    class="w-2 h-2 bg-purple-500 rounded-full mt-1.5 mr-2"
+                  ></span>
+                  <span
+                    ><strong>+Hex2Vec:</strong> Adds 64-dim learned spatial
+                    embeddings from Skip-gram on H3 cell co-occurrences.</span
+                  >
+                </li>
               </ul>
             </div>
           </div>
@@ -807,14 +1059,67 @@
         <h2 class="text-2xl font-bold text-gray-800 mb-6">
           Conclusions & Next Steps
         </h2>
+
+        <!-- Model Ranking -->
+        <div class="bg-white rounded-xl p-6 card-shadow mb-6">
+          <h3 class="font-semibold text-gray-700 mb-4">
+            Model Ranking Summary
+          </h3>
+          <div class="flex items-center justify-center gap-2 flex-wrap">
+            <div class="flex items-center bg-gray-100 rounded-full px-4 py-2">
+              <span class="text-gray-600 font-medium">Linear (R²=0.67)</span>
+            </div>
+            <span class="text-gray-400">→</span>
+            <div class="flex items-center bg-green-100 rounded-full px-4 py-2">
+              <span class="text-green-700 font-medium">RF (R²=0.73)</span>
+              <span class="text-xs text-green-600 ml-2">+8%</span>
+            </div>
+            <span class="text-gray-400">→</span>
+            <div class="flex items-center bg-blue-100 rounded-full px-4 py-2">
+              <span class="text-blue-700 font-medium">LightGBM (R²=0.80)</span>
+              <span class="text-xs text-blue-600 ml-2">+10%</span>
+            </div>
+            <span class="text-gray-400">→</span>
+            <div
+              class="flex items-center bg-purple-100 rounded-full px-4 py-2 ring-2 ring-purple-300"
+            >
+              <span class="text-purple-700 font-bold"
+                >LightGBM+Hex2Vec (R²=0.82)</span
+              >
+              <span class="text-xs text-purple-600 ml-2">+2%</span>
+            </div>
+          </div>
+        </div>
+
         <div class="grid md:grid-cols-2 gap-6">
           <div class="bg-green-50 rounded-xl p-6 border border-green-200">
-            <h3 class="font-bold text-green-800 mb-3">✓ Baseline Achieved</h3>
+            <h3 class="font-bold text-green-800 mb-3">
+              ✓ Baselines Established
+            </h3>
             <ul class="text-sm text-green-700 space-y-2">
-              <li>• R² = 0.82 within target range (0.75-0.85)</li>
-              <li>• MAPE = 16.8% acceptable for property valuation</li>
-              <li>• Spatial CV confirms generalization to unseen districts</li>
-              <li>• Hex2Vec adds +1.7% R² improvement</li>
+              <li>
+                • <strong>LightGBM + Hex2Vec</strong>: Best performer (R²=0.82,
+                MAPE=16.8%)
+              </li>
+              <li>
+                • <strong>LightGBM</strong>: Strong baseline (R²=0.80,
+                MAPE=17.4%)
+              </li>
+              <li>
+                • <strong>Random Forest</strong>: Moderate (R²=0.73, MAPE=20.7%)
+              </li>
+              <li>
+                • <strong>Linear Regression</strong>: Lower bound (R²=0.67,
+                MAPE=23.2%)
+              </li>
+              <li>
+                • Gradient boosting captures non-linear spatial patterns better
+                than bagging
+              </li>
+              <li>
+                • Hex2Vec embeddings add +2% R² (learned neighborhood
+                similarity)
+              </li>
             </ul>
           </div>
           <div class="bg-blue-50 rounded-xl p-6 border border-blue-200">
@@ -827,8 +1132,22 @@
                 more than aggregates
               </li>
               <li>• Target: R² > 0.85 with attention-based explainability</li>
+              <li>
+                • Deploy LightGBM+Hex2Vec as production baseline until GNN ready
+              </li>
             </ul>
           </div>
+        </div>
+
+        <!-- Radar Chart for Model Comparison -->
+        <div class="bg-white rounded-xl p-6 card-shadow mt-6">
+          <div class="max-w-lg mx-auto">
+            <canvas id="radarChart"></canvas>
+          </div>
+          <p class="text-sm text-gray-500 mt-4 text-center">
+            Normalized scores (0-100). LightGBM variants excel in accuracy and
+            stability. Linear is fastest but lacks predictive power.
+          </p>
         </div>
       </section>
 
@@ -850,14 +1169,28 @@
           labels: ["Fold 1", "Fold 2", "Fold 3", "Fold 4", "Fold 5"],
           datasets: [
             {
-              label: "Baseline R²",
+              label: "Linear Regression R²",
+              data: [0.485, 0.655, 0.711, 0.731, 0.774],
+              backgroundColor: "rgba(156, 163, 175, 0.6)",
+              borderColor: "rgb(156, 163, 175)",
+              borderWidth: 1,
+            },
+            {
+              label: "Random Forest R²",
+              data: [0.6, 0.766, 0.756, 0.701, 0.803],
+              backgroundColor: "rgba(34, 197, 94, 0.6)",
+              borderColor: "rgb(34, 197, 94)",
+              borderWidth: 1,
+            },
+            {
+              label: "LightGBM R²",
               data: [0.747, 0.782, 0.833, 0.804, 0.836],
               backgroundColor: "rgba(59, 130, 246, 0.7)",
               borderColor: "rgb(59, 130, 246)",
               borderWidth: 1,
             },
             {
-              label: "Baseline + Hex2Vec R²",
+              label: "LightGBM + Hex2Vec R²",
               data: [0.759, 0.809, 0.843, 0.83, 0.842],
               backgroundColor: "rgba(147, 51, 234, 0.7)",
               borderColor: "rgb(147, 51, 234)",
@@ -870,7 +1203,7 @@
           plugins: {
             title: {
               display: true,
-              text: "R² Score by Cross-Validation Fold",
+              text: "R² Score by Cross-Validation Fold (All Models)",
             },
             legend: {
               position: "bottom",
@@ -879,7 +1212,7 @@
           scales: {
             y: {
               beginAtZero: false,
-              min: 0.7,
+              min: 0.4,
               max: 0.9,
               title: {
                 display: true,
@@ -889,6 +1222,62 @@
           },
         },
       });
+
+      // Model comparison radar chart
+      const ctx2 = document.getElementById("radarChart");
+      if (ctx2) {
+        new Chart(ctx2.getContext("2d"), {
+          type: "radar",
+          data: {
+            labels: ["R² Score", "Low MAPE", "Low MAE", "Stability", "Speed"],
+            datasets: [
+              {
+                label: "Linear Regression",
+                data: [67, 77, 60, 50, 100],
+                backgroundColor: "rgba(156, 163, 175, 0.2)",
+                borderColor: "rgb(156, 163, 175)",
+                borderWidth: 2,
+              },
+              {
+                label: "Random Forest",
+                data: [73, 79, 70, 65, 60],
+                backgroundColor: "rgba(34, 197, 94, 0.2)",
+                borderColor: "rgb(34, 197, 94)",
+                borderWidth: 2,
+              },
+              {
+                label: "LightGBM",
+                data: [80, 83, 80, 90, 85],
+                backgroundColor: "rgba(59, 130, 246, 0.2)",
+                borderColor: "rgb(59, 130, 246)",
+                borderWidth: 2,
+              },
+              {
+                label: "LightGBM + Hex2Vec",
+                data: [82, 83, 85, 88, 80],
+                backgroundColor: "rgba(147, 51, 234, 0.2)",
+                borderColor: "rgb(147, 51, 234)",
+                borderWidth: 2,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              title: {
+                display: true,
+                text: "Model Characteristics Comparison",
+              },
+            },
+            scales: {
+              r: {
+                beginAtZero: true,
+                max: 100,
+              },
+            },
+          },
+        });
+      }
     </script>
   </body>
 </html>
