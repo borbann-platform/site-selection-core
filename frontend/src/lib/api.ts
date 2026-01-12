@@ -156,6 +156,23 @@ export interface AgentStep {
   endTime?: number;
 }
 
+// Agent stream event from /chat/agent endpoint
+export interface AgentStreamEvent {
+  event: "thinking" | "step" | "token" | "done";
+  data: {
+    thinking?: boolean;
+    id?: string;
+    type?: string;
+    name?: string;
+    status?: string;
+    input?: Record<string, unknown>;
+    output?: string;
+    start_time?: number;
+    end_time?: number;
+    token?: string;
+  } | null;
+}
+
 export interface HousePriceItem {
   id: number;
   updated_date: string | null;
@@ -488,6 +505,49 @@ export const api = {
           const data = line.slice(6);
           if (data === "[DONE]") return;
           yield data;
+        }
+      }
+    }
+  },
+
+  /**
+   * Stream agent chat response with structured tool steps.
+   * Returns an async generator that yields AgentStreamEvent objects.
+   */
+  streamAgentChat: async function* (
+    messages: ChatMessage[]
+  ): AsyncGenerator<AgentStreamEvent, void, unknown> {
+    const res = await fetch(`${API_URL}/chat/agent`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages }),
+    });
+
+    if (!res.ok) throw new Error("Failed to start agent stream");
+    if (!res.body) throw new Error("No response body");
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || ""; // Keep incomplete line in buffer
+
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          const jsonStr = line.slice(6);
+          try {
+            const event = JSON.parse(jsonStr) as AgentStreamEvent;
+            yield event;
+            if (event.event === "done") return;
+          } catch {
+            // Skip malformed JSON
+          }
         }
       }
     }

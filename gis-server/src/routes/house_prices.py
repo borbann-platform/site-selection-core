@@ -278,12 +278,45 @@ def get_house_prices_tile(
     z: int,
     x: int,
     y: int,
+    amphur: str | None = Query(None, description="Filter by district"),
+    building_style: str | None = Query(None, description="Filter by building style"),
+    min_price: float | None = Query(None, ge=0, description="Minimum price"),
+    max_price: float | None = Query(None, ge=0, description="Maximum price"),
+    min_area: float | None = Query(None, ge=0, description="Minimum building area"),
+    max_area: float | None = Query(None, ge=0, description="Maximum building area"),
     db: Session = Depends(get_db_session),
 ):
     """
-    Serves Mapbox Vector Tiles (MVT) for house prices.
+    Serves Mapbox Vector Tiles (MVT) for house prices with optional filters.
     """
-    sql = text("""
+    # Build dynamic WHERE clause for filters
+    filter_conditions = [
+        "ST_Intersects(ST_Transform(geometry, 3857), ST_TileEnvelope(:z, :x, :y))"
+    ]
+    params: dict[str, int | float | str] = {"z": z, "x": x, "y": y}
+
+    if amphur:
+        filter_conditions.append("amphur = :amphur")
+        params["amphur"] = amphur
+    if building_style:
+        filter_conditions.append("building_style_desc = :building_style")
+        params["building_style"] = building_style
+    if min_price is not None:
+        filter_conditions.append("total_price >= :min_price")
+        params["min_price"] = min_price
+    if max_price is not None:
+        filter_conditions.append("total_price <= :max_price")
+        params["max_price"] = max_price
+    if min_area is not None:
+        filter_conditions.append("building_area >= :min_area")
+        params["min_area"] = min_area
+    if max_area is not None:
+        filter_conditions.append("building_area <= :max_area")
+        params["max_area"] = max_area
+
+    where_clause = " AND ".join(filter_conditions)
+
+    sql = text(f"""
         WITH mvtgeom AS (
             SELECT 
                 ST_AsMVTGeom(
@@ -296,17 +329,14 @@ def get_house_prices_tile(
                 total_price,
                 building_area
             FROM house_prices
-            WHERE ST_Intersects(
-                ST_Transform(geometry, 3857),
-                ST_TileEnvelope(:z, :x, :y)
-            )
+            WHERE {where_clause}
         )
         SELECT ST_AsMVT(mvtgeom.*, 'house_prices', 4096, 'geom') AS mvt
         FROM mvtgeom;
     """)
 
     with db.bind.connect() as conn:
-        result = conn.execute(sql, {"z": z, "x": x, "y": y}).scalar()
+        result = conn.execute(sql, params).scalar()
 
     return Response(content=result, media_type="application/vnd.mapbox-vector-tile")
 

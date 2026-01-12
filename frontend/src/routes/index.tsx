@@ -117,12 +117,12 @@ function PropertyExplorer() {
     queryKey: ["housePrices", propertyFilters],
     queryFn: () =>
       api.getHousePrices({
-        district: propertyFilters.district || undefined,
-        buildingStyle: propertyFilters.buildingStyle || undefined,
-        minPrice: propertyFilters.minPrice,
-        maxPrice: propertyFilters.maxPrice,
-        minArea: propertyFilters.minArea,
-        maxArea: propertyFilters.maxArea,
+        amphur: propertyFilters.district || undefined,
+        building_style: propertyFilters.buildingStyle || undefined,
+        min_price: propertyFilters.minPrice,
+        max_price: propertyFilters.maxPrice,
+        min_area: propertyFilters.minArea,
+        max_area: propertyFilters.maxArea,
         limit: 1000,
       }),
   });
@@ -202,12 +202,30 @@ function PropertyExplorer() {
       );
     }
 
-    // MVT tiles for high zoom
+    // MVT tiles for high zoom - with filter params
     if (viewState.zoom >= 13) {
+      // Build filter query string for MVT tiles
+      const mvtParams = new URLSearchParams();
+      if (propertyFilters.district)
+        mvtParams.set("amphur", propertyFilters.district);
+      if (propertyFilters.buildingStyle)
+        mvtParams.set("building_style", propertyFilters.buildingStyle);
+      if (propertyFilters.minPrice !== undefined)
+        mvtParams.set("min_price", String(propertyFilters.minPrice));
+      if (propertyFilters.maxPrice !== undefined)
+        mvtParams.set("max_price", String(propertyFilters.maxPrice));
+      if (propertyFilters.minArea !== undefined)
+        mvtParams.set("min_area", String(propertyFilters.minArea));
+      if (propertyFilters.maxArea !== undefined)
+        mvtParams.set("max_area", String(propertyFilters.maxArea));
+      const mvtQueryString = mvtParams.toString()
+        ? `?${mvtParams.toString()}`
+        : "";
+
       layerList.push(
         new MVTLayer({
           id: "house-prices-mvt",
-          data: `${API_URL}/house-prices/tile/{z}/{x}/{y}`,
+          data: `${API_URL}/house-prices/tile/{z}/{x}/{y}${mvtQueryString}`,
           minZoom: 13,
           maxZoom: 20,
           pickable: true,

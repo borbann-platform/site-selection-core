@@ -11,6 +11,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { cn } from "../lib/utils";
+import { api } from "../lib/api";
 import type { AgentStep } from "../lib/api";
 import { AgentStepCard, AgentStepBadge } from "./AgentStepCard";
 import { ThinkingIndicator, StreamingText } from "./ThinkingIndicator";
@@ -46,17 +47,13 @@ function generateMessageId(): string {
   return `msg-${++messageIdCounter}-${Date.now()}`;
 }
 
-function generateStepId(): string {
-  return `step-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-// Mock agent execution for demo
-function useMockAgentStream() {
+// Real agent stream hook that uses the API
+function useAgentStream() {
   const [isRunning, setIsRunning] = useState(false);
 
-  const runMockStream = useCallback(
+  const runAgentStream = useCallback(
     async (
-      userMessage: string,
+      messages: Array<{ role: "user" | "assistant"; content: string }>,
       onUpdate: (update: {
         thinking?: boolean;
         step?: AgentStep;
@@ -66,246 +63,55 @@ function useMockAgentStream() {
     ) => {
       setIsRunning(true);
 
-      // Simulate thinking
-      onUpdate({ thinking: true });
-      await delay(800);
+      try {
+        for await (const event of api.streamAgentChat(messages)) {
+          switch (event.event) {
+            case "thinking":
+              onUpdate({ thinking: event.data?.thinking ?? true });
+              break;
 
-      // Determine which tools to call based on message
-      const tools = selectToolsForMessage(userMessage);
+            case "step":
+              if (event.data) {
+                const step: AgentStep = {
+                  id: event.data.id || `step-${Date.now()}`,
+                  type:
+                    (event.data.type as "tool_call" | "thinking") ||
+                    "tool_call",
+                  name: event.data.name || "unknown",
+                  status:
+                    (event.data.status as "running" | "complete" | "error") ||
+                    "running",
+                  input: event.data.input,
+                  output: event.data.output,
+                  startTime: event.data.start_time || Date.now(),
+                  endTime: event.data.end_time,
+                };
+                onUpdate({ step, thinking: false });
+              }
+              break;
 
-      for (const tool of tools) {
-        // Add tool call step
-        const step: AgentStep = {
-          id: generateStepId(),
-          type: "tool_call",
-          name: tool.name,
-          status: "running",
-          input: tool.input,
-          startTime: Date.now(),
-        };
-        onUpdate({ step, thinking: false });
+            case "token":
+              if (event.data?.token) {
+                onUpdate({ token: event.data.token });
+              }
+              break;
 
-        // Simulate execution
-        await delay(tool.duration);
-
-        // Complete the step
-        step.status = "complete";
-        step.endTime = Date.now();
-        step.output = tool.output;
-        onUpdate({ step });
-
-        // Think between tools
-        if (tools.indexOf(tool) < tools.length - 1) {
-          onUpdate({ thinking: true });
-          await delay(400);
+            case "done":
+              onUpdate({ done: true });
+              break;
+          }
         }
+      } catch (error) {
+        console.error("Agent stream error:", error);
+        onUpdate({ done: true });
+      } finally {
+        setIsRunning(false);
       }
-
-      // Stream final response
-      onUpdate({ thinking: false });
-      const response = generateResponse(userMessage, tools);
-      for (const char of response) {
-        onUpdate({ token: char });
-        await delay(15 + Math.random() * 25);
-      }
-
-      onUpdate({ done: true });
-      setIsRunning(false);
     },
     []
   );
 
-  return { runMockStream, isRunning };
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-interface MockTool {
-  name: string;
-  input: Record<string, unknown>;
-  output: string;
-  duration: number;
-}
-
-function selectToolsForMessage(message: string): MockTool[] {
-  const lowerMsg = message.toLowerCase();
-
-  if (lowerMsg.includes("price") || lowerMsg.includes("ราคา")) {
-    return [
-      {
-        name: "search_properties",
-        input: { query: message, limit: 5 },
-        output: JSON.stringify(
-          {
-            count: 5,
-            properties: [
-              { id: 1, price: 4500000, district: "บางกะปิ" },
-              { id: 2, price: 5200000, district: "ลาดพร้าว" },
-            ],
-          },
-          null,
-          2
-        ),
-        duration: 1200,
-      },
-      {
-        name: "get_market_statistics",
-        input: { district: "บางกะปิ" },
-        output: JSON.stringify(
-          {
-            avg_price: 4800000,
-            median_price: 4500000,
-            price_change_yoy: 5.2,
-          },
-          null,
-          2
-        ),
-        duration: 800,
-      },
-    ];
-  }
-
-  if (
-    lowerMsg.includes("location") ||
-    lowerMsg.includes("area") ||
-    lowerMsg.includes("พื้นที่")
-  ) {
-    return [
-      {
-        name: "get_location_intelligence",
-        input: { latitude: 13.7563, longitude: 100.5018, radius_meters: 1000 },
-        output: JSON.stringify(
-          {
-            transit_score: 85,
-            walkability_score: 72,
-            flood_risk: "low",
-            schools_nearby: 8,
-          },
-          null,
-          2
-        ),
-        duration: 1500,
-      },
-      {
-        name: "analyze_catchment",
-        input: { latitude: 13.7563, longitude: 100.5018, minutes: 15 },
-        output: JSON.stringify(
-          {
-            population_reached: 125000,
-            area_sqkm: 4.2,
-          },
-          null,
-          2
-        ),
-        duration: 1000,
-      },
-    ];
-  }
-
-  if (
-    lowerMsg.includes("business") ||
-    lowerMsg.includes("site") ||
-    lowerMsg.includes("ร้าน")
-  ) {
-    return [
-      {
-        name: "analyze_site",
-        input: {
-          latitude: 13.7563,
-          longitude: 100.5018,
-          target_category: "restaurant",
-        },
-        output: JSON.stringify(
-          {
-            site_score: 78,
-            competitors_count: 12,
-            magnets_count: 8,
-            traffic_potential: "High",
-          },
-          null,
-          2
-        ),
-        duration: 1800,
-      },
-    ];
-  }
-
-  // Default: simple knowledge retrieval
-  return [
-    {
-      name: "retrieve_knowledge",
-      input: { query: message },
-      output: JSON.stringify(
-        {
-          documents: [
-            { title: "Bangkok Real Estate Guide", relevance: 0.92 },
-            { title: "Price Prediction Methodology", relevance: 0.85 },
-          ],
-        },
-        null,
-        2
-      ),
-      duration: 600,
-    },
-  ];
-}
-
-function generateResponse(message: string, _tools?: MockTool[]): string {
-  const lowerMsg = message.toLowerCase();
-
-  if (lowerMsg.includes("price") || lowerMsg.includes("ราคา")) {
-    return `Based on my analysis of the market data, the average property price in the บางกะปิ district is around **4.8 million THB**. 
-
-I found several comparable properties in the area:
-- Properties range from 4.5M to 5.2M THB
-- Year-over-year price growth is approximately 5.2%
-- The median price sits at 4.5M THB
-
-Would you like me to analyze a specific location or property type in more detail?`;
-  }
-
-  if (
-    lowerMsg.includes("location") ||
-    lowerMsg.includes("area") ||
-    lowerMsg.includes("พื้นที่")
-  ) {
-    return `Here's my analysis of this location:
-
-**Transit Score: 85/100** - Excellent public transit access with BTS/MRT nearby
-**Walkability: 72/100** - Good walkability with essential amenities within walking distance
-**Flood Risk: Low** - This area has minimal flood concerns
-**Schools: 8 nearby** - Good options for families
-
-The 15-minute catchment area reaches approximately 125,000 people across 4.2 sq km.
-
-This is a well-connected location suitable for residential or commercial purposes.`;
-  }
-
-  if (
-    lowerMsg.includes("business") ||
-    lowerMsg.includes("site") ||
-    lowerMsg.includes("ร้าน")
-  ) {
-    return `**Site Analysis Results**
-
-🎯 **Site Score: 78/100** - Good potential for business
-
-**Competition:** 12 similar businesses within 1km
-**Traffic Magnets:** 8 nearby (schools, transit stops, attractions)
-**Traffic Potential:** High
-
-This location has a healthy balance of foot traffic drivers while maintaining manageable competition. The proximity to transit and schools creates consistent daily traffic patterns.
-
-Would you like me to compare this with other potential sites?`;
-  }
-
-  return `I found some relevant information in our knowledge base. Based on the Bangkok real estate data we have:
-
-The Bangkok property market shows varied trends across districts. Prime areas like Sukhumvit command premium prices (10-15M+ THB), while developing areas near new transit lines offer better value (3-6M THB) with strong appreciation potential.
-
-What specific aspect would you like me to explore further?`;
+  return { runAgentStream, isRunning };
 }
 
 // Assistant message with steps visualization
@@ -411,7 +217,7 @@ export function AgentChatPanel({
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { runMockStream, isRunning } = useMockAgentStream();
+  const { runAgentStream, isRunning } = useAgentStream();
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -449,8 +255,14 @@ export function AgentChatPanel({
     setMessages((prev) => [...prev, userMessage, assistantMessage]);
     setInput("");
 
-    // Run mock agent stream
-    await runMockStream(content, (update) => {
+    // Build messages array for API (include conversation history)
+    const apiMessages = [...messages, userMessage].map((m) => ({
+      role: m.role,
+      content: m.content,
+    }));
+
+    // Run agent stream via API
+    await runAgentStream(apiMessages, (update) => {
       setMessages((prev) => {
         const updated = [...prev];
         const msgIndex = updated.findIndex((m) => m.id === assistantMessageId);
