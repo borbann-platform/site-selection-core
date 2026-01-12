@@ -27,6 +27,13 @@ dependencies = [
     # "torch-sparse>=0.6.18",
     # "torch-scatter>=2.1.2",
     "gensim>=4.3.0", # For Hex2Vec Skip-gram
+    # LangGraph Agent dependencies
+    "langgraph>=1.0.0",
+    "langchain>=0.3.0",
+    "langchain-google-genai>=2.0.0",
+    "langchain-postgres>=0.0.12",
+    "pgvector>=0.3.0",
+    "lightgbm>=4.6.0",
 ]
 
 [tool.uv]
