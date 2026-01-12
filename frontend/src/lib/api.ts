@@ -86,6 +86,76 @@ export interface ChatRequest {
   messages: ChatMessage[];
 }
 
+// Agent Streaming Event Types
+export type AgentEventType =
+  | "thinking"
+  | "tool_call"
+  | "tool_result"
+  | "token"
+  | "final"
+  | "error";
+
+export interface AgentThinkingEvent {
+  type: "thinking";
+  content: string;
+}
+
+export interface AgentToolCallEvent {
+  type: "tool_call";
+  content: {
+    id: string;
+    name: string;
+    input: Record<string, unknown>;
+  };
+}
+
+export interface AgentToolResultEvent {
+  type: "tool_result";
+  content: {
+    id: string;
+    name: string;
+    result: string;
+    success: boolean;
+  };
+}
+
+export interface AgentTokenEvent {
+  type: "token";
+  content: string;
+}
+
+export interface AgentFinalEvent {
+  type: "final";
+  content: string;
+}
+
+export interface AgentErrorEvent {
+  type: "error";
+  content: string;
+}
+
+export type AgentEvent =
+  | AgentThinkingEvent
+  | AgentToolCallEvent
+  | AgentToolResultEvent
+  | AgentTokenEvent
+  | AgentFinalEvent
+  | AgentErrorEvent;
+
+// Agent step for UI rendering
+export type AgentStepStatus = "running" | "complete" | "error";
+
+export interface AgentStep {
+  id: string;
+  type: "tool_call" | "thinking";
+  name: string;
+  status: AgentStepStatus;
+  input?: Record<string, unknown>;
+  output?: string;
+  startTime: number;
+  endTime?: number;
+}
+
 export interface HousePriceItem {
   id: number;
   updated_date: string | null;
