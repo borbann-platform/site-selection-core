@@ -33,6 +33,7 @@ dependencies = [
     "langchain-google-genai>=2.0.0",
     "langchain-postgres>=0.0.12",
     "pgvector>=0.3.0",
+    "lightgbm>=4.6.0",
 ]
 
 [tool.uv]

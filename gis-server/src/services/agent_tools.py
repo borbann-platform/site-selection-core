@@ -5,6 +5,7 @@ Wraps existing API services as callable tools for the AI agent.
 
 import json
 import logging
+import random
 from typing import Literal
 
 from langchain_core.tools import tool
@@ -12,7 +13,6 @@ from sqlalchemy import text
 from src.config.database import SessionLocal
 from src.services.catchment import catchment_service
 from src.services.location_intelligence import location_intelligence_service
-from src.services.price_prediction import price_prediction_service
 
 logger = logging.getLogger(__name__)
 
@@ -237,8 +237,7 @@ def predict_property_price(
     """
     Predict the price of a property and explain which factors contribute to the price.
 
-    Use this when the user wants to know how much a property is worth,
-    or wants to understand what factors affect property prices in an area.
+    NOTE: Currently returns MOCK data. HGT model migration pending.
 
     Args:
         latitude: Latitude of the property location
@@ -250,73 +249,70 @@ def predict_property_price(
         building_style: Type of building (บ้านเดี่ยว=detached, ทาวน์เฮ้าส์=townhouse, etc.)
 
     Returns:
-        JSON with predicted_price, base_price, and feature_contributions explaining the price
+        JSON with predicted_price, base_price, and feature_contributions (MOCK DATA)
 
     """
-    try:
-        with SessionLocal() as db:
-            # Get district from coordinates (approximate - use nearest property's district)
-            district_query = text("""
-                SELECT amphur FROM properties
-                WHERE lat IS NOT NULL AND lon IS NOT NULL
-                ORDER BY ST_Distance(
-                    ST_SetSRID(ST_MakePoint(:lon, :lat), 4326),
-                    ST_SetSRID(ST_MakePoint(lon, lat), 4326)
-                )
-                LIMIT 1
-            """)
-            district_result = db.execute(
-                district_query, {"lat": latitude, "lon": longitude}
-            ).fetchone()
-            amphur = district_result.amphur if district_result else None
+    # Generate mock prediction based on building area
+    base_price_per_sqm = random.uniform(25_000, 45_000)
+    base_price = building_area_sqm * base_price_per_sqm
+    predicted_price = base_price * random.uniform(0.9, 1.1)
+    district_avg = base_price * random.uniform(0.85, 1.15)
 
-            explanation = price_prediction_service.explain(
-                db=db,
-                property_id=0,  # No actual property ID for prediction
-                lat=latitude,
-                lon=longitude,
-                building_area=building_area_sqm,
-                land_area=land_area_sqwah,
-                building_age=float(building_age_years),
-                no_of_floor=float(floors),
-                building_style=building_style,
-                amphur=amphur,
-            )
+    # Mock contributions
+    contributions = [
+        {
+            "feature": "Building Area (sqm)",
+            "value": building_area_sqm,
+            "impact_thb": round(random.uniform(100_000, 500_000), 0),
+            "direction": "positive",
+        },
+        {
+            "feature": "Transit Stops (1km)",
+            "value": random.randint(1, 5),
+            "impact_thb": round(random.uniform(50_000, 200_000), 0),
+            "direction": "positive",
+        },
+        {
+            "feature": "Building Age (years)",
+            "value": building_age_years,
+            "impact_thb": round(random.uniform(-150_000, -50_000), 0),
+            "direction": "negative",
+        },
+        {
+            "feature": "District Avg Price/sqm",
+            "value": round(district_avg / building_area_sqm, 0),
+            "impact_thb": round(random.uniform(-100_000, 100_000), 0),
+            "direction": "positive" if random.random() > 0.5 else "negative",
+        },
+        {
+            "feature": "POIs within 500m",
+            "value": random.randint(5, 20),
+            "impact_thb": round(random.uniform(20_000, 80_000), 0),
+            "direction": "positive",
+        },
+    ]
 
-            # Format contributions for readability
-            contributions = [
-                {
-                    "feature": c.feature_display,
-                    "value": c.value,
-                    "impact_thb": round(c.contribution, 0),
-                    "direction": c.direction,
-                }
-                for c in explanation.feature_contributions[:5]  # Top 5 factors
-            ]
+    price_vs_district = ((predicted_price - district_avg) / district_avg) * 100
 
-            return json.dumps(
-                {
-                    "predicted_price_thb": round(explanation.predicted_price, 0),
-                    "base_price_thb": round(explanation.base_price, 0),
-                    "district_avg_price_thb": round(explanation.district_avg_price, 0),
-                    "price_vs_district_percent": round(
-                        explanation.price_vs_district, 1
-                    ),
-                    "top_price_factors": contributions,
-                    "property_details": {
-                        "building_area_sqm": building_area_sqm,
-                        "land_area_sqwah": land_area_sqwah,
-                        "building_style": building_style,
-                        "age_years": building_age_years,
-                        "floors": floors,
-                    },
-                },
-                ensure_ascii=False,
-            )
-
-    except Exception as e:
-        logger.error(f"Price prediction failed: {e}")
-        return json.dumps({"error": str(e)})
+    return json.dumps(
+        {
+            "mock_mode": True,
+            "predicted_price_thb": round(predicted_price, 0),
+            "base_price_thb": round(base_price * 0.95, 0),
+            "district_avg_price_thb": round(district_avg, 0),
+            "price_vs_district_percent": round(price_vs_district, 1),
+            "top_price_factors": contributions,
+            "property_details": {
+                "building_area_sqm": building_area_sqm,
+                "land_area_sqwah": land_area_sqwah,
+                "building_style": building_style,
+                "age_years": building_age_years,
+                "floors": floors,
+            },
+            "note": "This is mock data. HGT model migration pending.",
+        },
+        ensure_ascii=False,
+    )
 
 
 # =============================================================================

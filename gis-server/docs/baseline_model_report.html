@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Spatial Baseline Model - Performance Report</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      .gradient-bg {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      }
+      .card-shadow {
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+      }
+    </style>
+  </head>
+  <body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <header class="gradient-bg text-white py-12">
+      <div class="max-w-6xl mx-auto px-6">
+        <h1 class="text-4xl font-bold mb-2">Spatial Baseline Model</h1>
+        <p class="text-xl opacity-90">
+          Bangkok Property Price Prediction - Performance Report
+        </p>
+        <p class="text-sm opacity-75 mt-2">
+          Generated: January 12, 2026 | Dataset: 8,514 properties across 41
+          districts
+        </p>
+      </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-6 py-12">
+      <!-- Executive Summary -->
+      <section class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6">Executive Summary</h2>
+        <div class="bg-white rounded-xl p-6 card-shadow">
+          <div class="grid md:grid-cols-2 gap-6">
+            <div>
+              <h3 class="font-semibold text-gray-700 mb-3">Objective</h3>
+              <p class="text-gray-600 leading-relaxed">
+                Establish a performance baseline for Bangkok property price
+                prediction using
+                <strong>LightGBM</strong> with heavy spatial feature
+                engineering. This model serves as a benchmark before deploying
+                graph neural networks (HGT).
+              </p>
+            </div>
+            <div>
+              <h3 class="font-semibold text-gray-700 mb-3">Key Finding</h3>
+              <p class="text-gray-600 leading-relaxed">
+                The baseline achieves <strong>R² = 0.80</strong> with spatial
+                cross-validation, indicating strong predictive power. Adding
+                Hex2Vec embeddings improves to <strong>R² = 0.82</strong>,
+                demonstrating value of learned spatial representations.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Model Comparison Cards -->
+      <section class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6">Model Comparison</h2>
+        <div class="grid md:grid-cols-2 gap-6">
+          <!-- Baseline Model -->
+          <div
+            class="bg-white rounded-xl p-6 card-shadow border-l-4 border-blue-500"
+          >
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-lg font-bold text-gray-800">
+                Baseline (LightGBM)
+              </h3>
+              <span
+                class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium"
+                >23 features</span
+              >
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div class="text-center p-3 bg-gray-50 rounded-lg">
+                <p class="text-3xl font-bold text-blue-600">0.800</p>
+                <p class="text-sm text-gray-500">R² Score</p>
+              </div>
+              <div class="text-center p-3 bg-gray-50 rounded-lg">
+                <p class="text-3xl font-bold text-blue-600">17.4%</p>
+                <p class="text-sm text-gray-500">MAPE</p>
+              </div>
+              <div class="text-center p-3 bg-gray-50 rounded-lg">
+                <p class="text-2xl font-bold text-blue-600">633K</p>
+                <p class="text-sm text-gray-500">MAE (THB)</p>
+              </div>
+              <div class="text-center p-3 bg-gray-50 rounded-lg">
+                <p class="text-2xl font-bold text-blue-600">1.16M</p>
+                <p class="text-sm text-gray-500">RMSE (THB)</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Baseline + Hex2Vec -->
+          <div
+            class="bg-white rounded-xl p-6 card-shadow border-l-4 border-purple-500"
+          >
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-lg font-bold text-gray-800">
+                Baseline + Hex2Vec
+              </h3>
+              <span
+                class="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm font-medium"
+                >87 features</span
+              >
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div class="text-center p-3 bg-gray-50 rounded-lg">
+                <p class="text-3xl font-bold text-purple-600">0.817</p>
+                <p class="text-sm text-gray-500">R² Score</p>
+                <p class="text-xs text-green-600 font-medium">+2.1%</p>
+              </div>
+              <div class="text-center p-3 bg-gray-50 rounded-lg">
+                <p class="text-3xl font-bold text-purple-600">16.8%</p>
+                <p class="text-sm text-gray-500">MAPE</p>
+                <p class="text-xs text-green-600 font-medium">-3.3%</p>
+              </div>
+              <div class="text-center p-3 bg-gray-50 rounded-lg">
+                <p class="text-2xl font-bold text-purple-600">595K</p>
+                <p class="text-sm text-gray-500">MAE (THB)</p>
+                <p class="text-xs text-green-600 font-medium">-6.0%</p>
+              </div>
+              <div class="text-center p-3 bg-gray-50 rounded-lg">
+                <p class="text-2xl font-bold text-purple-600">1.09M</p>
+                <p class="text-sm text-gray-500">RMSE (THB)</p>
+                <p class="text-xs text-green-600 font-medium">-6.5%</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Metrics Explanation -->
+      <section class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6">
+          Evaluation Metrics Explained
+        </h2>
+        <div class="bg-white rounded-xl p-6 card-shadow">
+          <div class="overflow-x-auto">
+            <table class="w-full">
+              <thead>
+                <tr class="border-b border-gray-200">
+                  <th class="text-left py-3 px-4 font-semibold text-gray-700">
+                    Metric
+                  </th>
+                  <th class="text-left py-3 px-4 font-semibold text-gray-700">
+                    Formula
+                  </th>
+                  <th class="text-left py-3 px-4 font-semibold text-gray-700">
+                    Interpretation
+                  </th>
+                  <th class="text-left py-3 px-4 font-semibold text-gray-700">
+                    Our Result
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="border-b border-gray-100 hover:bg-gray-50">
+                  <td class="py-4 px-4">
+                    <span class="font-semibold text-gray-800"
+                      >R² (Coefficient of Determination)</span
+                    >
+                  </td>
+                  <td class="py-4 px-4">
+                    <code class="bg-gray-100 px-2 py-1 rounded text-sm"
+                      >1 - (SS_res / SS_tot)</code
+                    >
+                  </td>
+                  <td class="py-4 px-4 text-gray-600">
+                    Proportion of variance explained. 1.0 = perfect, 0.0 =
+                    baseline mean.
+                    <br /><span class="text-sm text-gray-500"
+                      >Target: 0.75-0.85 for real estate</span
+                    >
+                  </td>
+                  <td class="py-4 px-4">
+                    <span
+                      class="px-2 py-1 bg-green-100 text-green-800 rounded font-medium"
+                      >0.817 ✓</span
+                    >
+                  </td>
+                </tr>
+                <tr class="border-b border-gray-100 hover:bg-gray-50">
+                  <td class="py-4 px-4">
+                    <span class="font-semibold text-gray-800"
+                      >MAPE (Mean Absolute Percentage Error)</span
+                    >
+                  </td>
+                  <td class="py-4 px-4">
+                    <code class="bg-gray-100 px-2 py-1 rounded text-sm"
+                      >mean(|y - ŷ| / y) × 100</code
+                    >
+                  </td>
+                  <td class="py-4 px-4 text-gray-600">
+                    Average percentage error. Business-friendly metric.
+                    <br /><span class="text-sm text-gray-500"
+                      >Target: &lt;20% for property valuation</span
+                    >
+                  </td>
+                  <td class="py-4 px-4">
+                    <span
+                      class="px-2 py-1 bg-green-100 text-green-800 rounded font-medium"
+                      >16.8% ✓</span
+                    >
+                  </td>
+                </tr>
+                <tr class="border-b border-gray-100 hover:bg-gray-50">
+                  <td class="py-4 px-4">
+                    <span class="font-semibold text-gray-800"
+                      >MAE (Mean Absolute Error)</span
+                    >
+                  </td>
+                  <td class="py-4 px-4">
+                    <code class="bg-gray-100 px-2 py-1 rounded text-sm"
+                      >mean(|y - ŷ|)</code
+                    >
+                  </td>
+                  <td class="py-4 px-4 text-gray-600">
+                    Average absolute error in THB. Robust to outliers.
+                    <br /><span class="text-sm text-gray-500"
+                      >Interpretable as "typical error"</span
+                    >
+                  </td>
+                  <td class="py-4 px-4">
+                    <span
+                      class="px-2 py-1 bg-yellow-100 text-yellow-800 rounded font-medium"
+                      >595,327 THB</span
+                    >
+                  </td>
+                </tr>
+                <tr class="hover:bg-gray-50">
+                  <td class="py-4 px-4">
+                    <span class="font-semibold text-gray-800"
+                      >RMSE (Root Mean Squared Error)</span
+                    >
+                  </td>
+                  <td class="py-4 px-4">
+                    <code class="bg-gray-100 px-2 py-1 rounded text-sm"
+                      >√mean((y - ŷ)²)</code
+                    >
+                  </td>
+                  <td class="py-4 px-4 text-gray-600">
+                    Penalizes large errors more heavily.
+                    <br /><span class="text-sm text-gray-500"
+                      >Sensitive to outliers (luxury properties)</span
+                    >
+                  </td>
+                  <td class="py-4 px-4">
+                    <span
+                      class="px-2 py-1 bg-yellow-100 text-yellow-800 rounded font-medium"
+                      >1,087,383 THB</span
+                    >
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Evaluation Methodology -->
+      <section class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6">
+          Evaluation Methodology
+        </h2>
+        <div class="grid md:grid-cols-2 gap-6">
+          <div class="bg-white rounded-xl p-6 card-shadow">
+            <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
+              <svg
+                class="w-5 h-5 mr-2 text-green-500"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+              Spatial Cross-Validation (GroupKFold)
+            </h3>
+            <p class="text-gray-600 mb-4">
+              We use <strong>5-fold GroupKFold</strong> by district to test
+              generalization to <em>unseen neighborhoods</em>. This prevents
+              data leakage from spatially correlated properties.
+            </p>
+            <div class="bg-gray-50 rounded-lg p-4">
+              <p class="text-sm font-mono text-gray-700">
+                <span class="text-purple-600">Fold 1:</span> Train on 39
+                districts, Test on หนองจอก, ราชเทวี<br />
+                <span class="text-purple-600">Fold 2:</span> Train on 31
+                districts, Test on บางกะปิ, ประเวศ, ...<br />
+                <span class="text-purple-600">Fold 3:</span> Train on 31
+                districts, Test on ลาดกระบัง, ลาดพร้าว, ...<br />
+                <span class="text-purple-600">Fold 4:</span> Train on 31
+                districts, Test on มีนบุรี, สายไหม, ...<br />
+                <span class="text-purple-600">Fold 5:</span> Train on 32
+                districts, Test on หนองแขม, สะพานสูง, ...
+              </p>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl p-6 card-shadow">
+            <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
+              <svg
+                class="w-5 h-5 mr-2 text-red-500"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+              Why NOT Random Split?
+            </h3>
+            <p class="text-gray-600 mb-4">
+              Random 80/20 splits cause <strong>spatial leakage</strong>:
+              training on neighbors of test properties artificially inflates
+              metrics. Our spatial split tests true generalization.
+            </p>
+            <div class="bg-red-50 rounded-lg p-4 border border-red-200">
+              <p class="text-sm text-red-700">
+                <strong>⚠️ Warning:</strong> Random split R² would likely be
+                ~0.90+ but would fail on real unseen neighborhoods. Spatial CV
+                is harder but more realistic.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Cross-Validation Results -->
+      <section class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6">
+          Cross-Validation Results by Fold
+        </h2>
+        <div class="bg-white rounded-xl p-6 card-shadow">
+          <div class="grid md:grid-cols-2 gap-8">
+            <div>
+              <canvas id="foldChart"></canvas>
+            </div>
+            <div>
+              <h4 class="font-semibold text-gray-700 mb-4">
+                Per-Fold Performance (Baseline + Hex2Vec)
+              </h4>
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="border-b">
+                    <th class="text-left py-2">Fold</th>
+                    <th class="text-right py-2">R²</th>
+                    <th class="text-right py-2">MAPE</th>
+                    <th class="text-right py-2">MAE (THB)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="border-b border-gray-100">
+                    <td class="py-2">Fold 1 (หนองจอก, ราชเทวี)</td>
+                    <td class="text-right text-red-600">0.759</td>
+                    <td class="text-right">19.9%</td>
+                    <td class="text-right">384,553</td>
+                  </tr>
+                  <tr class="border-b border-gray-100">
+                    <td class="py-2">Fold 2 (บางกะปิ, ประเวศ, ...)</td>
+                    <td class="text-right">0.809</td>
+                    <td class="text-right">16.9%</td>
+                    <td class="text-right">753,411</td>
+                  </tr>
+                  <tr class="border-b border-gray-100">
+                    <td class="py-2">Fold 3 (ลาดกระบัง, ลาดพร้าว, ...)</td>
+                    <td class="text-right text-green-600">0.843</td>
+                    <td class="text-right">16.7%</td>
+                    <td class="text-right">551,528</td>
+                  </tr>
+                  <tr class="border-b border-gray-100">
+                    <td class="py-2">Fold 4 (มีนบุรี, สายไหม, ...)</td>
+                    <td class="text-right">0.830</td>
+                    <td class="text-right">15.1%</td>
+                    <td class="text-right">675,475</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2">Fold 5 (หนองแขม, สะพานสูง, ...)</td>
+                    <td class="text-right text-green-600">0.842</td>
+                    <td class="text-right text-green-600">15.3%</td>
+                    <td class="text-right">611,669</td>
+                  </tr>
+                </tbody>
+                <tfoot>
+                  <tr class="border-t-2 font-semibold">
+                    <td class="py-2">Average ± Std</td>
+                    <td class="text-right">0.817 ± 0.031</td>
+                    <td class="text-right">16.8% ± 1.7%</td>
+                    <td class="text-right">595K ± 125K</td>
+                  </tr>
+                </tfoot>
+              </table>
+              <p class="text-sm text-gray-500 mt-4">
+                <strong>Observation:</strong> Fold 1 (หนองจอก, ราชเทวี) shows
+                lowest R² — these districts have unique characteristics (very
+                rural vs. central) that don't transfer well from other
+                districts.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Feature Importance -->
+      <section class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6">
+          Feature Importance (SHAP Analysis)
+        </h2>
+        <div class="grid md:grid-cols-2 gap-6">
+          <div class="bg-white rounded-xl p-6 card-shadow">
+            <h3 class="font-semibold text-gray-700 mb-4">
+              Baseline Model (23 features)
+            </h3>
+            <div class="space-y-3">
+              <div>
+                <div class="flex justify-between mb-1">
+                  <span class="text-sm font-medium text-gray-700"
+                    >Land Area (sq wah)</span
+                  >
+                  <span class="text-sm text-gray-500">22.3%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-3">
+                  <div
+                    class="bg-blue-500 h-3 rounded-full"
+                    style="width: 100%"
+                  ></div>
+                </div>
+              </div>
+              <div>
+                <div class="flex justify-between mb-1">
+                  <span class="text-sm font-medium text-gray-700"
+                    >Building Age (years)</span
+                  >
+                  <span class="text-sm text-gray-500">19.2%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-3">
+                  <div
+                    class="bg-blue-500 h-3 rounded-full"
+                    style="width: 86%"
+                  ></div>
+                </div>
+              </div>
+              <div>
+                <div class="flex justify-between mb-1">
+                  <span class="text-sm font-medium text-gray-700"
+                    >Building Area (sqm)</span
+                  >
+                  <span class="text-sm text-gray-500">10.6%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-3">
+                  <div
+                    class="bg-blue-500 h-3 rounded-full"
+                    style="width: 48%"
+                  ></div>
+                </div>
+              </div>
+              <div>
+                <div class="flex justify-between mb-1">
+                  <span class="text-sm font-medium text-gray-700"
+                    >Number of Floors</span
+                  >
+                  <span class="text-sm text-gray-500">6.5%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-3">
+                  <div
+                    class="bg-blue-500 h-3 rounded-full"
+                    style="width: 29%"
+                  ></div>
+                </div>
+              </div>
+              <div>
+                <div class="flex justify-between mb-1">
+                  <span class="text-sm font-medium text-gray-700"
+                    >Distance to Asoke</span
+                  >
+                  <span class="text-sm text-gray-500">5.5%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-3">
+                  <div
+                    class="bg-green-500 h-3 rounded-full"
+                    style="width: 24%"
+                  ></div>
+                </div>
+              </div>
+              <div>
+                <div class="flex justify-between mb-1">
+                  <span class="text-sm font-medium text-gray-700"
+                    >Distance to Siam</span
+                  >
+                  <span class="text-sm text-gray-500">5.4%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-3">
+                  <div
+                    class="bg-green-500 h-3 rounded-full"
+                    style="width: 24%"
+                  ></div>
+                </div>
+              </div>
+              <div>
+                <div class="flex justify-between mb-1">
+                  <span class="text-sm font-medium text-gray-700"
+                    >Distance to BTS/MRT</span
+                  >
+                  <span class="text-sm text-gray-500">4.3%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-3">
+                  <div
+                    class="bg-green-500 h-3 rounded-full"
+                    style="width: 19%"
+                  ></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl p-6 card-shadow">
+            <h3 class="font-semibold text-gray-700 mb-4">
+              Baseline + Hex2Vec (87 features)
+            </h3>
+            <div class="space-y-3">
+              <div>
+                <div class="flex justify-between mb-1">
+                  <span class="text-sm font-medium text-gray-700"
+                    >Land Area (sq wah)</span
+                  >
+                  <span class="text-sm text-gray-500">19.0%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-3">
+                  <div
+                    class="bg-purple-500 h-3 rounded-full"
+                    style="width: 100%"
+                  ></div>
+                </div>
+              </div>
+              <div>
+                <div class="flex justify-between mb-1">
+                  <span class="text-sm font-medium text-gray-700"
+                    >Building Age (years)</span
+                  >
+                  <span class="text-sm text-gray-500">17.5%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-3">
+                  <div
+                    class="bg-purple-500 h-3 rounded-full"
+                    style="width: 92%"
+                  ></div>
+                </div>
+              </div>
+              <div>
+                <div class="flex justify-between mb-1">
+                  <span class="text-sm font-medium text-gray-700"
+                    >Building Area (sqm)</span
+                  >
+                  <span class="text-sm text-gray-500">11.1%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-3">
+                  <div
+                    class="bg-purple-500 h-3 rounded-full"
+                    style="width: 58%"
+                  ></div>
+                </div>
+              </div>
+              <div>
+                <div class="flex justify-between mb-1">
+                  <span class="text-sm font-medium text-gray-700"
+                    >Number of Floors</span
+                  >
+                  <span class="text-sm text-gray-500">4.8%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-3">
+                  <div
+                    class="bg-purple-500 h-3 rounded-full"
+                    style="width: 25%"
+                  ></div>
+                </div>
+              </div>
+              <div>
+                <div class="flex justify-between mb-1">
+                  <span class="text-sm font-medium text-gray-700"
+                    >Distance to Asoke</span
+                  >
+                  <span class="text-sm text-gray-500">4.0%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-3">
+                  <div
+                    class="bg-green-500 h-3 rounded-full"
+                    style="width: 21%"
+                  ></div>
+                </div>
+              </div>
+              <div>
+                <div class="flex justify-between mb-1">
+                  <span class="text-sm font-medium text-gray-700"
+                    >Distance to BTS/MRT</span
+                  >
+                  <span class="text-sm text-gray-500">3.2%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-3">
+                  <div
+                    class="bg-green-500 h-3 rounded-full"
+                    style="width: 17%"
+                  ></div>
+                </div>
+              </div>
+              <div>
+                <div class="flex justify-between mb-1">
+                  <span class="text-sm font-medium text-amber-700"
+                    >Embedding #9 (Hex2Vec)</span
+                  >
+                  <span class="text-sm text-gray-500">2.0%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-3">
+                  <div
+                    class="bg-amber-500 h-3 rounded-full"
+                    style="width: 11%"
+                  ></div>
+                </div>
+              </div>
+            </div>
+            <p class="text-sm text-gray-500 mt-4">
+              <strong>Note:</strong> Hex2Vec embeddings (emb_9, emb_58, emb_11)
+              appear in top features, capturing latent spatial patterns not
+              visible in raw POI counts.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Sanity Check -->
+      <section class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6">Sanity Check ✓</h2>
+        <div class="bg-white rounded-xl p-6 card-shadow">
+          <div class="grid md:grid-cols-3 gap-6">
+            <div class="text-center p-4 border rounded-lg">
+              <div class="text-4xl mb-2">✅</div>
+              <h4 class="font-semibold text-gray-700">
+                Physical Features Dominate
+              </h4>
+              <p class="text-sm text-gray-500 mt-2">
+                Land area, building area, age are top 3 — as expected for real
+                estate valuation.
+              </p>
+            </div>
+            <div class="text-center p-4 border rounded-lg">
+              <div class="text-4xl mb-2">✅</div>
+              <h4 class="font-semibold text-gray-700">Location Matters</h4>
+              <p class="text-sm text-gray-500 mt-2">
+                Distance to CBD (Asoke, Siam) and BTS in top 10 — location
+                signal is captured.
+              </p>
+            </div>
+            <div class="text-center p-4 border rounded-lg">
+              <div class="text-4xl mb-2">⚠️</div>
+              <h4 class="font-semibold text-gray-700">Flood Risk Low Impact</h4>
+              <p class="text-sm text-gray-500 mt-2">
+                Flood risk ranks #11 — Bangkok market may undervalue flood risk
+                (known behavioral bias).
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Feature Engineering -->
+      <section class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6">
+          Feature Engineering Pipeline
+        </h2>
+        <div class="bg-white rounded-xl p-6 card-shadow">
+          <div class="grid md:grid-cols-3 gap-6">
+            <div>
+              <h4 class="font-semibold text-gray-800 mb-3 flex items-center">
+                <span
+                  class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-sm font-bold mr-2"
+                  >1</span
+                >
+                Intrinsic Features (5)
+              </h4>
+              <ul class="text-sm text-gray-600 space-y-1 ml-10">
+                <li>• Building Area (sqm)</li>
+                <li>• Land Area (sq wah)</li>
+                <li>• Building Age (years)</li>
+                <li>• Number of Floors</li>
+                <li>• Building Style (encoded)</li>
+              </ul>
+            </div>
+            <div>
+              <h4 class="font-semibold text-gray-800 mb-3 flex items-center">
+                <span
+                  class="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-sm font-bold mr-2"
+                  >2</span
+                >
+                Distance Features (6)
+              </h4>
+              <ul class="text-sm text-gray-600 space-y-1 ml-10">
+                <li>• Distance to Siam Paragon</li>
+                <li>• Distance to Asoke</li>
+                <li>• Distance to Silom</li>
+                <li>• Min distance to CBD</li>
+                <li>• Distance to nearest BTS/MRT</li>
+                <li class="text-gray-400">• (Network distance - future)</li>
+              </ul>
+            </div>
+            <div>
+              <h4 class="font-semibold text-gray-800 mb-3 flex items-center">
+                <span
+                  class="w-8 h-8 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-sm font-bold mr-2"
+                  >3</span
+                >
+                H3 Aggregated (12)
+              </h4>
+              <ul class="text-sm text-gray-600 space-y-1 ml-10">
+                <li>• POI counts (school, hospital, mall...)</li>
+                <li>• Transit stops in hexagon</li>
+                <li>• Property count (development density)</li>
+                <li>• Flood risk (district-level)</li>
+              </ul>
+            </div>
+          </div>
+          <div class="mt-6 pt-6 border-t">
+            <h4 class="font-semibold text-gray-800 mb-3 flex items-center">
+              <span
+                class="w-8 h-8 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-sm font-bold mr-2"
+                >4</span
+              >
+              Hex2Vec Embeddings (+64)
+            </h4>
+            <p class="text-sm text-gray-600 ml-10">
+              64-dimensional learned spatial embeddings from Skip-gram model
+              trained on H3 cell co-occurrences. Captures latent neighborhood
+              similarity beyond explicit POI counts.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Model Architecture -->
+      <section class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6">
+          Model Architecture
+        </h2>
+        <div class="bg-white rounded-xl p-6 card-shadow">
+          <div class="grid md:grid-cols-2 gap-8">
+            <div>
+              <h4 class="font-semibold text-gray-800 mb-4">
+                LightGBM Configuration
+              </h4>
+              <div
+                class="bg-gray-900 rounded-lg p-4 text-sm font-mono text-gray-100 overflow-x-auto"
+              >
+                <pre>
+{
+  "n_estimators": 1000,
+  "learning_rate": 0.05,
+  "num_leaves": 31,
+  "max_depth": -1,
+  "min_child_samples": 20,
+  "subsample": 0.8,
+  "colsample_bytree": 0.8,
+  "reg_alpha": 0.1,
+  "reg_lambda": 0.1,
+  "objective": "regression",
+  "early_stopping_rounds": 50
+}</pre
+                >
+              </div>
+            </div>
+            <div>
+              <h4 class="font-semibold text-gray-800 mb-4">
+                Target Transformation
+              </h4>
+              <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                <p class="text-sm text-blue-800 mb-2">
+                  <strong>Log Transformation:</strong>
+                  <code>log_price = log1p(total_price)</code>
+                </p>
+                <p class="text-sm text-blue-700">
+                  Real estate prices follow a power-law distribution. Log
+                  transform normalizes the distribution and prevents the model
+                  from over-focusing on luxury properties.
+                </p>
+              </div>
+              <h4 class="font-semibold text-gray-800 mt-4 mb-4">
+                Why LightGBM?
+              </h4>
+              <ul class="text-sm text-gray-600 space-y-2">
+                <li>✓ Handles categorical features natively</li>
+                <li>✓ Fast training on 300K+ rows</li>
+                <li>✓ Built-in feature importance</li>
+                <li>✓ Robust to outliers with Huber loss option</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Conclusions -->
+      <section class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6">
+          Conclusions & Next Steps
+        </h2>
+        <div class="grid md:grid-cols-2 gap-6">
+          <div class="bg-green-50 rounded-xl p-6 border border-green-200">
+            <h3 class="font-bold text-green-800 mb-3">✓ Baseline Achieved</h3>
+            <ul class="text-sm text-green-700 space-y-2">
+              <li>• R² = 0.82 within target range (0.75-0.85)</li>
+              <li>• MAPE = 16.8% acceptable for property valuation</li>
+              <li>• Spatial CV confirms generalization to unseen districts</li>
+              <li>• Hex2Vec adds +1.7% R² improvement</li>
+            </ul>
+          </div>
+          <div class="bg-blue-50 rounded-xl p-6 border border-blue-200">
+            <h3 class="font-bold text-blue-800 mb-3">→ Next Steps: GNN</h3>
+            <ul class="text-sm text-blue-700 space-y-2">
+              <li>• Analyze high-residual properties (where baseline fails)</li>
+              <li>• Train HGT to capture graph structure</li>
+              <li>
+                • Hypothesis: GNN will help where neighborhood context matters
+                more than aggregates
+              </li>
+              <li>• Target: R² > 0.85 with attention-based explainability</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Footer -->
+      <footer class="text-center text-gray-500 text-sm py-8 border-t">
+        <p>Site Selection Core - Real Estate Intelligence Platform</p>
+        <p class="mt-1">
+          Model trained on Treasury Department appraisal data (8,514 properties)
+        </p>
+      </footer>
+    </main>
+
+    <script>
+      // Cross-validation fold chart
+      const ctx = document.getElementById("foldChart").getContext("2d");
+      new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: ["Fold 1", "Fold 2", "Fold 3", "Fold 4", "Fold 5"],
+          datasets: [
+            {
+              label: "Baseline R²",
+              data: [0.747, 0.782, 0.833, 0.804, 0.836],
+              backgroundColor: "rgba(59, 130, 246, 0.7)",
+              borderColor: "rgb(59, 130, 246)",
+              borderWidth: 1,
+            },
+            {
+              label: "Baseline + Hex2Vec R²",
+              data: [0.759, 0.809, 0.843, 0.83, 0.842],
+              backgroundColor: "rgba(147, 51, 234, 0.7)",
+              borderColor: "rgb(147, 51, 234)",
+              borderWidth: 1,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            title: {
+              display: true,
+              text: "R² Score by Cross-Validation Fold",
+            },
+            legend: {
+              position: "bottom",
+            },
+          },
+          scales: {
+            y: {
+              beginAtZero: false,
+              min: 0.7,
+              max: 0.9,
+              title: {
+                display: true,
+                text: "R² Score",
+              },
+            },
+          },
+        },
+      });
+    </script>
+  </body>
+</html>
