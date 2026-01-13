@@ -6,29 +6,16 @@ import {
   Settings,
   ChevronLeft,
   Menu,
-  MessageCircle,
-  X,
 } from "lucide-react";
 import { cn } from "../lib/utils";
-import { ChatPanel, type Attachment } from "./ChatPanel";
 
 interface ShellProps {
   children: React.ReactNode;
   panelContent?: React.ReactNode;
-  chatAttachments?: Attachment[];
-  onChatPickLocation?: () => void;
-  onChatRemoveAttachment?: (id: string) => void;
 }
 
-export function Shell({
-  children,
-  panelContent,
-  chatAttachments,
-  onChatPickLocation,
-  onChatRemoveAttachment,
-}: ShellProps) {
+export function Shell({ children, panelContent }: ShellProps) {
   const [isPanelOpen, setIsPanelOpen] = useState(true);
-  const [isChatOpen, setIsChatOpen] = useState(false);
 
   return (
     <div className="flex h-screen w-screen bg-black overflow-hidden">
@@ -45,29 +32,9 @@ export function Shell({
           <NavItem to="/districts" icon={BarChart2} label="Districts" />
           <NavItem to="/settings" icon={Settings} label="Settings" />
         </div>
-
-        {/* Chat Toggle Button at bottom of nav */}
-        <div className="mt-auto">
-          <button
-            type="button"
-            onClick={() => setIsChatOpen(!isChatOpen)}
-            className={cn(
-              "w-full flex flex-col items-center gap-1 py-2 transition-colors relative",
-              isChatOpen
-                ? "text-emerald-400"
-                : "text-white/40 hover:text-white/70"
-            )}
-          >
-            <MessageCircle size={20} />
-            <span className="text-[10px] font-medium">Chat</span>
-            {isChatOpen && (
-              <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-emerald-400" />
-            )}
-          </button>
-        </div>
       </nav>
 
-      {/* Main Content Area (Map) */}
+      {/* Main Content Area */}
       <div className="flex-1 relative">
         {children}
 
@@ -100,32 +67,6 @@ export function Shell({
             {isPanelOpen ? <ChevronLeft size={16} /> : <Menu size={16} />}
           </button>
         )}
-
-        {/* Chat Panel (Right Side) */}
-        <div
-          className={cn(
-            "absolute top-4 right-4 bottom-4 w-80 bg-black/80 backdrop-blur-md border border-white/10 rounded-2xl transition-all duration-300 ease-in-out z-40 flex flex-col overflow-hidden",
-            !isChatOpen && "w-0 opacity-0 pointer-events-none border-0"
-          )}
-        >
-          {isChatOpen && (
-            <>
-              <button
-                type="button"
-                onClick={() => setIsChatOpen(false)}
-                className="absolute top-3 right-3 p-1 text-white/40 hover:text-white/70 transition-colors z-10"
-              >
-                <X size={16} />
-              </button>
-              <ChatPanel
-                className="h-full"
-                attachments={chatAttachments}
-                onPickLocation={onChatPickLocation}
-                onRemoveAttachment={onChatRemoveAttachment}
-              />
-            </>
-          )}
-        </div>
       </div>
     </div>
   );

@@ -29,10 +29,12 @@ function getStatusIcon(status: AgentStepStatus) {
       return <CheckCircle2 size={14} className="text-emerald-400" />;
     case "error":
       return <AlertCircle size={14} className="text-red-400" />;
+    default:
+      return <Loader2 size={14} className="text-white/40" />;
   }
 }
 
-function getStepIcon(type: "tool_call" | "thinking") {
+function getStepIcon(type: "tool_call" | "thinking" | "waiting_user") {
   if (type === "thinking") {
     return <Brain size={14} className="text-purple-400" />;
   }

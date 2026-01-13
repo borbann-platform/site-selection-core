@@ -46,6 +46,24 @@ const ICON_PATHS: Record<IconName, string> = {
   default: "M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z",
 };
 
+export const MARKER_PATH =
+  "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z";
+
+export const POI_COLORS: Record<string, string> = {
+  school: "#8B5CF6", // Purple (Education)
+  transit: "#EAB308", // Yellow/Gold (Transit)
+  bus: "#22C55E", // Green (Bus)
+  police: "#1E3A8A", // Navy (Safety)
+  museum: "#9333EA", // Purple (Culture)
+  water: "#06B6D4", // Cyan (Water)
+  gas: "#F97316", // Orange (Utilities)
+  traffic: "#EF4444", // Red (Traffic)
+  tourist: "#EC4899", // Pink (Tourist)
+  home: "#000000", // Black (Home - though usually masked)
+  building: "#64748B", // Slate (Building)
+  default: "#94A3B8", // Gray (Default)
+};
+
 export interface IconMapping {
   x: number;
   y: number;
@@ -56,7 +74,7 @@ export interface IconMapping {
 
 export function generateIconAtlas() {
   const ICON_SIZE = 64;
-  const PADDING = 4;
+  const PADDING = 8;
   const ROW_LENGTH = 4; // Icons per row
 
   const keys = Object.keys(ICON_PATHS) as IconName[];
@@ -83,17 +101,66 @@ export function generateIconAtlas() {
     const x = col * (ICON_SIZE + PADDING);
     const y = row * (ICON_SIZE + PADDING);
 
-    // Draw icon
-    const path = new Path2D(ICON_PATHS[key]);
+    // Determine if this is a "maskable" icon (like home/building which change color by price)
+    // or a "fixed color" icon (POIs)
+    const isMaskable = key === "home" || key === "building" || key === "default";
 
     ctx.save();
     ctx.translate(x + PADDING / 2, y + PADDING / 2);
-    // Scale path to fit 64x64 (assuming paths are roughly 24x24 viewbox)
+    
+    // Scale factor to fit the 24x24 viewBox into our ICON_SIZE
     const scale = ICON_SIZE / 24;
     ctx.scale(scale, scale);
 
-    ctx.fillStyle = "white";
-    ctx.fill(path);
+    // 1. Draw Pin Body
+    const pinPath = new Path2D(MARKER_PATH);
+    
+    if (isMaskable) {
+      // For maskable icons, we draw white so DeckGL can tint it
+      ctx.fillStyle = "white";
+      ctx.fill(pinPath);
+      
+      // 2. Cut out the inner icon
+      // We want the inner icon to be transparent
+      ctx.globalCompositeOperation = "destination-out";
+      
+      // Center and scale the inner icon
+      // We scale it down to ~55% to fit nicely in the pin head
+      // Pin head center in 24x24 viewbox is approx (12, 9)
+      ctx.translate(12, 9);
+      ctx.scale(0.55, 0.55);
+      ctx.translate(-12, -12); // Center path at origin before drawing
+      
+      const iconPath = new Path2D(ICON_PATHS[key]);
+      ctx.fillStyle = "black"; // Color doesn't matter for destination-out, just opacity
+      ctx.fill(iconPath);
+    } else {
+      // For POIs, we bake the colors in
+      ctx.fillStyle = POI_COLORS[key] || POI_COLORS.default;
+      
+      // Add a subtle drop shadow for depth
+      ctx.shadowColor = "rgba(0,0,0,0.3)";
+      ctx.shadowBlur = 4;
+      ctx.shadowOffsetY = 2;
+      
+      ctx.fill(pinPath);
+      
+      // Reset shadow for inner icon
+      ctx.shadowColor = "transparent";
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetY = 0;
+
+      // 2. Draw the inner icon in white
+      // Center and scale
+      ctx.translate(12, 9);
+      ctx.scale(0.55, 0.55);
+      ctx.translate(-12, -12);
+      
+      const iconPath = new Path2D(ICON_PATHS[key]);
+      ctx.fillStyle = "white";
+      ctx.fill(iconPath);
+    }
+
     ctx.restore();
 
     mapping[key] = {
@@ -101,7 +168,7 @@ export function generateIconAtlas() {
       y: y + PADDING / 2,
       width: ICON_SIZE,
       height: ICON_SIZE,
-      mask: true,
+      mask: isMaskable, // true for home (tintable), false for POIs (baked colors)
     };
   });
 

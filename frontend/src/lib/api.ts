@@ -185,17 +185,31 @@ export type AgentEvent =
   | AgentErrorEvent;
 
 // Agent step for UI rendering
-export type AgentStepStatus = "running" | "complete" | "error";
+export type AgentStepStatus =
+  | "pending"
+  | "running"
+  | "complete"
+  | "error"
+  | "waiting";
+export type AgentStepType = "tool_call" | "thinking" | "waiting_user";
+
+export interface AgentStepWaitingFor {
+  type: "location" | "bbox" | "property" | "confirmation" | "text";
+  prompt: string;
+}
 
 export interface AgentStep {
   id: string;
-  type: "tool_call" | "thinking";
+  type: AgentStepType;
   name: string;
+  description?: string;
   status: AgentStepStatus;
   input?: Record<string, unknown>;
   output?: string;
   startTime: number;
   endTime?: number;
+  // For waiting_user steps - defines what input is expected
+  waitingFor?: AgentStepWaitingFor;
 }
 
 // Agent stream event from /chat/agent endpoint
