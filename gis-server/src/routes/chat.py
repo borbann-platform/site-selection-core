@@ -143,3 +143,271 @@ async def chat_status():
         else None,
         "max_iterations": agent_settings.AGENT_MAX_ITERATIONS,
     }
+
+
+# ============ Agent Stream Endpoint (with tool steps) ============
+
+
+class AgentStep(BaseModel):
+    id: str
+    type: str  # "tool_call"
+    name: str
+    status: str  # "running", "complete", "error"
+    input: dict | None = None
+    output: str | None = None
+    start_time: int | None = None
+    end_time: int | None = None
+
+
+class AgentStreamEvent(BaseModel):
+    event: str  # "thinking", "step", "token", "done"
+    data: dict | None = None
+
+
+def select_mock_tools(message: str) -> list[dict]:
+    """Select mock tools based on message content."""
+    lower_msg = message.lower()
+
+    if "price" in lower_msg or "ราคา" in lower_msg:
+        return [
+            {
+                "name": "search_properties",
+                "input": {"query": message, "limit": 5},
+                "output": {
+                    "count": 5,
+                    "properties": [
+                        {
+                            "id": 1,
+                            "price": 4500000,
+                            "district": "บางกะปิ",
+                            "building_style": "บ้านเดี่ยว",
+                        },
+                        {
+                            "id": 2,
+                            "price": 5200000,
+                            "district": "ลาดพร้าว",
+                            "building_style": "ทาวน์เฮ้าส์",
+                        },
+                        {
+                            "id": 3,
+                            "price": 3800000,
+                            "district": "บางกะปิ",
+                            "building_style": "บ้านเดี่ยว",
+                        },
+                    ],
+                },
+                "duration": 1.2,
+            },
+            {
+                "name": "get_market_statistics",
+                "input": {"district": "บางกะปิ"},
+                "output": {
+                    "avg_price": 4800000,
+                    "median_price": 4500000,
+                    "price_change_yoy": 5.2,
+                    "total_listings": 1245,
+                },
+                "duration": 0.8,
+            },
+        ]
+
+    if "location" in lower_msg or "area" in lower_msg or "พื้นที่" in lower_msg:
+        return [
+            {
+                "name": "get_location_intelligence",
+                "input": {
+                    "latitude": 13.7563,
+                    "longitude": 100.5018,
+                    "radius_meters": 1000,
+                },
+                "output": {
+                    "transit_score": 85,
+                    "walkability_score": 72,
+                    "flood_risk": "low",
+                    "schools_nearby": 8,
+                    "hospitals_nearby": 3,
+                },
+                "duration": 1.5,
+            },
+            {
+                "name": "analyze_catchment",
+                "input": {"latitude": 13.7563, "longitude": 100.5018, "minutes": 15},
+                "output": {
+                    "population_reached": 125000,
+                    "area_sqkm": 4.2,
+                    "transit_stops": 12,
+                },
+                "duration": 1.0,
+            },
+        ]
+
+    if "business" in lower_msg or "site" in lower_msg or "ร้าน" in lower_msg:
+        return [
+            {
+                "name": "analyze_site",
+                "input": {
+                    "latitude": 13.7563,
+                    "longitude": 100.5018,
+                    "target_category": "restaurant",
+                },
+                "output": {
+                    "site_score": 78,
+                    "competitors_count": 12,
+                    "magnets_count": 8,
+                    "traffic_potential": "High",
+                    "recommendation": "Good location for F&B business",
+                },
+                "duration": 1.8,
+            },
+        ]
+
+    # Default: knowledge retrieval
+    return [
+        {
+            "name": "retrieve_knowledge",
+            "input": {"query": message},
+            "output": {
+                "documents": [
+                    {"title": "Bangkok Real Estate Guide 2025", "relevance": 0.92},
+                    {"title": "Price Prediction Methodology", "relevance": 0.85},
+                    {"title": "District Analysis Report", "relevance": 0.78},
+                ],
+            },
+            "duration": 0.6,
+        },
+    ]
+
+
+def generate_mock_response(message: str, tools: list[dict]) -> str:
+    """Generate contextual response based on message and tools used."""
+    lower_msg = message.lower()
+
+    if "price" in lower_msg or "ราคา" in lower_msg:
+        return """Based on my analysis of the market data, the average property price in the บางกะปิ district is around **4.8 million THB**.
+
+I found several comparable properties in the area:
+- Properties range from 3.8M to 5.2M THB
+- Year-over-year price growth is approximately 5.2%
+- The median price sits at 4.5M THB
+
+Would you like me to analyze a specific location or property type in more detail?"""
+
+    if "location" in lower_msg or "area" in lower_msg or "พื้นที่" in lower_msg:
+        return """Here's my analysis of this location:
+
+**Transit Score: 85/100** - Excellent public transit access with BTS/MRT nearby
+**Walkability: 72/100** - Good walkability with essential amenities within walking distance
+**Flood Risk: Low** - This area has minimal flood concerns
+**Schools: 8 nearby** - Good options for families
+
+The 15-minute catchment area reaches approximately 125,000 people across 4.2 sq km.
+
+This is a well-connected location suitable for residential or commercial purposes."""
+
+    if "business" in lower_msg or "site" in lower_msg or "ร้าน" in lower_msg:
+        return """**Site Analysis Results**
+
+🎯 **Site Score: 78/100** - Good potential for business
+
+**Competition:** 12 similar businesses within 1km
+**Traffic Magnets:** 8 nearby (schools, transit stops, attractions)
+**Traffic Potential:** High
+
+This location has a healthy balance of foot traffic drivers while maintaining manageable competition. The proximity to transit and schools creates consistent daily traffic patterns.
+
+Would you like me to compare this with other potential sites?"""
+
+    return """I found some relevant information in our knowledge base. Based on the Bangkok real estate data we have:
+
+The Bangkok property market shows varied trends across districts. Prime areas like Sukhumvit command premium prices (10-15M+ THB), while developing areas near new transit lines offer better value (3-6M THB) with strong appreciation potential.
+
+What specific aspect would you like me to explore further?"""
+
+
+async def generate_agent_stream_with_steps(messages: list[ChatMessage]):
+    """Generate streaming response with structured tool steps."""
+    import json
+    import time
+
+    # Get the last user message
+    user_message = ""
+    for msg in reversed(messages):
+        if msg.role == "user":
+            user_message = msg.content
+            break
+
+    # Emit thinking event
+    yield f"data: {json.dumps({'event': 'thinking', 'data': {'thinking': True}})}\n\n"
+    await asyncio.sleep(0.8)
+
+    # Get mock tools for this message
+    tools = select_mock_tools(user_message)
+
+    # Execute each tool with steps
+    for i, tool in enumerate(tools):
+        step_id = f"step-{int(time.time() * 1000)}-{i}"
+        start_time = int(time.time() * 1000)
+
+        # Emit running step
+        step_running = {
+            "id": step_id,
+            "type": "tool_call",
+            "name": tool["name"],
+            "status": "running",
+            "input": tool["input"],
+            "start_time": start_time,
+        }
+        yield f"data: {json.dumps({'event': 'step', 'data': step_running})}\n\n"
+
+        # Simulate execution time
+        await asyncio.sleep(tool["duration"])
+
+        # Emit completed step
+        step_complete = {
+            "id": step_id,
+            "type": "tool_call",
+            "name": tool["name"],
+            "status": "complete",
+            "input": tool["input"],
+            "output": json.dumps(tool["output"], ensure_ascii=False),
+            "start_time": start_time,
+            "end_time": int(time.time() * 1000),
+        }
+        yield f"data: {json.dumps({'event': 'step', 'data': step_complete})}\n\n"
+
+        # Brief pause between tools
+        if i < len(tools) - 1:
+            yield f"data: {json.dumps({'event': 'thinking', 'data': {'thinking': True}})}\n\n"
+            await asyncio.sleep(0.4)
+
+    # Stream final response
+    yield f"data: {json.dumps({'event': 'thinking', 'data': {'thinking': False}})}\n\n"
+
+    response = generate_mock_response(user_message, tools)
+    for char in response:
+        yield f"data: {json.dumps({'event': 'token', 'data': {'token': char}})}\n\n"
+        await asyncio.sleep(0.015 + random.random() * 0.025)
+
+    yield f"data: {json.dumps({'event': 'done', 'data': None})}\n\n"
+
+
+@router.post("/agent")
+async def agent_chat(request: ChatRequest):
+    """
+    Stream agent chat responses with structured tool steps.
+    Returns Server-Sent Events (SSE) with JSON-formatted events.
+
+    Event types:
+    - thinking: Agent is processing
+    - step: Tool call step (running or complete)
+    - token: Text token for response
+    - done: Stream complete
+    """
+    return StreamingResponse(
+        generate_agent_stream_with_steps(request.messages),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        },
+    )

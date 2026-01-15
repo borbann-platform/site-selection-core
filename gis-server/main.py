@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from src.routes.admin import router as admin_router
 from src.routes.analytics import router as analytics_router
 from src.routes.catchment import catchment_service
 from src.routes.catchment import router as catchment_router
@@ -59,6 +60,7 @@ app.include_router(
     hgt_prediction_router, prefix="/api/v1", tags=["HGT Price Prediction"]
 )
 app.include_router(transit_router, prefix="/api/v1", tags=["Transit"])
+app.include_router(admin_router, prefix="/api/v1", tags=["Admin"])
 
 
 @app.get("/", tags=["Root"])

@@ -6,13 +6,77 @@ import {
   Bell,
   Shield,
   User,
+  RefreshCw,
+  Trash2,
+  Loader2,
+  CheckCircle,
+  XCircle,
 } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { api, type AdminCacheStatusResponse } from "../lib/api";
 
 export const Route = createFileRoute("/settings")({
   component: SettingsPage,
 });
 
 function SettingsPage() {
+  const [cacheStatus, setCacheStatus] =
+    useState<AdminCacheStatusResponse | null>(null);
+  const [isRefreshingPOIs, setIsRefreshingPOIs] = useState(false);
+  const [isClearingCache, setIsClearingCache] = useState(false);
+  const [lastAction, setLastAction] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+
+  // Fetch cache status on mount and after actions
+  const fetchCacheStatus = useCallback(async () => {
+    try {
+      const status = await api.getCacheStatus();
+      setCacheStatus(status);
+    } catch (e) {
+      console.error("Failed to fetch cache status:", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCacheStatus();
+  }, [fetchCacheStatus]);
+
+  const handleRefreshPOIs = async () => {
+    setIsRefreshingPOIs(true);
+    setLastAction(null);
+    try {
+      const result = await api.refreshPOIs();
+      setLastAction({ type: "success", message: result.message });
+      fetchCacheStatus();
+    } catch (e) {
+      setLastAction({
+        type: "error",
+        message: e instanceof Error ? e.message : "Failed to refresh POI data",
+      });
+    } finally {
+      setIsRefreshingPOIs(false);
+    }
+  };
+
+  const handleClearCache = async () => {
+    setIsClearingCache(true);
+    setLastAction(null);
+    try {
+      const result = await api.clearTileCache();
+      setLastAction({ type: "success", message: result.message });
+      fetchCacheStatus();
+    } catch (e) {
+      setLastAction({
+        type: "error",
+        message: e instanceof Error ? e.message : "Failed to clear cache",
+      });
+    } finally {
+      setIsClearingCache(false);
+    }
+  };
+
   return (
     <Shell>
       <div className="h-full w-full bg-black text-white overflow-y-auto custom-scrollbar">
@@ -86,10 +150,16 @@ function SettingsPage() {
                     </div>
                   </div>
                   <div className="flex bg-black/50 rounded-lg p-1 border border-white/10">
-                    <button className="px-3 py-1 rounded bg-white/20 text-xs font-bold">
+                    <button
+                      type="button"
+                      className="px-3 py-1 rounded bg-white/20 text-xs font-bold"
+                    >
                       Walk
                     </button>
-                    <button className="px-3 py-1 rounded text-white/40 text-xs font-bold hover:text-white">
+                    <button
+                      type="button"
+                      className="px-3 py-1 rounded text-white/40 text-xs font-bold hover:text-white"
+                    >
                       Drive
                     </button>
                   </div>
@@ -132,8 +202,101 @@ function SettingsPage() {
                       Manage access tokens
                     </div>
                   </div>
-                  <button className="text-sm font-bold text-white/60 hover:text-white">
+                  <button
+                    type="button"
+                    className="text-sm font-bold text-white/60 hover:text-white"
+                  >
                     Manage
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            {/* Data Management (Admin) */}
+            <section className="space-y-4">
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <RefreshCw size={20} className="text-cyan-400" />
+                Data Management
+              </h2>
+
+              {/* Status message */}
+              {lastAction && (
+                <div
+                  className={`flex items-center gap-2 p-3 rounded-lg ${
+                    lastAction.type === "success"
+                      ? "bg-emerald-500/20 text-emerald-400"
+                      : "bg-red-500/20 text-red-400"
+                  }`}
+                >
+                  {lastAction.type === "success" ? (
+                    <CheckCircle size={16} />
+                  ) : (
+                    <XCircle size={16} />
+                  )}
+                  <span className="text-sm">{lastAction.message}</span>
+                </div>
+              )}
+
+              <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+                {/* Cache Status */}
+                <div className="p-6 border-b border-white/10 flex items-center justify-between">
+                  <div>
+                    <div className="font-medium">Tile Cache Status</div>
+                    <div className="text-sm text-white/60">
+                      Cached tiles for faster map loading
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-lg font-mono text-emerald-400">
+                      {cacheStatus?.tile_cache_size ?? "—"}
+                    </div>
+                    <div className="text-xs text-white/40">tiles cached</div>
+                  </div>
+                </div>
+
+                {/* Refresh POI Data */}
+                <div className="p-6 border-b border-white/10 flex items-center justify-between">
+                  <div>
+                    <div className="font-medium">Refresh POI Data</div>
+                    <div className="text-sm text-white/60">
+                      Update materialized view from source tables
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRefreshPOIs}
+                    disabled={isRefreshingPOIs}
+                    className="flex items-center gap-2 px-4 py-2 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {isRefreshingPOIs ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <RefreshCw size={16} />
+                    )}
+                    {isRefreshingPOIs ? "Refreshing..." : "Refresh POIs"}
+                  </button>
+                </div>
+
+                {/* Clear Tile Cache */}
+                <div className="p-6 flex items-center justify-between">
+                  <div>
+                    <div className="font-medium">Clear Tile Cache</div>
+                    <div className="text-sm text-white/60">
+                      Force fresh tile generation on next load
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleClearCache}
+                    disabled={isClearingCache}
+                    className="flex items-center gap-2 px-4 py-2 bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {isClearingCache ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <Trash2 size={16} />
+                    )}
+                    {isClearingCache ? "Clearing..." : "Clear Cache"}
                   </button>
                 </div>
               </div>

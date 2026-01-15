@@ -34,6 +34,8 @@ dependencies = [
     "langchain-postgres>=0.0.12",
     "pgvector>=0.3.0",
     "lightgbm>=4.6.0",
+    "pyrosm>=0.6.2",
+    "osmium>=4.2.0",
 ]
 
 [tool.uv]

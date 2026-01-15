@@ -138,3 +138,42 @@ code {
     @apply bg-background text-foreground;
   }
 }
+
+/* Map Cursor Styles */
+.cursor-crosshair {
+  cursor: crosshair !important;
+}
+
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Animations */
+@keyframes loading-bar {
+  0% { transform: translateX(-100%); }
+  50% { transform: translateX(100%); }
+  100% { transform: translateX(300%); }
+}
+.animate-loading-bar {
+  animation: loading-bar 1.5s infinite linear;
+}
+
+@keyframes bounce-slight {
+  0%, 100% { transform: translate(-50%, 0); }
+  50% { transform: translate(-50%, -10%); }
+}
+.animate-bounce-slight {
+  animation: bounce-slight 2s infinite ease-in-out;
+}

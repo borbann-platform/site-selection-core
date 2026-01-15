@@ -9,12 +9,18 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ValuationRouteImport } from './routes/valuation'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as DistrictsRouteImport } from './routes/districts'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SiteSiteIdRouteImport } from './routes/site/$siteId'
 import { Route as PropertyPropertyIdRouteImport } from './routes/property/$propertyId'
 
+const ValuationRoute = ValuationRouteImport.update({
+  id: '/valuation',
+  path: '/valuation',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -45,6 +51,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/districts': typeof DistrictsRoute
   '/settings': typeof SettingsRoute
+  '/valuation': typeof ValuationRoute
   '/property/$propertyId': typeof PropertyPropertyIdRoute
   '/site/$siteId': typeof SiteSiteIdRoute
 }
@@ -52,6 +59,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/districts': typeof DistrictsRoute
   '/settings': typeof SettingsRoute
+  '/valuation': typeof ValuationRoute
   '/property/$propertyId': typeof PropertyPropertyIdRoute
   '/site/$siteId': typeof SiteSiteIdRoute
 }
@@ -60,6 +68,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/districts': typeof DistrictsRoute
   '/settings': typeof SettingsRoute
+  '/valuation': typeof ValuationRoute
   '/property/$propertyId': typeof PropertyPropertyIdRoute
   '/site/$siteId': typeof SiteSiteIdRoute
 }
@@ -69,6 +78,7 @@ export interface FileRouteTypes {
     | '/'
     | '/districts'
     | '/settings'
+    | '/valuation'
     | '/property/$propertyId'
     | '/site/$siteId'
   fileRoutesByTo: FileRoutesByTo
@@ -76,6 +86,7 @@ export interface FileRouteTypes {
     | '/'
     | '/districts'
     | '/settings'
+    | '/valuation'
     | '/property/$propertyId'
     | '/site/$siteId'
   id:
@@ -83,6 +94,7 @@ export interface FileRouteTypes {
     | '/'
     | '/districts'
     | '/settings'
+    | '/valuation'
     | '/property/$propertyId'
     | '/site/$siteId'
   fileRoutesById: FileRoutesById
@@ -91,12 +103,20 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DistrictsRoute: typeof DistrictsRoute
   SettingsRoute: typeof SettingsRoute
+  ValuationRoute: typeof ValuationRoute
   PropertyPropertyIdRoute: typeof PropertyPropertyIdRoute
   SiteSiteIdRoute: typeof SiteSiteIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/valuation': {
+      id: '/valuation'
+      path: '/valuation'
+      fullPath: '/valuation'
+      preLoaderRoute: typeof ValuationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings': {
       id: '/settings'
       path: '/settings'
@@ -139,6 +159,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DistrictsRoute: DistrictsRoute,
   SettingsRoute: SettingsRoute,
+  ValuationRoute: ValuationRoute,
   PropertyPropertyIdRoute: PropertyPropertyIdRoute,
   SiteSiteIdRoute: SiteSiteIdRoute,
 }

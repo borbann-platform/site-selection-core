@@ -11,6 +11,7 @@ from scripts.etl.load_contributed_pois import load_contributed_pois
 from scripts.etl.load_gtfs import DATA_ROOT as GTFS_DATA_ROOT
 from scripts.etl.load_gtfs import GTFS_SOURCES, load_shapes, load_stops
 from scripts.etl.load_house_prices import load_house_prices
+from scripts.etl.load_osm_pois import load_osm_pois
 from scripts.etl.load_places import (
     load_bus_shelters,
     load_gas_stations,
@@ -48,6 +49,10 @@ def main():
 
         # Contributed POIs
         load_contributed_pois(db)
+
+        # OSM Thailand POIs (extends coverage beyond Bangkok-only datasets)
+        # Run after contributed_pois so dedup can check against them
+        load_osm_pois(db, skip_dedup=False)
 
         # Transit
         for source in GTFS_SOURCES:

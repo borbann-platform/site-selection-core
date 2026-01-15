@@ -1,5 +1,5 @@
 from geoalchemy2 import Geometry
-from sqlalchemy import Integer, String
+from sqlalchemy import Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 from src.config.database import Base
 
@@ -13,6 +13,10 @@ class TransitStop(Base):
     wheelchair_boarding: Mapped[str | None] = mapped_column(String, nullable=True)
     source: Mapped[str | None] = mapped_column(String, nullable=True)
     geometry = mapped_column(Geometry("POINT", srid=4326), nullable=True)
+
+    __table_args__ = (
+        Index("idx_transit_stops_geometry", "geometry", postgresql_using="gist"),
+    )
 
 
 class TransitShape(Base):

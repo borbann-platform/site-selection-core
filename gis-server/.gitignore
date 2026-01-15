@@ -16,3 +16,13 @@ __pycache__
 .DS_Store
 
 /data/
+
+# S2-HGT Model Artifacts (use Git LFS or separate storage)
+models/s2hgt/
+models/s2hgt_subset/
+
+# Training Logs
+train_s2hgt*.log
+
+# Cache directory
+cache/

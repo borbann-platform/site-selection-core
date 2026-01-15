@@ -1,0 +1,571 @@
+/**
+ * Valuation Report - Displays comprehensive property valuation results.
+ * Shows estimated price, factors, comparables, and investment insights.
+ */
+
+import { useState } from "react";
+import { cn } from "@/lib/utils";
+import {
+  TrendingUp,
+  TrendingDown,
+  BarChart3,
+  Home,
+  MapPin,
+  Scale,
+  AlertTriangle,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Info,
+  Building2,
+  Download,
+  Share2,
+  ArrowLeft,
+  Sparkles,
+  Calendar,
+  DollarSign,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import type {
+  ValuationResponse,
+  PropertyUploadRequest,
+  LocationIntelligenceResponse,
+} from "@/lib/api";
+import { LocationIntelligencePanel } from "@/components/LocationIntelligence";
+
+interface ValuationReportProps {
+  valuation: ValuationResponse;
+  propertyData: PropertyUploadRequest;
+  locationIntelligence?: LocationIntelligenceResponse | null;
+  onBack: () => void;
+  onNewValuation: () => void;
+}
+
+function formatPrice(price: number): string {
+  if (price >= 1_000_000) {
+    return `฿${(price / 1_000_000).toFixed(2)}M`;
+  }
+  return `฿${price.toLocaleString()}`;
+}
+
+function ConfidenceBadge({ level }: { level: "high" | "medium" | "low" }) {
+  const config = {
+    high: {
+      bg: "bg-emerald-500/20",
+      text: "text-emerald-400",
+      border: "border-emerald-500/30",
+      icon: CheckCircle2,
+      label: "High Confidence",
+      description: "Strong data support for this valuation",
+    },
+    medium: {
+      bg: "bg-amber-500/20",
+      text: "text-amber-400",
+      border: "border-amber-500/30",
+      icon: Info,
+      label: "Medium Confidence",
+      description: "Moderate data support; consider additional verification",
+    },
+    low: {
+      bg: "bg-rose-500/20",
+      text: "text-rose-400",
+      border: "border-rose-500/30",
+      icon: AlertTriangle,
+      label: "Low Confidence",
+      description: "Limited data; valuation is an estimate only",
+    },
+  };
+  const { bg, text, border, icon: Icon, label, description } = config[level];
+
+  return (
+    <div className={cn("p-4 rounded-lg border", bg, border)}>
+      <div className="flex items-center gap-2 mb-1">
+        <Icon size={18} className={text} />
+        <span className={cn("font-semibold", text)}>{label}</span>
+      </div>
+      <p className="text-xs text-white/60">{description}</p>
+    </div>
+  );
+}
+
+function FactorBar({
+  factor,
+  maxImpact,
+}: {
+  factor: ValuationResponse["factors"][0];
+  maxImpact: number;
+}) {
+  const widthPercent = Math.min(
+    (Math.abs(factor.impact) / maxImpact) * 100,
+    100
+  );
+  const isPositive = factor.direction === "positive";
+
+  return (
+    <div className="mb-3">
+      <div className="flex justify-between text-sm mb-1">
+        <span className="text-white/80">{factor.display_name}</span>
+        <span
+          className={cn(
+            "font-mono",
+            isPositive ? "text-emerald-400" : "text-rose-400"
+          )}
+        >
+          {isPositive ? "+" : ""}
+          {formatPrice(factor.impact)}
+        </span>
+      </div>
+      <div className="flex items-center gap-2">
+        <div className="flex-1 h-5 bg-white/5 rounded relative overflow-hidden">
+          <div
+            className={cn(
+              "absolute h-full rounded transition-all",
+              isPositive ? "bg-emerald-500/70" : "bg-rose-500/70"
+            )}
+            style={{ width: `${widthPercent}%` }}
+          />
+        </div>
+      </div>
+      <p className="text-xs text-white/50 mt-1">{factor.description}</p>
+    </div>
+  );
+}
+
+function ComparableCard({
+  comp,
+}: {
+  comp: ValuationResponse["comparable_properties"][0];
+}) {
+  return (
+    <div className="bg-white/5 rounded-lg p-3 border border-white/10">
+      <div className="flex items-start justify-between mb-2">
+        <div>
+          <p className="text-sm font-medium text-white">
+            {comp.building_style_desc}
+          </p>
+          <p className="text-xs text-white/50">{Math.round(comp.distance_m)}m away</p>
+        </div>
+        <p className="text-sm font-semibold text-emerald-400">
+          {formatPrice(comp.price)}
+        </p>
+      </div>
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-white/50">{comp.building_area} sqm</span>
+        <div className="flex items-center gap-1">
+          <span className="text-white/50">Similarity:</span>
+          <span className="text-emerald-400 font-medium">
+            {comp.similarity_score}%
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SectionHeader({
+  icon: Icon,
+  title,
+  expandable,
+  expanded,
+  onToggle,
+}: {
+  icon: React.ComponentType<{ className?: string; size?: number }>;
+  title: string;
+  expandable?: boolean;
+  expanded?: boolean;
+  onToggle?: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      disabled={!expandable}
+      className={cn(
+        "flex items-center gap-2 w-full text-left",
+        expandable && "cursor-pointer hover:text-white transition-colors"
+      )}
+    >
+      <Icon size={16} className="text-emerald-400" />
+      <span className="font-semibold text-white text-sm flex-1">{title}</span>
+      {expandable &&
+        (expanded ? (
+          <ChevronUp size={14} className="text-white/50" />
+        ) : (
+          <ChevronDown size={14} className="text-white/50" />
+        ))}
+    </button>
+  );
+}
+
+export function ValuationReport({
+  valuation,
+  propertyData,
+  locationIntelligence,
+  onBack,
+  onNewValuation,
+}: ValuationReportProps) {
+  const [showFactors, setShowFactors] = useState(true);
+  const [showComparables, setShowComparables] = useState(true);
+  const [showInsights, setShowInsights] = useState(true);
+
+  const maxImpact = Math.max(
+    ...valuation.factors.map((f) => Math.abs(f.impact))
+  );
+
+  // Calculate if asking price is good value
+  const askingPriceDiff = propertyData.asking_price
+    ? ((propertyData.asking_price - valuation.estimated_price) /
+        valuation.estimated_price) *
+      100
+    : null;
+
+  return (
+    <div className="max-w-3xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <Button
+          variant="ghost"
+          onClick={onBack}
+          className="text-white/70 hover:text-white hover:bg-white/10"
+        >
+          <ArrowLeft size={16} className="mr-2" />
+          Back to Form
+        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            className="border-white/20 bg-white/5 text-white hover:bg-white/10"
+            onClick={() => {
+              // Mock download functionality
+              alert("Report download feature coming soon!");
+            }}
+          >
+            <Download size={14} className="mr-2" />
+            Download
+          </Button>
+          <Button
+            variant="outline"
+            className="border-white/20 bg-white/5 text-white hover:bg-white/10"
+            onClick={() => {
+              // Mock share functionality
+              alert("Share feature coming soon!");
+            }}
+          >
+            <Share2 size={14} className="mr-2" />
+            Share
+          </Button>
+        </div>
+      </div>
+
+      {/* Main Valuation Card */}
+      <div className="bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 border border-emerald-500/30 rounded-2xl p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Sparkles size={20} className="text-emerald-400" />
+          <h2 className="text-lg font-semibold text-white">
+            AI Property Valuation
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Estimated Price */}
+          <div>
+            <p className="text-sm text-white/60 mb-1">Estimated Value</p>
+            <p className="text-4xl font-bold text-emerald-400">
+              {formatPrice(valuation.estimated_price)}
+            </p>
+            <p className="text-sm text-white/50 mt-1">
+              Range: {formatPrice(valuation.price_range.min)} -{" "}
+              {formatPrice(valuation.price_range.max)}
+            </p>
+          </div>
+
+          {/* Price per sqm */}
+          <div className="flex flex-col justify-center">
+            <div className="bg-black/30 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <DollarSign size={16} className="text-white/50" />
+                <span className="text-sm text-white/70">Price per sqm</span>
+              </div>
+              <p className="text-2xl font-bold text-white">
+                ฿{valuation.price_per_sqm.toLocaleString()}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Asking Price Comparison */}
+        {propertyData.asking_price && askingPriceDiff !== null && (
+          <div
+            className={cn(
+              "mt-4 p-4 rounded-lg border",
+              askingPriceDiff <= 0
+                ? "bg-emerald-500/10 border-emerald-500/30"
+                : askingPriceDiff <= 10
+                  ? "bg-amber-500/10 border-amber-500/30"
+                  : "bg-rose-500/10 border-rose-500/30"
+            )}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-white/70">Your Asking Price</p>
+                <p className="text-xl font-bold text-white">
+                  {formatPrice(propertyData.asking_price)}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-white/70">vs. Our Estimate</p>
+                <p
+                  className={cn(
+                    "text-xl font-bold",
+                    askingPriceDiff <= 0
+                      ? "text-emerald-400"
+                      : askingPriceDiff <= 10
+                        ? "text-amber-400"
+                        : "text-rose-400"
+                  )}
+                >
+                  {askingPriceDiff > 0 ? "+" : ""}
+                  {askingPriceDiff.toFixed(1)}%
+                </p>
+              </div>
+            </div>
+            <p className="text-xs text-white/50 mt-2">
+              {askingPriceDiff <= 0
+                ? "Your asking price is at or below our estimate - good value for buyers!"
+                : askingPriceDiff <= 10
+                  ? "Your asking price is slightly above our estimate - within negotiable range."
+                  : "Your asking price is significantly above our estimate - may need adjustment."}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Confidence Badge */}
+      <ConfidenceBadge level={valuation.confidence} />
+
+      {/* Property Summary */}
+      <div className="bg-black/40 border border-white/10 rounded-lg p-6">
+        <SectionHeader icon={Building2} title="Property Summary" />
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
+          <SummaryItem
+            icon={Home}
+            label="Type"
+            value={propertyData.building_style}
+          />
+          <SummaryItem
+            icon={Building2}
+            label="Building Area"
+            value={`${propertyData.building_area} sqm`}
+          />
+          {propertyData.land_area && (
+            <SummaryItem
+              icon={MapPin}
+              label="Land Area"
+              value={`${propertyData.land_area} sqm`}
+            />
+          )}
+          <SummaryItem
+            icon={Building2}
+            label="Floors"
+            value={`${propertyData.no_of_floor}`}
+          />
+          <SummaryItem
+            icon={Calendar}
+            label="Building Age"
+            value={`${propertyData.building_age} years`}
+          />
+          <SummaryItem
+            icon={MapPin}
+            label="District"
+            value={propertyData.amphur}
+          />
+        </div>
+      </div>
+
+      {/* Price Factors */}
+      <div className="bg-black/40 border border-white/10 rounded-lg p-6">
+        <SectionHeader
+          icon={Scale}
+          title="How We Calculated This"
+          expandable
+          expanded={showFactors}
+          onToggle={() => setShowFactors(!showFactors)}
+        />
+        {showFactors && (
+          <div className="mt-4">
+            {valuation.factors.map((factor) => (
+              <FactorBar key={factor.name} factor={factor} maxImpact={maxImpact} />
+            ))}
+            <div className="flex gap-4 text-xs text-white/40 mt-3 pt-3 border-t border-white/10">
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded bg-emerald-500/70" />
+                <span>Increases value</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded bg-rose-500/70" />
+                <span>Decreases value</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Comparable Properties */}
+      {valuation.comparable_properties.length > 0 && (
+        <div className="bg-black/40 border border-white/10 rounded-lg p-6">
+          <SectionHeader
+            icon={Home}
+            title={`Similar Properties (${valuation.comparable_properties.length})`}
+            expandable
+            expanded={showComparables}
+            onToggle={() => setShowComparables(!showComparables)}
+          />
+          {showComparables && (
+            <div className="mt-4 space-y-3">
+              {valuation.comparable_properties.map((comp) => (
+                <ComparableCard key={comp.id} comp={comp} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Market Insights */}
+      <div className="bg-black/40 border border-white/10 rounded-lg p-6">
+        <SectionHeader
+          icon={TrendingUp}
+          title="Market Insights"
+          expandable
+          expanded={showInsights}
+          onToggle={() => setShowInsights(!showInsights)}
+        />
+        {showInsights && (
+          <div className="mt-4 grid grid-cols-3 gap-4">
+            <div className="bg-white/5 rounded-lg p-4 text-center">
+              <BarChart3
+                size={20}
+                className="text-emerald-400 mx-auto mb-2"
+              />
+              <p className="text-xs text-white/50 mb-1">District Avg.</p>
+              <p className="text-lg font-bold text-white">
+                {formatPrice(valuation.market_insights.district_avg_price)}
+              </p>
+            </div>
+            <div className="bg-white/5 rounded-lg p-4 text-center">
+              {valuation.market_insights.district_price_trend >= 0 ? (
+                <TrendingUp
+                  size={20}
+                  className="text-emerald-400 mx-auto mb-2"
+                />
+              ) : (
+                <TrendingDown
+                  size={20}
+                  className="text-rose-400 mx-auto mb-2"
+                />
+              )}
+              <p className="text-xs text-white/50 mb-1">Price Trend</p>
+              <p
+                className={cn(
+                  "text-lg font-bold",
+                  valuation.market_insights.district_price_trend >= 0
+                    ? "text-emerald-400"
+                    : "text-rose-400"
+                )}
+              >
+                +{valuation.market_insights.district_price_trend.toFixed(1)}%
+              </p>
+            </div>
+            <div className="bg-white/5 rounded-lg p-4 text-center">
+              <Calendar size={20} className="text-white/50 mx-auto mb-2" />
+              <p className="text-xs text-white/50 mb-1">Avg. Days Listed</p>
+              <p className="text-lg font-bold text-white">
+                {valuation.market_insights.days_on_market_avg}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Location Intelligence */}
+      {locationIntelligence && (
+        <div className="bg-black/40 border border-white/10 rounded-lg p-6">
+          <LocationIntelligencePanel
+            data={locationIntelligence}
+            isLoading={false}
+          />
+        </div>
+      )}
+
+      {/* Call to Actions */}
+      <div className="bg-gradient-to-r from-emerald-500/10 to-blue-500/10 border border-white/10 rounded-lg p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">
+          What's Next?
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-black/40 rounded-lg p-4 border border-white/10">
+            <h4 className="font-medium text-white mb-2">
+              Get Professional Appraisal
+            </h4>
+            <p className="text-sm text-white/60 mb-3">
+              Connect with certified appraisers for an official valuation
+              report.
+            </p>
+            <Button
+              variant="outline"
+              className="w-full border-white/20 bg-white/5 text-white hover:bg-white/10"
+              onClick={() => alert("Coming soon!")}
+            >
+              Request Appraisal
+            </Button>
+          </div>
+          <div className="bg-black/40 rounded-lg p-4 border border-white/10">
+            <h4 className="font-medium text-white mb-2">List Your Property</h4>
+            <p className="text-sm text-white/60 mb-3">
+              Ready to sell? List your property on our platform.
+            </p>
+            <Button
+              className="w-full bg-emerald-500 hover:bg-emerald-600 text-black"
+              onClick={() => alert("Coming soon!")}
+            >
+              List Property
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* New Valuation Button */}
+      <div className="text-center pb-8">
+        <Button
+          variant="outline"
+          onClick={onNewValuation}
+          className="border-white/20 bg-white/5 text-white hover:bg-white/10"
+        >
+          <Sparkles size={14} className="mr-2" />
+          Get Another Valuation
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function SummaryItem({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: React.ComponentType<{ className?: string; size?: number }>;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="bg-white/5 rounded-lg p-3">
+      <div className="flex items-center gap-2 mb-1">
+        <Icon size={12} className="text-white/50" />
+        <span className="text-xs text-white/50">{label}</span>
+      </div>
+      <p className="text-sm font-medium text-white">{value}</p>
+    </div>
+  );
+}
+
+export default ValuationReport;

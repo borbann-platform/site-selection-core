@@ -19,14 +19,19 @@ A FastAPI backend for real estate information, price prediction AI, and property
     uv sync
     ```
 
-3.  **Load Data** (Run once)
+3.  **Initialize & Load Data** (Run once)
     ```bash
-    # Load Points of Interest (OSM)
-    uv run python scripts/load_data.py
+    # Create database tables
+    uv run python -m scripts.init_db
     
-    # Load Population Grid
-    uv run python scripts/load_demographics.py
+    # Load all data (POIs, transit, real estate, demographics)
+    uv run python -m scripts.etl.load_all
+    
+    # Create unified views
+    uv run python -m scripts.create_views
     ```
+    
+    > ⏱️ Full data load takes ~10-15 minutes. See [docs/data_processing.md](docs/data_processing.md) for details.
 
 4.  **Run Server**
     ```bash
@@ -37,6 +42,21 @@ A FastAPI backend for real estate information, price prediction AI, and property
 
 - **API Docs (Swagger UI):** [http://localhost:8000/docs](http://localhost:8000/docs)
 - **Frontend API Guide:** [docs/api.md](docs/api.md)
+- **Data Processing:** [docs/data_processing.md](docs/data_processing.md)
+- **Data Catalog:** [data/DATA_CATALOG.md](data/DATA_CATALOG.md)
+
+## Data Sources
+
+The platform integrates multiple data sources:
+
+| Category | Sources | Records |
+|----------|---------|---------|
+| POIs | Longdomap, OSM Thailand, BMA | ~710K |
+| Transit | Bangkok GTFS (BTS/MRT/ARL), BMTA Bus | ~18K stops |
+| Real Estate | Bania, Hipflat, Treasury | ~75K listings |
+| Demographics | Bangkok Population Grid | ~6.6K cells |
+
+See [docs/data_processing.md](docs/data_processing.md) for detailed loading instructions.
 
 ## AI Chat Agent Setup (Optional)
 
