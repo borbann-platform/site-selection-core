@@ -6,6 +6,7 @@ import {
   Settings,
   ChevronLeft,
   Menu,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 
@@ -30,6 +31,7 @@ export function Shell({ children, panelContent }: ShellProps) {
         <div className="flex flex-col gap-6 w-full">
           <NavItem to="/" icon={MapIcon} label="Map" />
           <NavItem to="/districts" icon={BarChart2} label="Districts" />
+          <NavItem to="/valuation" icon={Sparkles} label="Valuation" highlight />
           <NavItem to="/settings" icon={Settings} label="Settings" />
         </div>
       </nav>
@@ -76,10 +78,12 @@ function NavItem({
   to,
   icon: Icon,
   label,
+  highlight,
 }: {
   to: string;
   icon: React.ComponentType<{ size?: number }>;
   label: string;
+  highlight?: boolean;
 }) {
   const location = useLocation();
   const isActive = location.pathname === to;
@@ -89,7 +93,11 @@ function NavItem({
       to={to}
       className={cn(
         "w-full flex flex-col items-center gap-1 py-2 transition-colors relative",
-        isActive ? "text-emerald-400" : "text-white/40 hover:text-white/70"
+        isActive
+          ? "text-emerald-400"
+          : highlight
+            ? "text-emerald-400/70 hover:text-emerald-400"
+            : "text-white/40 hover:text-white/70"
       )}
     >
       <Icon size={20} />

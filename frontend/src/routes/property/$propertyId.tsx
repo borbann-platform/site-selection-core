@@ -8,7 +8,7 @@ import { MapContainer } from "@/components/MapContainer";
 import { api } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LocationIntelligencePanel } from "@/components/LocationIntelligence";
-import { PriceExplanation } from "@/components/PriceExplanation";
+import { ComprehensivePriceReport } from "@/components/ComprehensivePriceReport";
 import { ScatterplotLayer } from "@deck.gl/layers";
 import {
   Home,
@@ -332,9 +332,9 @@ function PropertyDetailPage() {
 
               {/* Price Explanation */}
               <div className="mt-6">
-                <PriceExplanation
+                <ComprehensivePriceReport
                   propertyId={id}
-                  actualPrice={property.total_price}
+                  property={property}
                 />
               </div>
             </div>
