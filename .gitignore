@@ -6,3 +6,9 @@ node_modules
 coverage
 dist
 build
+
+# Cache directories
+cache/
+
+# Presentation/planning docs (one-time use)
+presentation_structure.md

@@ -23,3 +23,6 @@ models/s2hgt_subset/
 
 # Training Logs
 train_s2hgt*.log
+
+# Cache directory
+cache/
