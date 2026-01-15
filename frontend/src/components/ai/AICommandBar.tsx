@@ -29,10 +29,8 @@ interface AICommandBarProps {
 }
 
 const EXAMPLE_PROMPTS = [
-  "Find houses under 15M near BTS Sukhumvit",
-  "Show me undervalued properties with high growth potential",
-  "Properties near future BTS extensions",
-  "Houses with 150+ sqw land in low flood risk areas",
+  "Why are Soi 39 houses pricier than Soi 71?",
+  "Show me undervalued homes near international schools.",
 ];
 
 export function AICommandBar({

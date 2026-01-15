@@ -2,7 +2,8 @@ import { useRef, useEffect, useState } from "react";
 import { Bot, User, ChevronDown, ChevronUp } from "lucide-react";
 import type { FilterValues } from "./QuickFilters";
 import { QuickFilters } from "./QuickFilters";
-import { ThinkingProcess, StreamingText } from "../ThinkingIndicator";
+import { ThinkingProcess } from "../ThinkingIndicator";
+import { StreamingMarkdown } from "../ui/markdown";
 import { AgentStepCard, AgentStepBadge } from "../AgentStepCard";
 import {
   PropertyResultsCard,
@@ -183,12 +184,10 @@ function AssistantMessage({ message, onPropertyClick }: AssistantMessageProps) {
           </div>
         )}
 
-        {/* Message content with streaming cursor */}
+        {/* Message content with streaming cursor and markdown rendering */}
         {cleanContent && (
-          <div className="max-w-full rounded-xl px-3 py-2 text-sm bg-white/5 text-white/90">
-            <div className="whitespace-pre-wrap break-words">
-              <StreamingText text={cleanContent} isStreaming={message.isStreaming} />
-            </div>
+          <div className="max-w-full rounded-xl px-3 py-2 text-sm bg-white/5">
+            <StreamingMarkdown content={cleanContent} isStreaming={message.isStreaming} />
           </div>
         )}
 

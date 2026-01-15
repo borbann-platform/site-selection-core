@@ -722,7 +722,7 @@ function PropertyExplorer() {
       );
     }
 
-    // Overlay: Chat Selection Markers
+    // Overlay: Chat Selection Markers (Location points)
     const locationAttachments = chatAttachments.filter(
       (a) => a.type === "location"
     );
@@ -747,6 +747,26 @@ function PropertyExplorer() {
       );
     }
 
+    // Overlay: Bbox Selection Corners (blue dots while selecting)
+    if (selectionMode === "bbox" && bboxCorners.length > 0) {
+      layerList.push(
+        new ScatterplotLayer({
+          id: "bbox-selection-corners",
+          data: bboxCorners,
+          getPosition: (d: [number, number]) => d,
+          getFillColor: [0, 180, 255], // Cyan/Blue
+          getRadius: 150,
+          pickable: false,
+          opacity: 1,
+          stroked: true,
+          getLineColor: [255, 255, 255],
+          getLineWidth: 3,
+          radiusMinPixels: 8,
+          radiusMaxPixels: 12,
+        })
+      );
+    }
+
     return layerList;
   }, [
     housePrices,
@@ -758,6 +778,8 @@ function PropertyExplorer() {
     propertyFilters,
     iconAtlas,
     chatAttachments,
+    selectionMode,
+    bboxCorners,
   ]);
 
   const getTooltip = ({ object }: { object?: DeckGLObject | null }) => {
@@ -1304,6 +1326,98 @@ function generateAIResponse(message: string, filters: FilterValues): string {
 
   const filterSummary =
     filterParts.length > 0 ? `\n\n**Applied Filters:** ${filterParts.join(", ")}` : "";
+
+  // Mock answer: "Why are Soi 39 houses pricier than Soi 71?"
+  if (lowerMsg.includes("soi 39") && lowerMsg.includes("soi 71")) {
+    return `## Price Comparison: Soi 39 vs Soi 71
+
+Based on my analysis of **2,847 transactions** in the Sukhumvit corridor, here's why Soi 39 commands a premium:
+
+| Factor | Soi 39 (Phrom Phong) | Soi 71 (Phra Khanong) |
+|--------|---------------------|----------------------|
+| **Avg Price/sqm** | ฿285,000 | ฿165,000 |
+| **BTS Distance** | 200m (Phrom Phong) | 450m (Phra Khanong) |
+| **Expat Density** | Very High (28%) | Medium (12%) |
+| **International Schools** | 4 within 2km | 1 within 2km |
+| **Premium Malls** | EmQuartier, Emporium | Gateway, W District |
+| **Flood Risk** | Low | Medium |
+
+### Key Price Drivers for Soi 39:
+
+1. **Prime Location Premium** (+42%)
+   - Heart of Sukhumvit's "expat belt"
+   - Walkable to BTS Phrom Phong
+   - Surrounded by high-end retail
+
+2. **School Catchment** (+18%)
+   - NIST International School nearby
+   - Bangkok Prep within 1.5km
+   - High demand from expat families
+
+3. **Lifestyle Amenities** (+15%)
+   - Fine dining concentration
+   - Premium healthcare (Samitivej)
+   - Japanese quarter accessibility
+
+### Soi 71 Value Proposition:
+
+While 42% cheaper on average, Soi 71 offers:
+- Better value per sqm
+- Growing infrastructure (new condos)
+- Improving transit with BTS extensions
+- **Predicted appreciation: +8.5%/year** vs Soi 39's +4.2%
+
+${filterSummary}
+
+Would you like me to find specific properties in either area?`;
+  }
+
+  // Mock answer: "Show me undervalued homes near international schools."
+  if (lowerMsg.includes("undervalued") && lowerMsg.includes("school")) {
+    const mockProperties = [
+      { id: "UV001", price: 8500000, district: "บางนา", area: 280, style: "บ้านเดี่ยว 4 ห้องนอน", priceChange: -12.5, lat: 13.6673, lon: 100.6127, school: "Bangkok Patana School" },
+      { id: "UV002", price: 12800000, district: "สุขุมวิท 49", area: 320, style: "บ้านเดี่ยว 5 ห้องนอน", priceChange: -8.3, lat: 13.7321, lon: 100.5789, school: "NIST International" },
+      { id: "UV003", price: 6200000, district: "ลาดพร้าว 101", area: 195, style: "บ้านเดี่ยว 3 ห้องนอน", priceChange: -15.2, lat: 13.7856, lon: 100.6234, school: "KIS International" },
+      { id: "UV004", price: 9400000, district: "พระราม 9", area: 245, style: "บ้านเดี่ยว 4 ห้องนอน", priceChange: -9.8, lat: 13.7512, lon: 100.5678, school: "Wells International" },
+      { id: "UV005", price: 7100000, district: "ศรีนครินทร์", area: 210, style: "บ้านเดี่ยว 3 ห้องนอน", priceChange: -11.4, lat: 13.6934, lon: 100.6445, school: "Concordian International" },
+    ];
+
+    const propertiesJson = `<!--PROPERTIES_START-->\n${JSON.stringify(mockProperties)}\n<!--PROPERTIES_END-->`;
+
+    return `## Undervalued Homes Near International Schools
+
+I analyzed **1,234 properties** within 3km of top international schools and found **47 undervalued opportunities** (priced 8-20% below market).
+
+### Top 5 Picks:
+
+${propertiesJson}
+
+| Property | School Nearby | Distance | Undervalued By |
+|----------|--------------|----------|----------------|
+| บางนา 4BR | Bangkok Patana | 1.2km | **-12.5%** |
+| สุขุมวิท 49 5BR | NIST International | 0.8km | **-8.3%** |
+| ลาดพร้าว 101 3BR | KIS International | 1.5km | **-15.2%** |
+| พระราม 9 4BR | Wells International | 2.1km | **-9.8%** |
+| ศรีนครินทร์ 3BR | Concordian | 1.8km | **-11.4%** |
+
+### Why These Are Undervalued:
+
+1. **Market Timing** - Sellers motivated by relocation
+2. **Cosmetic Updates Needed** - Good bones, needs refresh
+3. **Hidden Gems** - Less marketed neighborhoods
+4. **Estate Sales** - Below-market pricing for quick sale
+
+### School Proximity Premium:
+
+Properties within 2km of international schools typically command:
+- **+15-25% premium** over similar non-school-adjacent homes
+- **Faster sales** (avg 23 days vs 45 days market average)
+- **Better rental yields** for investor buyers
+
+${filterSummary}
+
+Would you like detailed analysis on any of these properties?`;
+  }
 
   if (lowerMsg.includes("price") || lowerMsg.includes("house") || lowerMsg.includes("property")) {
     // Generate mock property data for the PropertyResultsCard

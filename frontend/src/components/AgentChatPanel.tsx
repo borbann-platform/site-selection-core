@@ -9,11 +9,13 @@ import {
   ChevronDown,
   ChevronUp,
   Sparkles,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import type { AgentStep } from "../lib/api";
 import { AgentStepCard, AgentStepBadge } from "./AgentStepCard";
-import { ThinkingIndicator, StreamingText } from "./ThinkingIndicator";
+import { ThinkingIndicator } from "./ThinkingIndicator";
+import { StreamingMarkdown } from "./ui/markdown";
 
 export type AttachmentType = "location" | "property";
 
@@ -129,8 +131,125 @@ interface MockTool {
   duration: number;
 }
 
+// Suggested questions for initial state
+const SUGGESTED_QUESTIONS = [
+  {
+    id: "soi-comparison",
+    text: "Why are Soi 39 houses pricier than Soi 71?",
+    icon: "📊",
+  },
+  {
+    id: "undervalued-schools",
+    text: "Show me undervalued homes near international schools.",
+    icon: "🏫",
+  },
+];
+
 function selectToolsForMessage(message: string): MockTool[] {
   const lowerMsg = message.toLowerCase();
+
+  // Special case: Soi 39 vs Soi 71 comparison
+  if (lowerMsg.includes("soi 39") && lowerMsg.includes("soi 71")) {
+    return [
+      {
+        name: "analyze_district_comparison",
+        input: {
+          areas: ["Sukhumvit Soi 39", "Sukhumvit Soi 71"],
+          metrics: ["price_sqm", "transit", "schools", "expat_density"],
+        },
+        output: JSON.stringify(
+          {
+            soi_39: {
+              avg_price_sqm: 185000,
+              transit_score: 92,
+              int_schools_1km: 3,
+              expat_density: "very_high",
+            },
+            soi_71: {
+              avg_price_sqm: 95000,
+              transit_score: 78,
+              int_schools_1km: 1,
+              expat_density: "moderate",
+            },
+          },
+          null,
+          2
+        ),
+        duration: 1400,
+      },
+      {
+        name: "get_market_statistics",
+        input: { districts: ["Watthana", "Phra Khanong"] },
+        output: JSON.stringify(
+          {
+            watthana: { avg_price: 18500000, yoy_growth: 8.2 },
+            phra_khanong: { avg_price: 7200000, yoy_growth: 12.5 },
+          },
+          null,
+          2
+        ),
+        duration: 900,
+      },
+    ];
+  }
+
+  // Special case: Undervalued homes near international schools
+  if (
+    lowerMsg.includes("undervalued") &&
+    (lowerMsg.includes("school") || lowerMsg.includes("international"))
+  ) {
+    return [
+      {
+        name: "search_international_schools",
+        input: { city: "Bangkok", type: "international" },
+        output: JSON.stringify(
+          {
+            schools: [
+              { name: "NIST", lat: 13.7380, lon: 100.5690, tier: "premium" },
+              { name: "Bangkok Patana", lat: 13.6950, lon: 100.6210, tier: "premium" },
+              { name: "Shrewsbury", lat: 13.6680, lon: 100.6120, tier: "premium" },
+            ],
+          },
+          null,
+          2
+        ),
+        duration: 800,
+      },
+      {
+        name: "find_undervalued_properties",
+        input: {
+          near_schools: true,
+          max_distance_m: 2000,
+          value_threshold: -15,
+        },
+        output: JSON.stringify(
+          {
+            properties: [
+              { id: 1245, price: 8500000, predicted: 10200000, gap: -16.7 },
+              { id: 892, price: 6200000, predicted: 7400000, gap: -16.2 },
+              { id: 2103, price: 12800000, predicted: 14900000, gap: -14.1 },
+            ],
+          },
+          null,
+          2
+        ),
+        duration: 1600,
+      },
+      {
+        name: "analyze_investment_potential",
+        input: { property_ids: [1245, 892, 2103] },
+        output: JSON.stringify(
+          {
+            avg_appreciation_5y: 42,
+            rental_yield_range: [4.2, 5.8],
+          },
+          null,
+          2
+        ),
+        duration: 700,
+      },
+    ];
+  }
 
   if (lowerMsg.includes("price") || lowerMsg.includes("ราคา")) {
     return [
@@ -255,13 +374,100 @@ function selectToolsForMessage(message: string): MockTool[] {
 function generateResponse(message: string, _tools?: MockTool[]): string {
   const lowerMsg = message.toLowerCase();
 
-  if (lowerMsg.includes("price") || lowerMsg.includes("ราคา")) {
-    return `Based on my analysis of the market data, the average property price in the บางกะปิ district is around **4.8 million THB**. 
+  // Special case: Soi 39 vs Soi 71 comparison
+  if (lowerMsg.includes("soi 39") && lowerMsg.includes("soi 71")) {
+    return `## Why Soi 39 Commands Premium Prices
 
-I found several comparable properties in the area:
-- Properties range from 4.5M to 5.2M THB
-- Year-over-year price growth is approximately 5.2%
-- The median price sits at 4.5M THB
+Based on my analysis of **847 properties** across both areas, here's why Sukhumvit Soi 39 (Phrom Phong) commands nearly **2x the price** of Soi 71 (Phra Khanong):
+
+### Price Comparison
+
+| Metric | Soi 39 (Phrom Phong) | Soi 71 (Phra Khanong) | Difference |
+|--------|---------------------|----------------------|------------|
+| Avg. Price/sqm | ฿185,000 | ฿95,000 | **+94.7%** |
+| Transit Score | 92/100 | 78/100 | +14 pts |
+| Int'l Schools (1km) | 3 | 1 | +2 |
+| Expat Density | Very High | Moderate | — |
+
+### Key Premium Factors
+
+1. **Prime BTS Access**: Phrom Phong station is a major hub with direct mall connections (EmQuartier, Emporium)
+
+2. **International Community**: Soi 39 is Bangkok's premier expat neighborhood with:
+   - 3 international schools within walking distance
+   - Japanese-friendly infrastructure
+   - Premium retail and dining
+
+3. **Established Infrastructure**: Mature neighborhood with tree-lined streets, embassies, and luxury condos
+
+4. **Lower Supply**: Limited new development keeps prices elevated
+
+### Investment Insight
+
+> While Soi 71 offers better **value for money** with 12.5% YoY growth (vs 8.2% for Soi 39), Soi 39 remains the **safer long-term hold** for capital preservation.
+
+Would you like me to find specific properties in either area?`;
+  }
+
+  // Special case: Undervalued homes near international schools
+  if (
+    lowerMsg.includes("undervalued") &&
+    (lowerMsg.includes("school") || lowerMsg.includes("international"))
+  ) {
+    return `## Undervalued Properties Near International Schools
+
+I analyzed properties within **2km of premium international schools** and found **3 promising opportunities** priced below our model's predicted value:
+
+### Top Picks
+
+| Property | Listed Price | Model Value | Gap | Nearest School |
+|----------|-------------|-------------|-----|----------------|
+| #1245 - บ้านเดี่ยว, Sukhumvit 49 | ฿8.5M | ฿10.2M | **-16.7%** | NIST (800m) |
+| #892 - ทาวน์เฮ้าส์, Bangna | ฿6.2M | ฿7.4M | **-16.2%** | Bangkok Patana (1.2km) |
+| #2103 - บ้านเดี่ยว, Rama 9 | ฿12.8M | ฿14.9M | **-14.1%** | Shrewsbury (1.8km) |
+
+### Why These Are Undervalued
+
+1. **Property #1245** - Owner relocating urgently; property needs cosmetic updates but structure is solid. NIST proximity is exceptional.
+
+2. **Property #892** - Newer development area with infrastructure catching up. BTS Bangna extension will boost values.
+
+3. **Property #2103** - Listed 6 months; price reduced twice. Good negotiation opportunity.
+
+### Investment Potential
+
+Based on historical data for school-adjacent properties:
+
+- **5-Year Appreciation**: ~42% average
+- **Rental Yield**: 4.2% - 5.8% (expat family demand)
+- **Liquidity**: High (avg. 45 days on market)
+
+### Risk Assessment
+
+| Factor | Rating |
+|--------|--------|
+| Market Timing | Good |
+| Location Quality | Excellent |
+| Price Upside | High |
+
+---
+
+*Click on any property ID to view full details, or ask me to compare specific options.*`;
+  }
+
+  if (lowerMsg.includes("price") || lowerMsg.includes("ราคา")) {
+    return `Based on my analysis of the market data, the average property price in the บางกะปิ district is around **฿4.8 million**.
+
+### Market Summary
+
+| Metric | Value |
+|--------|-------|
+| Average Price | ฿4.8M |
+| Median Price | ฿4.5M |
+| YoY Growth | +5.2% |
+| Properties Analyzed | 5 |
+
+I found several comparable properties in the area ranging from **฿4.5M to ฿5.2M**.
 
 Would you like me to analyze a specific location or property type in more detail?`;
   }
@@ -271,16 +477,26 @@ Would you like me to analyze a specific location or property type in more detail
     lowerMsg.includes("area") ||
     lowerMsg.includes("พื้นที่")
   ) {
-    return `Here's my analysis of this location:
+    return `## Location Analysis
 
-**Transit Score: 85/100** - Excellent public transit access with BTS/MRT nearby
-**Walkability: 72/100** - Good walkability with essential amenities within walking distance
-**Flood Risk: Low** - This area has minimal flood concerns
-**Schools: 8 nearby** - Good options for families
+Here's my comprehensive analysis of this location:
 
-The 15-minute catchment area reaches approximately 125,000 people across 4.2 sq km.
+### Scores Overview
 
-This is a well-connected location suitable for residential or commercial purposes.`;
+| Category | Score | Rating |
+|----------|-------|--------|
+| Transit | 85/100 | Excellent |
+| Walkability | 72/100 | Good |
+| Schools | 8 nearby | Good |
+| Flood Risk | Low | Safe |
+
+### Key Highlights
+
+- **Transit**: Excellent public transit access with BTS/MRT nearby
+- **Walkability**: Good walkability with essential amenities within walking distance
+- **Catchment**: 15-minute area reaches ~125,000 people across 4.2 sq km
+
+> This is a well-connected location suitable for residential or commercial purposes.`;
   }
 
   if (
@@ -288,24 +504,72 @@ This is a well-connected location suitable for residential or commercial purpose
     lowerMsg.includes("site") ||
     lowerMsg.includes("ร้าน")
   ) {
-    return `**Site Analysis Results**
+    return `## Site Analysis Results
 
-🎯 **Site Score: 78/100** - Good potential for business
+### Overall Score: **78/100** - Good Potential
 
-**Competition:** 12 similar businesses within 1km
-**Traffic Magnets:** 8 nearby (schools, transit stops, attractions)
-**Traffic Potential:** High
+| Factor | Value | Assessment |
+|--------|-------|------------|
+| Competitors | 12 nearby | Moderate |
+| Traffic Magnets | 8 nearby | Good |
+| Traffic Potential | High | Excellent |
+
+### Insights
 
 This location has a healthy balance of foot traffic drivers while maintaining manageable competition. The proximity to transit and schools creates consistent daily traffic patterns.
 
 Would you like me to compare this with other potential sites?`;
   }
 
-  return `I found some relevant information in our knowledge base. Based on the Bangkok real estate data we have:
+  return `I found some relevant information in our knowledge base. Based on the Bangkok real estate data:
 
-The Bangkok property market shows varied trends across districts. Prime areas like Sukhumvit command premium prices (10-15M+ THB), while developing areas near new transit lines offer better value (3-6M THB) with strong appreciation potential.
+### Market Overview
+
+The Bangkok property market shows varied trends across districts:
+
+- **Prime areas** (Sukhumvit): ฿10-15M+ THB
+- **Developing areas** (near new transit): ฿3-6M THB with strong appreciation potential
 
 What specific aspect would you like me to explore further?`;
+}
+
+// Suggested questions component
+interface SuggestedQuestionsProps {
+  onSelect: (question: string) => void;
+  disabled?: boolean;
+}
+
+function SuggestedQuestions({ onSelect, disabled }: SuggestedQuestionsProps) {
+  return (
+    <div className="px-3 pb-2">
+      <div className="flex items-center gap-1.5 text-[10px] text-white/50 mb-2">
+        <MessageSquare size={10} />
+        <span>Try asking</span>
+      </div>
+      <div className="flex flex-col gap-2">
+        {SUGGESTED_QUESTIONS.map((q) => (
+          <button
+            key={q.id}
+            type="button"
+            onClick={() => onSelect(q.text)}
+            disabled={disabled}
+            className={cn(
+              "text-left px-3 py-2.5 rounded-lg border transition-all text-sm",
+              "bg-white/5 border-white/10 text-white/80",
+              "hover:bg-emerald-500/10 hover:border-emerald-500/30 hover:text-white",
+              "disabled:opacity-50 disabled:cursor-not-allowed",
+              "group"
+            )}
+          >
+            <span className="mr-2">{q.icon}</span>
+            <span className="group-hover:text-emerald-300 transition-colors">
+              {q.text}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 // Assistant message with steps visualization
@@ -376,10 +640,9 @@ function AssistantMessage({ message }: AssistantMessageProps) {
         {(message.content || message.isStreaming) && (
           <div className="max-w-full rounded-xl px-3 py-2 text-sm bg-white/5 text-white/90">
             {message.content ? (
-              <StreamingText
-                text={message.content}
+              <StreamingMarkdown
+                content={message.content}
                 isStreaming={message.isStreaming}
-                className="whitespace-pre-wrap"
               />
             ) : (
               <span className="flex items-center gap-1 text-white/50">
@@ -412,6 +675,18 @@ export function AgentChatPanel({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { runMockStream, isRunning } = useMockAgentStream();
+
+  // Show suggested questions only when we have just the initial message
+  const showSuggestions = messages.length === 1 && messages[0].role === "assistant";
+
+  // Handle suggested question click
+  const handleSuggestedQuestion = (question: string) => {
+    setInput(question);
+    // Auto-submit after a brief delay for better UX
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 50);
+  };
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -533,6 +808,14 @@ export function AgentChatPanel({
         )}
         <div ref={messagesEndRef} />
       </div>
+
+      {/* Suggested Questions - show only at initial state */}
+      {showSuggestions && (
+        <SuggestedQuestions
+          onSelect={handleSuggestedQuestion}
+          disabled={isRunning}
+        />
+      )}
 
       {/* Input */}
       <form onSubmit={handleSubmit} className="p-3 border-t border-white/10">
