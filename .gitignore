@@ -10,5 +10,27 @@ build
 # Cache directories
 cache/
 
+# MLflow
+mlruns/
+mlartifacts/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+*.egg
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+*.cover
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
 # Presentation/planning docs (one-time use)
 presentation_structure.md
