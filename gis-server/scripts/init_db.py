@@ -11,6 +11,7 @@ from src.models.demographics import *  # noqa
 from src.models.places import *  # noqa
 from src.models.realestate import *  # noqa
 from src.models.transit import *  # noqa
+from src.models.user import *  # noqa
 
 
 def init_db():
@@ -18,6 +19,16 @@ def init_db():
     Base.metadata.drop_all(bind=engine)
     print("Creating database tables...")
     print(f"Registered tables: {Base.metadata.tables.keys()}")
+
+    # Use a connection with checkfirst to handle potential duplicate indexes
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        # Drop any stale indexes that might exist
+        for table_name in Base.metadata.tables.keys():
+            idx_name = f"idx_{table_name}_geometry"
+            conn.execute(text(f"DROP INDEX IF EXISTS {idx_name}"))
+        conn.commit()
+
     Base.metadata.create_all(bind=engine)
     print("Tables created.")
 

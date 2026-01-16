@@ -3,6 +3,35 @@ export const API_URL = BASE_URL.endsWith("/api/v1")
   ? BASE_URL
   : `${BASE_URL}/api/v1`;
 
+// Auth Types
+export interface UserRegisterRequest {
+  email: string;
+  password: string;
+  confirm_password: string;
+  first_name: string;
+  last_name: string;
+}
+
+export interface UserLoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface TokenResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+}
+
+export interface UserResponse {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  is_active: boolean;
+  created_at: string | null;
+}
+
 export interface Coordinates {
   latitude: number;
   longitude: number;
@@ -457,6 +486,62 @@ export interface TransitLinesResponse {
 }
 
 export const api = {
+  // ============= Auth APIs =============
+
+  register: async (data: UserRegisterRequest): Promise<UserResponse> => {
+    const res = await fetch(`${API_URL}/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: "Registration failed" }));
+      throw new Error(error.detail || "Registration failed");
+    }
+    return res.json();
+  },
+
+  login: async (data: UserLoginRequest): Promise<TokenResponse> => {
+    const formData = new URLSearchParams();
+    formData.append("username", data.email);
+    formData.append("password", data.password);
+
+    const res = await fetch(`${API_URL}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: formData,
+    });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: "Login failed" }));
+      throw new Error(error.detail || "Login failed");
+    }
+    return res.json();
+  },
+
+  refreshToken: async (refreshToken: string): Promise<TokenResponse> => {
+    const res = await fetch(`${API_URL}/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+    if (!res.ok) {
+      throw new Error("Token refresh failed");
+    }
+    return res.json();
+  },
+
+  getCurrentUser: async (accessToken: string): Promise<UserResponse> => {
+    const res = await fetch(`${API_URL}/auth/me`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!res.ok) {
+      throw new Error("Failed to get current user");
+    }
+    return res.json();
+  },
+
+  // ============= Site APIs =============
+
   analyzeSite: async (
     data: SiteAnalysisRequest
   ): Promise<SiteAnalysisResponse> => {

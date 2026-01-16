@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from src.routes.admin import router as admin_router
 from src.routes.analytics import router as analytics_router
+from src.routes.auth import router as auth_router
 from src.routes.catchment import catchment_service
 from src.routes.catchment import router as catchment_router
 from src.routes.chat import router as chat_router
@@ -61,6 +62,7 @@ app.include_router(
 )
 app.include_router(transit_router, prefix="/api/v1", tags=["Transit"])
 app.include_router(admin_router, prefix="/api/v1", tags=["Admin"])
+app.include_router(auth_router, prefix="/api/v1", tags=["Authentication"])
 
 
 @app.get("/", tags=["Root"])
