@@ -4,10 +4,13 @@ Provides agentic chatbot with streaming responses using LangGraph + Gemini.
 """
 
 import asyncio
+import json
 import logging
 import random
+import time
+import uuid
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Response
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from src.config.agent_settings import agent_settings
@@ -23,6 +26,7 @@ class ChatMessage(BaseModel):
 
 class ChatRequest(BaseModel):
     messages: list[ChatMessage]
+    session_id: str | None = None  # Optional session for conversation memory
 
 
 # Mock responses for fallback when agent is not configured
@@ -79,12 +83,12 @@ async def generate_agent_stream(messages: list[ChatMessage], debug: bool = False
                 # Include tool call info in debug mode
                 tool_info = content
                 name = tool_info.get("name", "unknown")
-                yield f"data: \n[🔧 {name}]\n\n"
+                yield f"data: \n[{name}]\n\n"
 
             elif event_type == "tool_result" and debug:
                 # Include truncated tool result in debug mode
                 truncated = content[:200] + "..." if len(content) > 200 else content
-                yield f"data: \n[→ {truncated}]\n\n"
+                yield f"data: \n[-> {truncated}]\n\n"
 
             elif event_type == "error":
                 yield f"data: \n[Error: {content}]\n\n"
@@ -168,11 +172,16 @@ def select_mock_tools(message: str) -> list[dict]:
     """Select mock tools based on message content."""
     lower_msg = message.lower()
 
-    if "price" in lower_msg or "ราคา" in lower_msg:
+    if (
+        "price" in lower_msg
+        or "ราคา" in lower_msg
+        or "หา" in lower_msg
+        or "บ้าน" in lower_msg
+    ):
         return [
             {
                 "name": "search_properties",
-                "input": {"query": message, "limit": 5},
+                "input": {"district": "บางกะปิ", "limit": 5},
                 "output": {
                     "count": 5,
                     "properties": [
@@ -211,7 +220,12 @@ def select_mock_tools(message: str) -> list[dict]:
             },
         ]
 
-    if "location" in lower_msg or "area" in lower_msg or "พื้นที่" in lower_msg:
+    if (
+        "location" in lower_msg
+        or "area" in lower_msg
+        or "พื้นที่" in lower_msg
+        or "ทำเล" in lower_msg
+    ):
         return [
             {
                 "name": "get_location_intelligence",
@@ -225,7 +239,6 @@ def select_mock_tools(message: str) -> list[dict]:
                     "walkability_score": 72,
                     "flood_risk": "low",
                     "schools_nearby": 8,
-                    "hospitals_nearby": 3,
                 },
                 "duration": 1.5,
             },
@@ -241,7 +254,12 @@ def select_mock_tools(message: str) -> list[dict]:
             },
         ]
 
-    if "business" in lower_msg or "site" in lower_msg or "ร้าน" in lower_msg:
+    if (
+        "business" in lower_msg
+        or "site" in lower_msg
+        or "ร้าน" in lower_msg
+        or "ธุรกิจ" in lower_msg
+    ):
         return [
             {
                 "name": "analyze_site",
@@ -255,7 +273,6 @@ def select_mock_tools(message: str) -> list[dict]:
                     "competitors_count": 12,
                     "magnets_count": 8,
                     "traffic_potential": "High",
-                    "recommendation": "Good location for F&B business",
                 },
                 "duration": 1.8,
             },
@@ -270,7 +287,6 @@ def select_mock_tools(message: str) -> list[dict]:
                 "documents": [
                     {"title": "Bangkok Real Estate Guide 2025", "relevance": 0.92},
                     {"title": "Price Prediction Methodology", "relevance": 0.85},
-                    {"title": "District Analysis Report", "relevance": 0.78},
                 ],
             },
             "duration": 0.6,
@@ -282,53 +298,89 @@ def generate_mock_response(message: str, tools: list[dict]) -> str:
     """Generate contextual response based on message and tools used."""
     lower_msg = message.lower()
 
-    if "price" in lower_msg or "ราคา" in lower_msg:
-        return """Based on my analysis of the market data, the average property price in the บางกะปิ district is around **4.8 million THB**.
+    if (
+        "price" in lower_msg
+        or "ราคา" in lower_msg
+        or "หา" in lower_msg
+        or "บ้าน" in lower_msg
+    ):
+        return """## Property Search Results
 
-I found several comparable properties in the area:
-- Properties range from 3.8M to 5.2M THB
-- Year-over-year price growth is approximately 5.2%
-- The median price sits at 4.5M THB
+Based on my analysis of the market data, here are the properties I found:
 
-Would you like me to analyze a specific location or property type in more detail?"""
+| District | Style | Price | 
+|----------|-------|-------|
+| บางกะปิ | บ้านเดี่ยว | ฿4,500,000 |
+| ลาดพร้าว | ทาวน์เฮ้าส์ | ฿5,200,000 |
+| บางกะปิ | บ้านเดี่ยว | ฿3,800,000 |
 
-    if "location" in lower_msg or "area" in lower_msg or "พื้นที่" in lower_msg:
-        return """Here's my analysis of this location:
+### Market Statistics for บางกะปิ
+- **Average Price:** ฿4.8M
+- **Median Price:** ฿4.5M  
+- **YoY Growth:** +5.2%
+- **Total Listings:** 1,245
 
-**Transit Score: 85/100** - Excellent public transit access with BTS/MRT nearby
-**Walkability: 72/100** - Good walkability with essential amenities within walking distance
-**Flood Risk: Low** - This area has minimal flood concerns
-**Schools: 8 nearby** - Good options for families
+Would you like me to analyze specific properties or search with different criteria?"""
 
-The 15-minute catchment area reaches approximately 125,000 people across 4.2 sq km.
+    if (
+        "location" in lower_msg
+        or "area" in lower_msg
+        or "พื้นที่" in lower_msg
+        or "ทำเล" in lower_msg
+    ):
+        return """## Location Intelligence Report
 
-This is a well-connected location suitable for residential or commercial purposes."""
+### Scores
+| Metric | Score | Rating |
+|--------|-------|--------|
+| Transit | 85/100 | Excellent |
+| Walkability | 72/100 | Good |
+| Schools | 8 nearby | Good |
+| Flood Risk | Low | Safe |
 
-    if "business" in lower_msg or "site" in lower_msg or "ร้าน" in lower_msg:
-        return """**Site Analysis Results**
+### Catchment Analysis (15-min walk)
+- **Population Reached:** 125,000
+- **Area Coverage:** 4.2 sq km
+- **Transit Stops:** 12
 
-🎯 **Site Score: 78/100** - Good potential for business
+This is a well-connected location suitable for both residential and commercial use."""
 
-**Competition:** 12 similar businesses within 1km
-**Traffic Magnets:** 8 nearby (schools, transit stops, attractions)
-**Traffic Potential:** High
+    if (
+        "business" in lower_msg
+        or "site" in lower_msg
+        or "ร้าน" in lower_msg
+        or "ธุรกิจ" in lower_msg
+    ):
+        return """## Site Analysis Results
 
-This location has a healthy balance of foot traffic drivers while maintaining manageable competition. The proximity to transit and schools creates consistent daily traffic patterns.
+### Overall Score: 78/100 - Good Potential
+
+| Factor | Value |
+|--------|-------|
+| Competitors | 12 within 1km |
+| Traffic Magnets | 8 nearby |
+| Traffic Potential | High |
+
+**Recommendation:** This location has good foot traffic from nearby transit and schools. Competition is moderate, suggesting market demand exists.
 
 Would you like me to compare this with other potential sites?"""
 
-    return """I found some relevant information in our knowledge base. Based on the Bangkok real estate data we have:
+    return """## Information Retrieved
 
-The Bangkok property market shows varied trends across districts. Prime areas like Sukhumvit command premium prices (10-15M+ THB), while developing areas near new transit lines offer better value (3-6M THB) with strong appreciation potential.
+Based on our knowledge base, here's what I found:
 
-What specific aspect would you like me to explore further?"""
+The Bangkok property market shows varied trends across districts:
+- **Prime areas** (Sukhumvit, Sathorn): ฿10-15M+ 
+- **Mid-range** (Chatuchak, Phra Khanong): ฿5-10M
+- **Affordable** (Bang Kapi, Lat Phrao): ฿2.5-5M
+
+Areas near new transit extensions typically show 10-15% appreciation potential.
+
+What specific aspect would you like me to explore?"""
 
 
-async def generate_agent_stream_with_steps(messages: list[ChatMessage]):
-    """Generate streaming response with structured tool steps."""
-    import json
-    import time
-
+async def generate_mock_agent_stream_with_steps(messages: list[ChatMessage]):
+    """Generate mock streaming response with structured tool steps (fallback mode)."""
     # Get the last user message
     user_message = ""
     for msg in reversed(messages):
@@ -383,31 +435,222 @@ async def generate_agent_stream_with_steps(messages: list[ChatMessage]):
     # Stream final response
     yield f"data: {json.dumps({'event': 'thinking', 'data': {'thinking': False}})}\n\n"
 
-    response = generate_mock_response(user_message, tools)
+    # Add mock mode warning
+    response = (
+        "[Mock Mode - Configure GOOGLE_API_KEY for real agent]\n\n"
+        + generate_mock_response(user_message, tools)
+    )
+
     for char in response:
         yield f"data: {json.dumps({'event': 'token', 'data': {'token': char}})}\n\n"
-        await asyncio.sleep(0.015 + random.random() * 0.025)
+        await asyncio.sleep(0.012 + random.random() * 0.018)
 
     yield f"data: {json.dumps({'event': 'done', 'data': None})}\n\n"
 
 
+async def generate_real_agent_stream_with_steps(
+    messages: list[ChatMessage], session_id: str | None = None
+):
+    """
+    Generate streaming response from real LangGraph agent with structured events.
+
+    Event types emitted:
+    - thinking: {"thinking": true/false}
+    - step: {"id": str, "name": str, "status": "running"|"complete"|"error", "input": dict, "output": str}
+    - token: {"token": str}
+    - done: null
+    """
+    from src.services.agent_graph import agent_service
+    from src.services.conversation_memory import conversation_memory
+
+    # Convert messages to dict format
+    message_dicts = [{"role": m.role, "content": m.content} for m in messages]
+
+    # Get conversation history if session exists
+    if session_id:
+        history = conversation_memory.get_history(session_id, limit=10)
+        if history:
+            # Prepend history to messages (but keep the new user message)
+            message_dicts = history + message_dicts
+
+        # Save the new user message
+        user_msg = messages[-1] if messages else None
+        if user_msg and user_msg.role == "user":
+            conversation_memory.add_message(session_id, "user", user_msg.content)
+
+    # Emit initial thinking event
+    yield f"data: {json.dumps({'event': 'thinking', 'data': {'thinking': True}})}\n\n"
+
+    current_tool_id: str | None = None
+    current_tool_name: str | None = None
+    current_tool_start: int | None = None
+    response_content = ""
+    has_started_response = False
+
+    try:
+        async for event in agent_service.astream(message_dicts):
+            event_type = event.get("type", "")
+            content = event.get("content", "")
+
+            if event_type == "tool_call":
+                # A new tool is being called
+                tool_info = content
+                current_tool_id = (
+                    f"step-{int(time.time() * 1000)}-{uuid.uuid4().hex[:6]}"
+                )
+                current_tool_name = tool_info.get("name", "unknown")
+                current_tool_start = int(time.time() * 1000)
+
+                # Stop thinking indicator
+                yield f"data: {json.dumps({'event': 'thinking', 'data': {'thinking': False}})}\n\n"
+
+                # Emit running step
+                step_data = {
+                    "id": current_tool_id,
+                    "type": "tool_call",
+                    "name": current_tool_name,
+                    "status": "running",
+                    "input": tool_info.get("input", {}),
+                    "start_time": current_tool_start,
+                }
+                yield f"data: {json.dumps({'event': 'step', 'data': step_data})}\n\n"
+
+            elif event_type == "tool_result":
+                # Tool execution completed
+                if current_tool_id:
+                    end_time = int(time.time() * 1000)
+
+                    # Truncate output for display
+                    output_str = str(content)
+                    if len(output_str) > 1000:
+                        output_str = output_str[:1000] + "..."
+
+                    step_data = {
+                        "id": current_tool_id,
+                        "type": "tool_call",
+                        "name": current_tool_name,
+                        "status": "complete",
+                        "output": output_str,
+                        "start_time": current_tool_start,
+                        "end_time": end_time,
+                    }
+                    yield f"data: {json.dumps({'event': 'step', 'data': step_data})}\n\n"
+
+                    # Reset tool tracking
+                    current_tool_id = None
+                    current_tool_name = None
+                    current_tool_start = None
+
+                    # Resume thinking
+                    yield f"data: {json.dumps({'event': 'thinking', 'data': {'thinking': True}})}\n\n"
+
+            elif event_type == "token":
+                # LLM is generating text
+                if not has_started_response:
+                    # Stop thinking when response starts
+                    yield f"data: {json.dumps({'event': 'thinking', 'data': {'thinking': False}})}\n\n"
+                    has_started_response = True
+
+                response_content += content
+                yield f"data: {json.dumps({'event': 'token', 'data': {'token': content}})}\n\n"
+
+            elif event_type == "error":
+                # Handle errors
+                if current_tool_id:
+                    step_data = {
+                        "id": current_tool_id,
+                        "type": "tool_call",
+                        "name": current_tool_name or "unknown",
+                        "status": "error",
+                        "output": str(content),
+                        "end_time": int(time.time() * 1000),
+                    }
+                    yield f"data: {json.dumps({'event': 'step', 'data': step_data})}\n\n"
+
+                yield f"data: {json.dumps({'event': 'thinking', 'data': {'thinking': False}})}\n\n"
+                error_msg = f"\n\n**Error:** {content}"
+                yield f"data: {json.dumps({'event': 'token', 'data': {'token': error_msg}})}\n\n"
+
+        # Save assistant response to memory
+        if session_id and response_content:
+            conversation_memory.add_message(session_id, "assistant", response_content)
+
+    except Exception as e:
+        logger.error(f"Real agent stream error: {e}", exc_info=True)
+        yield f"data: {json.dumps({'event': 'thinking', 'data': {'thinking': False}})}\n\n"
+        error_msg = f"Sorry, I encountered an error: {str(e)}"
+        yield f"data: {json.dumps({'event': 'token', 'data': {'token': error_msg}})}\n\n"
+
+    # Emit done event
+    yield f"data: {json.dumps({'event': 'done', 'data': None})}\n\n"
+
+
 @router.post("/agent")
-async def agent_chat(request: ChatRequest):
+async def agent_chat(request: ChatRequest, response: Response):
     """
     Stream agent chat responses with structured tool steps.
     Returns Server-Sent Events (SSE) with JSON-formatted events.
 
     Event types:
-    - thinking: Agent is processing
-    - step: Tool call step (running or complete)
-    - token: Text token for response
-    - done: Stream complete
+    - thinking: Agent is processing {"thinking": true/false}
+    - step: Tool call step {"id", "name", "status", "input", "output", "start_time", "end_time"}
+    - token: Text token for response {"token": str}
+    - done: Stream complete {null}
+
+    Optional: Pass session_id to maintain conversation context across requests.
     """
-    return StreamingResponse(
-        generate_agent_stream_with_steps(request.messages),
+    from src.services.conversation_memory import conversation_memory
+
+    # Create or use session
+    session_id = request.session_id
+    if not session_id:
+        session_id = conversation_memory.create_session()
+
+    # Choose real agent or mock based on configuration
+    if agent_settings.is_configured:
+        logger.info(f"Using real agent for session {session_id}")
+        stream_generator = generate_real_agent_stream_with_steps(
+            request.messages, session_id
+        )
+    else:
+        logger.warning("Agent not configured, using mock stream")
+        stream_generator = generate_mock_agent_stream_with_steps(request.messages)
+
+    streaming_response = StreamingResponse(
+        stream_generator,
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
+            "X-Session-ID": session_id,
         },
     )
+
+    return streaming_response
+
+
+@router.post("/sessions")
+async def create_session():
+    """Create a new conversation session."""
+    from src.services.conversation_memory import conversation_memory
+
+    session_id = conversation_memory.create_session()
+    return {"session_id": session_id}
+
+
+@router.get("/sessions/{session_id}/history")
+async def get_session_history(session_id: str, limit: int = Query(20, le=100)):
+    """Get conversation history for a session."""
+    from src.services.conversation_memory import conversation_memory
+
+    history = conversation_memory.get_history(session_id, limit=limit)
+    return {"session_id": session_id, "messages": history}
+
+
+@router.delete("/sessions/{session_id}")
+async def clear_session(session_id: str):
+    """Clear conversation history for a session."""
+    from src.services.conversation_memory import conversation_memory
+
+    conversation_memory.clear_session(session_id)
+    return {"status": "cleared", "session_id": session_id}

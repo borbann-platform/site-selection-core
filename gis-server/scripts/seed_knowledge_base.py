@@ -170,6 +170,209 @@ All prices are in Thai Baht (THB).
     )
     all_documents.append(system_doc)
 
+    # Add Bangkok districts knowledge
+    bangkok_districts_doc = Document(
+        page_content="""
+# Bangkok District Guide for Real Estate
+
+## Premium Districts (High-end residential, expat-friendly)
+- **วัฒนา (Watthana)**: Home to Sukhumvit Soi 1-63. International schools, embassies. Avg price: 15-40M THB.
+- **ปทุมวัน (Pathum Wan)**: Central Bangkok, Siam area. Commercial hub. Avg price: 20-50M THB.
+- **คลองเตย (Khlong Toei)**: Lower Sukhumvit, near port. Mixed development. Avg price: 8-25M THB.
+
+## Mid-Range Districts (Growing, good value)
+- **พระโขนง (Phra Khanong)**: On Nut area, BTS accessible. Popular with young professionals. Avg: 4-12M THB.
+- **ลาดพร้าว (Lat Phrao)**: Large district, MRT access. Family-friendly. Avg: 3-10M THB.
+- **จตุจักร (Chatuchak)**: Near famous market, MRT hub. Avg: 5-15M THB.
+- **ห้วยขวาง (Huai Khwang)**: MRT Blue Line, affordable condos. Avg: 3-8M THB.
+
+## Affordable Districts (Suburbs, emerging)
+- **บางกะปิ (Bang Kapi)**: East Bangkok, affordable houses. Avg: 2-6M THB.
+- **บางนา (Bang Na)**: Near BITEC, improving transit. Avg: 2-7M THB.
+- **มีนบุรี (Min Buri)**: Pink Line access, suburban feel. Avg: 1.5-5M THB.
+
+## Price Factors by District
+1. BTS/MRT proximity: +15-30% within 500m
+2. International school access: +10-25%
+3. Shopping mall proximity: +5-15%
+4. Flood history: -10-20% in risk zones
+        """.strip(),
+        metadata={
+            "source": "bangkok_knowledge",
+            "section": "Districts",
+            "chunk_index": 0,
+        },
+    )
+    all_documents.append(bangkok_districts_doc)
+
+    # Add transit knowledge
+    transit_doc = Document(
+        page_content="""
+# Bangkok Public Transit Guide
+
+## BTS Skytrain (Green Lines)
+- **Sukhumvit Line**: Mo Chit to Kheha, passes through prime areas
+- **Silom Line**: National Stadium to Bang Wa
+- Properties within 500m of BTS command 15-30% premium
+
+## MRT Metro
+- **Blue Line**: Circular line covering central Bangkok
+- **Purple Line**: Bang Yai to Tao Poon (northwest)
+- **Yellow Line**: Lat Phrao to Samrong
+- **Pink Line**: Khae Rai to Min Buri (newest)
+- **Orange Line**: Under construction, will connect east-west
+
+## Airport Links
+- **ARL (Airport Rail Link)**: Suvarnabhumi to Phaya Thai
+- Properties near ARL stations: +10-20% for commuter convenience
+
+## Impact on Property Values
+- Within 200m of station: +25-35% premium
+- 200-500m: +15-25% premium
+- 500-1000m: +5-15% premium
+- Beyond 1km: minimal transit premium
+        """.strip(),
+        metadata={
+            "source": "bangkok_knowledge",
+            "section": "Transit",
+            "chunk_index": 0,
+        },
+    )
+    all_documents.append(transit_doc)
+
+    # Add market trends knowledge
+    market_doc = Document(
+        page_content="""
+# Bangkok Real Estate Market Trends
+
+## 2023-2024 Market Conditions
+- Post-COVID recovery continuing
+- Average price growth: 3-5% annually
+- Condo oversupply in some areas
+- Houses/townhouses in higher demand
+
+## Hot Areas for Investment
+1. **On Nut-Bearing**: Affordable with improving infrastructure
+2. **Rama 9**: New CBD development
+3. **Bang Na-Trad corridor**: Industrial growth
+4. **Minburi**: Pink Line opened
+
+## Price Trends by Property Type
+- Detached houses (บ้านเดี่ยว): +4-6% YoY
+- Townhouses (ทาวน์เฮ้าส์): +3-5% YoY  
+- Condos: 0-3% YoY (oversupply in some areas)
+
+## Buyer Demographics
+- Thai nationals: 85% of transactions
+- Foreigners: 15% (limited to condos)
+- First-time buyers prefer: townhouses, 3-6M THB range
+- Expats prefer: Sukhumvit, near international schools
+
+## Rental Yields
+- Prime areas: 3-5% gross yield
+- Suburban: 5-7% gross yield
+- Near universities: 6-8% gross yield
+        """.strip(),
+        metadata={
+            "source": "bangkok_knowledge",
+            "section": "Market Trends",
+            "chunk_index": 0,
+        },
+    )
+    all_documents.append(market_doc)
+
+    # Add flood risk knowledge
+    flood_doc = Document(
+        page_content="""
+# Bangkok Flood Risk Guide
+
+## High Risk Areas
+- Areas along Chao Phraya River
+- Parts of Don Mueang, Bang Khen
+- Low-lying areas in east Bangkok
+- Near canals (khlongs) without proper drainage
+
+## Moderate Risk Areas
+- Parts of Lat Phrao
+- Some areas in Bang Kapi
+- Older neighborhoods with poor drainage
+
+## Low Risk Areas
+- Central business district (elevated)
+- Most of Sukhumvit
+- Sathorn-Silom corridor
+- Areas with modern drainage
+
+## Impact on Property Values
+- High flood risk: -15-25% discount
+- Moderate risk: -5-10% discount
+- Properties on raised foundations: reduced impact
+- Ground floor units most affected
+
+## Mitigation
+- Properties with flood walls
+- Raised construction
+- Good building management
+- Location on higher ground
+        """.strip(),
+        metadata={
+            "source": "bangkok_knowledge",
+            "section": "Flood Risk",
+            "chunk_index": 0,
+        },
+    )
+    all_documents.append(flood_doc)
+
+    # Add property valuation knowledge
+    valuation_doc = Document(
+        page_content="""
+# Property Valuation Factors in Bangkok
+
+## Primary Price Drivers
+1. **Location (40-50% of value)**
+   - District prestige
+   - Transit accessibility
+   - Amenities nearby
+
+2. **Building Characteristics (30-40%)**
+   - Total area (land + building)
+   - Building age and condition
+   - Number of floors/rooms
+   - Construction quality
+
+3. **External Factors (10-20%)**
+   - Market conditions
+   - Infrastructure projects
+   - Economic outlook
+
+## Price per Square Meter by Area Type
+- Prime CBD: 150,000-300,000 THB/sqm
+- Inner suburbs: 80,000-150,000 THB/sqm
+- Outer suburbs: 40,000-80,000 THB/sqm
+- Peripheral areas: 20,000-40,000 THB/sqm
+
+## Depreciation
+- New construction: Full value
+- 5 years: -5-10%
+- 10 years: -10-20%
+- 20+ years: -20-35%
+- Well-maintained properties depreciate less
+
+## Premium Features
+- Corner lot: +5-10%
+- Swimming pool: +3-5%
+- Modern kitchen: +2-4%
+- Garden/yard: +5-10%
+- Parking for 2+ cars: +3-5%
+        """.strip(),
+        metadata={
+            "source": "bangkok_knowledge",
+            "section": "Valuation",
+            "chunk_index": 0,
+        },
+    )
+    all_documents.append(valuation_doc)
+
     return all_documents
 
 
