@@ -12,7 +12,7 @@ import {
   type AgentMessage,
   type FilterValues,
 } from "../components/ai";
-import { PathLayer, IconLayer, ScatterplotLayer } from "@deck.gl/layers";
+import { PathLayer, IconLayer, ScatterplotLayer, PolygonLayer } from "@deck.gl/layers";
 import { MVTLayer, H3HexagonLayer } from "@deck.gl/geo-layers";
 import {
   Eye,
@@ -262,6 +262,13 @@ function PropertyExplorer() {
     setAiMessages((prev) => [...prev, userMessage, assistantMessage]);
     setAiInput("");
 
+    // Capture attachments before clearing (for API call)
+    const attachmentsToSend = chatAttachments.length > 0 ? [...chatAttachments] : undefined;
+
+    // Clear attachments and bbox visualization immediately after submission
+    setChatAttachments([]);
+    setBboxCorners([]);
+
     // Stream response from real AI agent
     try {
       // Build message history for context
@@ -272,8 +279,8 @@ function PropertyExplorer() {
       // Add current message
       chatMessages.push({ role: "user" as const, content: fullMessage });
 
-      // Stream from real agent API
-      for await (const event of api.streamAgentChat(chatMessages)) {
+      // Stream from real agent API with attachments
+      for await (const event of api.streamAgentChat(chatMessages, attachmentsToSend)) {
         setAiMessages((prev) => {
           const updated = [...prev];
           const lastIdx = updated.length - 1;
@@ -637,8 +644,33 @@ function PropertyExplorer() {
       );
     }
 
+    // Overlay: Bbox Attachments (persistent polygon visualization)
+    const bboxAttachments = chatAttachments.filter((a) => a.type === "bbox");
+    if (bboxAttachments.length > 0) {
+      layerList.push(
+        new PolygonLayer({
+          id: "bbox-attachment-polygons",
+          data: bboxAttachments,
+          getPolygon: (d: Attachment) => {
+            const corners = d.data.corners as [number, number][];
+            if (!corners || corners.length < 3) return [];
+            // Close the polygon by repeating first point
+            return [...corners, corners[0]];
+          },
+          getFillColor: [0, 180, 255, 40], // Cyan with low opacity fill
+          getLineColor: [0, 180, 255, 200], // Cyan border
+          getLineWidth: 2,
+          lineWidthMinPixels: 2,
+          pickable: false,
+          filled: true,
+          stroked: true,
+        })
+      );
+    }
+
     // Overlay: Bbox Selection Corners (blue dots while selecting)
     if (selectionMode === "bbox" && bboxCorners.length > 0) {
+      // Show corner points
       layerList.push(
         new ScatterplotLayer({
           id: "bbox-selection-corners",
@@ -655,6 +687,27 @@ function PropertyExplorer() {
           radiusMaxPixels: 12,
         })
       );
+
+      // Show in-progress polygon outline if we have at least 2 corners
+      if (bboxCorners.length >= 2) {
+        layerList.push(
+          new PolygonLayer({
+            id: "bbox-selection-polygon-preview",
+            data: [{ corners: bboxCorners }],
+            getPolygon: (d: { corners: [number, number][] }) => {
+              // Close the polygon for preview
+              return [...d.corners, d.corners[0]];
+            },
+            getFillColor: [0, 180, 255, 30], // Very light cyan fill
+            getLineColor: [0, 180, 255, 180], // Cyan border
+            getLineWidth: 2,
+            lineWidthMinPixels: 2,
+            pickable: false,
+            filled: true,
+            stroked: true,
+          })
+        );
+      }
     }
 
     return layerList;

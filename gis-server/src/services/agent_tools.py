@@ -366,6 +366,10 @@ def search_properties(
     building_style: str | None = None,
     min_price: float | None = None,
     max_price: float | None = None,
+    min_lat: float | None = None,
+    max_lat: float | None = None,
+    min_lon: float | None = None,
+    max_lon: float | None = None,
     limit: int = 10,
 ) -> str:
     """
@@ -376,12 +380,14 @@ def search_properties(
     - User specifies criteria like budget, area, or property type
     - User asks "What properties are available in X?"
     - User wants a list of options matching their requirements
+    - User has drawn a BOUNDING BOX on the map and asks about properties in that area
 
     EXAMPLE QUERIES:
     - "Find houses under 5 million baht"
     - "Show me townhouses in บางกะปิ"
     - "What detached houses are available between 3-8 million?"
     - "Find properties in Ladprao district"
+    - "หาบ้านในพื้นที่นี้" (with bbox from map selection)
 
     DISTRICT NAMES (use Thai):
     บางกะปิ, สาทร, วัฒนา, พระโขนง, ลาดพร้าว, จตุจักร, บางนา, ห้วยขวาง, คลองเตย, etc.
@@ -392,11 +398,19 @@ def search_properties(
     - บ้านแฝด = Semi-detached
     - ตึกแถว = Shophouse
 
+    BOUNDING BOX:
+    When user selects an area on the map, use min_lat, max_lat, min_lon, max_lon
+    to filter properties within that geographic region.
+
     Args:
         district: District name in Thai (e.g., บางกะปิ, สาทร, วัฒนา)
         building_style: Property type in Thai (e.g., บ้านเดี่ยว, ทาวน์เฮ้าส์)
         min_price: Minimum price in THB (e.g., 2000000 for 2M)
         max_price: Maximum price in THB (e.g., 10000000 for 10M)
+        min_lat: Minimum latitude for bounding box (south boundary)
+        max_lat: Maximum latitude for bounding box (north boundary)
+        min_lon: Minimum longitude for bounding box (west boundary)
+        max_lon: Maximum longitude for bounding box (east boundary)
         limit: Number of results (default 10, max 50)
 
     Returns:
@@ -406,34 +420,52 @@ def search_properties(
 
     try:
         with SessionLocal() as db:
-            # Build query using SQLAlchemy ORM
-            query = db.query(HousePrice).filter(HousePrice.total_price.isnot(None))
+            # Check if bbox filtering is requested
+            has_bbox = all(v is not None for v in [min_lat, max_lat, min_lon, max_lon])
 
-            if district:
-                query = query.filter(HousePrice.amphur == district)
-            if building_style:
-                query = query.filter(HousePrice.building_style_desc == building_style)
-            if min_price is not None:
-                query = query.filter(HousePrice.total_price >= min_price)
-            if max_price is not None:
-                query = query.filter(HousePrice.total_price <= max_price)
+            if has_bbox:
+                # Use raw SQL with PostGIS for spatial filtering
+                sql = """
+                    SELECT
+                        id, amphur, tumbon, building_style_desc,
+                        building_area, land_area, building_age,
+                        total_price, no_of_floor,
+                        ST_Y(geometry) as lat,
+                        ST_X(geometry) as lon
+                    FROM house_prices
+                    WHERE total_price IS NOT NULL
+                    AND ST_Within(
+                        geometry,
+                        ST_MakeEnvelope(:min_lon, :min_lat, :max_lon, :max_lat, 4326)
+                    )
+                """
+                params: dict[str, float | str | int | None] = {
+                    "min_lon": min_lon,
+                    "min_lat": min_lat,
+                    "max_lon": max_lon,
+                    "max_lat": max_lat,
+                }
 
-            query = query.order_by(HousePrice.total_price).limit(limit)
-            results = query.all()
+                # Add optional filters
+                if district:
+                    sql += " AND amphur = :district"
+                    params["district"] = district
+                if building_style:
+                    sql += " AND building_style_desc = :building_style"
+                    params["building_style"] = building_style
+                if min_price is not None:
+                    sql += " AND total_price >= :min_price"
+                    params["min_price"] = min_price
+                if max_price is not None:
+                    sql += " AND total_price <= :max_price"
+                    params["max_price"] = max_price
 
-            properties = []
-            for r in results:
-                # Extract coordinates from geometry
-                coords = db.execute(
-                    text(
-                        "SELECT ST_X(geometry), ST_Y(geometry) FROM house_prices WHERE id = :id"
-                    ),
-                    {"id": r.id},
-                ).fetchone()
+                sql += " ORDER BY total_price LIMIT :limit"
+                params["limit"] = limit
 
-                lon, lat = (coords[0], coords[1]) if coords else (None, None)
+                results = db.execute(text(sql), params).fetchall()
 
-                properties.append(
+                properties = [
                     {
                         "id": r.id,
                         "district": r.amphur,
@@ -444,10 +476,57 @@ def search_properties(
                         "age_years": r.building_age,
                         "price_thb": r.total_price,
                         "floors": r.no_of_floor,
-                        "lat": lat,
-                        "lon": lon,
+                        "lat": r.lat,
+                        "lon": r.lon,
                     }
-                )
+                    for r in results
+                ]
+
+            else:
+                # Use SQLAlchemy ORM for non-spatial queries
+                query = db.query(HousePrice).filter(HousePrice.total_price.isnot(None))
+
+                if district:
+                    query = query.filter(HousePrice.amphur == district)
+                if building_style:
+                    query = query.filter(
+                        HousePrice.building_style_desc == building_style
+                    )
+                if min_price is not None:
+                    query = query.filter(HousePrice.total_price >= min_price)
+                if max_price is not None:
+                    query = query.filter(HousePrice.total_price <= max_price)
+
+                query = query.order_by(HousePrice.total_price).limit(limit)
+                results = query.all()
+
+                properties = []
+                for r in results:
+                    # Extract coordinates from geometry
+                    coords = db.execute(
+                        text(
+                            "SELECT ST_X(geometry), ST_Y(geometry) FROM house_prices WHERE id = :id"
+                        ),
+                        {"id": r.id},
+                    ).fetchone()
+
+                    lon, lat = (coords[0], coords[1]) if coords else (None, None)
+
+                    properties.append(
+                        {
+                            "id": r.id,
+                            "district": r.amphur,
+                            "subdistrict": r.tumbon,
+                            "building_style": r.building_style_desc,
+                            "building_area_sqm": r.building_area,
+                            "land_area_sqwah": r.land_area,
+                            "age_years": r.building_age,
+                            "price_thb": r.total_price,
+                            "floors": r.no_of_floor,
+                            "lat": lat,
+                            "lon": lon,
+                        }
+                    )
 
             return json.dumps(
                 {
@@ -457,6 +536,14 @@ def search_properties(
                         "building_style": building_style,
                         "min_price": min_price,
                         "max_price": max_price,
+                        "bbox": {
+                            "min_lat": min_lat,
+                            "max_lat": max_lat,
+                            "min_lon": min_lon,
+                            "max_lon": max_lon,
+                        }
+                        if has_bbox
+                        else None,
                     },
                     "properties": properties,
                 },

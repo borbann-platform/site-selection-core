@@ -24,9 +24,83 @@ class ChatMessage(BaseModel):
     content: str
 
 
+class AttachmentData(BaseModel):
+    """Attachment data from frontend map interactions."""
+
+    id: str
+    type: str  # "location" | "bbox" | "property"
+    data: dict  # {lat, lon} for location, {corners, minLon, maxLon, minLat, maxLat} for bbox
+    label: str
+
+
 class ChatRequest(BaseModel):
     messages: list[ChatMessage]
     session_id: str | None = None  # Optional session for conversation memory
+    attachments: list[AttachmentData] | None = None  # Optional spatial attachments
+
+
+def build_spatial_context_message(attachments: list[AttachmentData]) -> str:
+    """
+    Build a context message from spatial attachments.
+    This provides the agent with structured location information.
+    """
+    if not attachments:
+        return ""
+
+    parts = ["[SPATIAL CONTEXT FROM MAP]"]
+
+    for attachment in attachments:
+        if attachment.type == "location":
+            lat = attachment.data.get("lat")
+            lon = attachment.data.get("lon")
+            if lat and lon:
+                parts.append(
+                    f"- PIN LOCATION: latitude={lat}, longitude={lon} (User has selected this specific point on the map)"
+                )
+
+        elif attachment.type == "bbox":
+            min_lon = attachment.data.get("minLon")
+            max_lon = attachment.data.get("maxLon")
+            min_lat = attachment.data.get("minLat")
+            max_lat = attachment.data.get("maxLat")
+            corners = attachment.data.get("corners")
+
+            if (
+                min_lon is not None
+                and max_lon is not None
+                and min_lat is not None
+                and max_lat is not None
+            ):
+                # Calculate center point
+                center_lat = (float(min_lat) + float(max_lat)) / 2
+                center_lon = (float(min_lon) + float(max_lon)) / 2
+
+                parts.append(
+                    f"- BOUNDING BOX AREA: The user has drawn an area on the map"
+                )
+                parts.append(
+                    f"  - Bounds: west={min_lon}, south={min_lat}, east={max_lon}, north={max_lat}"
+                )
+                parts.append(
+                    f"  - Center: latitude={center_lat}, longitude={center_lon}"
+                )
+                if corners:
+                    parts.append(f"  - Polygon corners (4 points): {corners}")
+                parts.append(
+                    "  - USE THESE BOUNDS when searching for properties or analyzing this area"
+                )
+
+        elif attachment.type == "property":
+            property_id = attachment.data.get("id")
+            if property_id:
+                parts.append(f"- SELECTED PROPERTY: ID={property_id}")
+
+    parts.append(
+        "\nWhen the user refers to 'this location', 'here', 'this area', or 'the selected area', "
+        "use the coordinates/bounds provided above."
+    )
+
+    return "\n".join(parts)
 
 
 # Mock responses for fallback when agent is not configured
@@ -449,7 +523,9 @@ async def generate_mock_agent_stream_with_steps(messages: list[ChatMessage]):
 
 
 async def generate_real_agent_stream_with_steps(
-    messages: list[ChatMessage], session_id: str | None = None
+    messages: list[ChatMessage],
+    session_id: str | None = None,
+    attachments: list[AttachmentData] | None = None,
 ):
     """
     Generate streaming response from real LangGraph agent with structured events.
@@ -459,12 +535,32 @@ async def generate_real_agent_stream_with_steps(
     - step: {"id": str, "name": str, "status": "running"|"complete"|"error", "input": dict, "output": str}
     - token: {"token": str}
     - done: null
+
+    Args:
+        messages: List of chat messages
+        session_id: Optional session ID for conversation memory
+        attachments: Optional list of spatial attachments (bbox, location, property)
     """
     from src.services.agent_graph import agent_service
     from src.services.conversation_memory import conversation_memory
 
     # Convert messages to dict format
     message_dicts = [{"role": m.role, "content": m.content} for m in messages]
+
+    # Build spatial context from attachments
+    spatial_context = ""
+    if attachments:
+        spatial_context = build_spatial_context_message(attachments)
+
+    # Inject spatial context into the last user message if present
+    if spatial_context and message_dicts:
+        # Find the last user message and append spatial context
+        for i in range(len(message_dicts) - 1, -1, -1):
+            if message_dicts[i]["role"] == "user":
+                message_dicts[i]["content"] = (
+                    message_dicts[i]["content"] + "\n\n" + spatial_context
+                )
+                break
 
     # Get conversation history if session exists
     if session_id:
@@ -473,7 +569,7 @@ async def generate_real_agent_stream_with_steps(
             # Prepend history to messages (but keep the new user message)
             message_dicts = history + message_dicts
 
-        # Save the new user message
+        # Save the new user message (without spatial context for cleaner history)
         user_msg = messages[-1] if messages else None
         if user_msg and user_msg.role == "user":
             conversation_memory.add_message(session_id, "user", user_msg.content)
@@ -597,7 +693,9 @@ async def agent_chat(request: ChatRequest, response: Response):
     - token: Text token for response {"token": str}
     - done: Stream complete {null}
 
-    Optional: Pass session_id to maintain conversation context across requests.
+    Optional:
+    - Pass session_id to maintain conversation context across requests.
+    - Pass attachments for spatial context (bbox, location, property selections from map).
     """
     from src.services.conversation_memory import conversation_memory
 
@@ -608,9 +706,11 @@ async def agent_chat(request: ChatRequest, response: Response):
 
     # Choose real agent or mock based on configuration
     if agent_settings.is_configured:
-        logger.info(f"Using real agent for session {session_id}")
+        logger.info(
+            f"Using real agent for session {session_id} with {len(request.attachments or [])} attachments"
+        )
         stream_generator = generate_real_agent_stream_with_steps(
-            request.messages, session_id
+            request.messages, session_id, request.attachments
         )
     else:
         logger.warning("Agent not configured, using mock stream")
