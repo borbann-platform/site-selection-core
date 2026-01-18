@@ -14,8 +14,9 @@ import random
 from typing import Literal
 
 from langchain_core.tools import tool
-from sqlalchemy import text
+from sqlalchemy import func, text
 from src.config.database import SessionLocal
+from src.models.realestate import HousePrice
 from src.services.catchment import catchment_service
 from src.services.location_intelligence import location_intelligence_service
 
@@ -405,50 +406,48 @@ def search_properties(
 
     try:
         with SessionLocal() as db:
-            query = text("""
-                SELECT
-                    id, amphur, tumbon, building_style_desc,
-                    building_area, land_area, building_age,
-                    total_price, no_of_floor,
-                    ST_Y(geom::geometry) as lat,
-                    ST_X(geom::geometry) as lon
-                FROM appraised_house_price
-                WHERE total_price IS NOT NULL
-                AND (:district IS NULL OR amphur = :district)
-                AND (:style IS NULL OR building_style_desc = :style)
-                AND (:min_price IS NULL OR total_price >= :min_price)
-                AND (:max_price IS NULL OR total_price <= :max_price)
-                ORDER BY total_price
-                LIMIT :limit
-            """)
+            # Build query using SQLAlchemy ORM
+            query = db.query(HousePrice).filter(HousePrice.total_price.isnot(None))
 
-            results = db.execute(
-                query,
-                {
-                    "district": district,
-                    "style": building_style,
-                    "min_price": min_price,
-                    "max_price": max_price,
-                    "limit": limit,
-                },
-            ).fetchall()
+            if district:
+                query = query.filter(HousePrice.amphur == district)
+            if building_style:
+                query = query.filter(HousePrice.building_style_desc == building_style)
+            if min_price is not None:
+                query = query.filter(HousePrice.total_price >= min_price)
+            if max_price is not None:
+                query = query.filter(HousePrice.total_price <= max_price)
 
-            properties = [
-                {
-                    "id": r.id,
-                    "district": r.amphur,
-                    "subdistrict": r.tumbon,
-                    "building_style": r.building_style_desc,
-                    "building_area_sqm": r.building_area,
-                    "land_area_sqwah": r.land_area,
-                    "age_years": r.building_age,
-                    "price_thb": r.total_price,
-                    "floors": r.no_of_floor,
-                    "lat": r.lat,
-                    "lon": r.lon,
-                }
-                for r in results
-            ]
+            query = query.order_by(HousePrice.total_price).limit(limit)
+            results = query.all()
+
+            properties = []
+            for r in results:
+                # Extract coordinates from geometry
+                coords = db.execute(
+                    text(
+                        "SELECT ST_X(geometry), ST_Y(geometry) FROM house_prices WHERE id = :id"
+                    ),
+                    {"id": r.id},
+                ).fetchone()
+
+                lon, lat = (coords[0], coords[1]) if coords else (None, None)
+
+                properties.append(
+                    {
+                        "id": r.id,
+                        "district": r.amphur,
+                        "subdistrict": r.tumbon,
+                        "building_style": r.building_style_desc,
+                        "building_area_sqm": r.building_area,
+                        "land_area_sqwah": r.land_area,
+                        "age_years": r.building_age,
+                        "price_thb": r.total_price,
+                        "floors": r.no_of_floor,
+                        "lat": lat,
+                        "lon": lon,
+                    }
+                )
 
             return json.dumps(
                 {
@@ -503,21 +502,22 @@ def get_nearby_properties(
 
     try:
         with SessionLocal() as db:
+            # Use raw SQL for spatial query but reference correct table name
             query = text("""
                 SELECT
                     id, amphur, tumbon, building_style_desc,
                     building_area, land_area, building_age,
                     total_price, no_of_floor,
-                    ST_Y(geom::geometry) as lat,
-                    ST_X(geom::geometry) as lon,
+                    ST_Y(geometry) as lat,
+                    ST_X(geometry) as lon,
                     ST_Distance(
-                        geom::geography,
+                        geometry::geography,
                         ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography
                     ) as distance_m
-                FROM appraised_house_price
+                FROM house_prices
                 WHERE total_price IS NOT NULL
                 AND ST_DWithin(
-                    geom::geography,
+                    geometry::geography,
                     ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography,
                     :radius
                 )
@@ -605,45 +605,35 @@ def get_market_statistics(district: str | None = None) -> str:
     """
     try:
         with SessionLocal() as db:
+            # Use SQLAlchemy ORM for aggregation
+            base_query = db.query(
+                HousePrice.amphur,
+                func.count(HousePrice.id).label("count"),
+                func.avg(HousePrice.total_price).label("avg_price"),
+                func.min(HousePrice.total_price).label("min_price"),
+                func.max(HousePrice.total_price).label("max_price"),
+                func.avg(
+                    HousePrice.total_price / func.nullif(HousePrice.building_area, 0)
+                ).label("avg_price_per_sqm"),
+            ).filter(HousePrice.total_price.isnot(None))
+
             if district:
-                query = text("""
-                    SELECT
-                        amphur,
-                        COUNT(*) as count,
-                        AVG(total_price) as avg_price,
-                        MIN(total_price) as min_price,
-                        MAX(total_price) as max_price,
-                        AVG(total_price / NULLIF(building_area, 0)) as avg_price_per_sqm
-                    FROM appraised_house_price
-                    WHERE total_price IS NOT NULL
-                    AND amphur = :district
-                    GROUP BY amphur
-                """)
-                results = db.execute(query, {"district": district}).fetchall()
-            else:
-                query = text("""
-                    SELECT
-                        amphur,
-                        COUNT(*) as count,
-                        AVG(total_price) as avg_price,
-                        MIN(total_price) as min_price,
-                        MAX(total_price) as max_price,
-                        AVG(total_price / NULLIF(building_area, 0)) as avg_price_per_sqm
-                    FROM appraised_house_price
-                    WHERE total_price IS NOT NULL
-                    GROUP BY amphur
-                    ORDER BY avg_price DESC
-                    LIMIT 20
-                """)
-                results = db.execute(query).fetchall()
+                base_query = base_query.filter(HousePrice.amphur == district)
+
+            results = (
+                base_query.group_by(HousePrice.amphur)
+                .order_by(func.avg(HousePrice.total_price).desc())
+                .limit(20)
+                .all()
+            )
 
             districts = [
                 {
                     "district": r.amphur,
                     "property_count": r.count,
-                    "avg_price_thb": round(r.avg_price, 0),
-                    "min_price_thb": round(r.min_price, 0),
-                    "max_price_thb": round(r.max_price, 0),
+                    "avg_price_thb": round(r.avg_price, 0) if r.avg_price else None,
+                    "min_price_thb": round(r.min_price, 0) if r.min_price else None,
+                    "max_price_thb": round(r.max_price, 0) if r.max_price else None,
                     "avg_price_per_sqm": round(r.avg_price_per_sqm, 0)
                     if r.avg_price_per_sqm
                     else None,
