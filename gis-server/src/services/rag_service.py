@@ -159,17 +159,26 @@ rag_service = RagService()
 @tool
 def retrieve_knowledge(query: str) -> str:
     """
-    Search the knowledge base for relevant documentation and information.
+    Search the knowledge base for general information, documentation, and guidance.
 
-    Use this when you need background information about the system,
-    data sources, API capabilities, or terminology.
+    WHEN TO USE THIS TOOL:
+    - User asks general questions about Bangkok real estate market
+    - User asks "How does X work?" or "What is X?"
+    - User needs background info before making tool calls
+    - User asks about terminology, processes, or concepts
+    - You need context about districts, regulations, or market trends
+
+    EXAMPLE QUERIES:
+    - "What factors affect house prices in Bangkok?"
+    - "How is property tax calculated in Thailand?"
+    - "What's the difference between land types?"
+    - "What are popular expat areas in Bangkok?"
 
     Args:
-        query: Natural language search query
+        query: Natural language question or topic to search for
 
     Returns:
-        Relevant documentation excerpts
-
+        Relevant excerpts from the knowledge base with source citations
     """
     try:
         results = rag_service.similarity_search_with_score(query, k=3)

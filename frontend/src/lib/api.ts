@@ -153,8 +153,20 @@ export interface ChatMessage {
   content: string;
 }
 
+// Attachment types for spatial context
+export type AttachmentType = "location" | "bbox" | "property";
+
+export interface Attachment {
+  id: string;
+  type: AttachmentType;
+  data: Record<string, unknown>;
+  label: string;
+}
+
 export interface ChatRequest {
   messages: ChatMessage[];
+  session_id?: string;
+  attachments?: Attachment[];
 }
 
 // Agent Streaming Event Types
@@ -700,14 +712,18 @@ export const api = {
   /**
    * Stream agent chat response with structured tool steps.
    * Returns an async generator that yields AgentStreamEvent objects.
+   *
+   * @param messages - Chat message history
+   * @param attachments - Optional spatial attachments (bbox, location, property)
    */
   streamAgentChat: async function* (
-    messages: ChatMessage[]
+    messages: ChatMessage[],
+    attachments?: Attachment[]
   ): AsyncGenerator<AgentStreamEvent, void, unknown> {
     const res = await fetch(`${API_URL}/chat/agent`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages }),
+      body: JSON.stringify({ messages, attachments }),
     });
 
     if (!res.ok) throw new Error("Failed to start agent stream");

@@ -12,7 +12,7 @@ import {
   type AgentMessage,
   type FilterValues,
 } from "../components/ai";
-import { PathLayer, IconLayer, ScatterplotLayer } from "@deck.gl/layers";
+import { PathLayer, IconLayer, ScatterplotLayer, PolygonLayer } from "@deck.gl/layers";
 import { MVTLayer, H3HexagonLayer } from "@deck.gl/geo-layers";
 import {
   Eye,
@@ -212,140 +212,6 @@ function PropertyExplorer() {
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
-  // Mock agent streaming for demo
-  const runMockStream = useCallback(
-    async (
-      userMessage: string,
-      onUpdate: (update: {
-        thinking?: boolean;
-        thinkingStartTime?: number;
-        step?: {
-          id: string;
-          name: string;
-          status: string;
-          input?: Record<string, unknown>;
-          output?: string;
-          startTime?: number;
-          endTime?: number;
-        };
-        token?: string;
-        done?: boolean;
-      }) => void
-    ) => {
-      const delay = (ms: number) =>
-        new Promise((resolve) => setTimeout(resolve, ms));
-
-      // Simulate thinking
-      const thinkingStartTime = Date.now();
-      onUpdate({ thinking: true, thinkingStartTime });
-      await delay(800);
-
-      // Determine which tools to call based on message
-      const lowerMsg = userMessage.toLowerCase();
-      const tools: Array<{
-        name: string;
-        duration: number;
-        input: Record<string, unknown>;
-        output: string;
-      }> = [];
-
-      if (
-        lowerMsg.includes("price") ||
-        lowerMsg.includes("house") ||
-        lowerMsg.includes("property")
-      ) {
-        tools.push(
-          {
-            name: "search_properties",
-            duration: 1200,
-            input: {
-              district: aiFilters.distanceToBTS ? "near BTS" : "Bangkok",
-              min_price: aiFilters.budgetMin || 2000000,
-              max_price: aiFilters.budgetMax || 10000000,
-              min_area: aiFilters.areaMin || 100,
-              exclude_flood_zones: aiFilters.excludeFloodZones,
-            },
-            output: JSON.stringify({ count: 127, avg_price: 4800000 }),
-          },
-          {
-            name: "get_market_statistics",
-            duration: 800,
-            input: { region: "Bangkok", period: "12months" },
-            output: JSON.stringify({ yoy_growth: 5.2, avg_days_on_market: 45 }),
-          }
-        );
-      } else if (
-        lowerMsg.includes("location") ||
-        lowerMsg.includes("area") ||
-        lowerMsg.includes("bts")
-      ) {
-        tools.push(
-          {
-            name: "get_location_intelligence",
-            duration: 1500,
-            input: { lat: 13.7563, lon: 100.5018, radius_km: 2 },
-            output: JSON.stringify({ transit_score: 85, walkability: 72 }),
-          },
-          {
-            name: "analyze_catchment",
-            duration: 1000,
-            input: { center: [13.7563, 100.5018], mode: "walking", minutes: 15 },
-            output: JSON.stringify({ stations: 5, amenities: 42 }),
-          }
-        );
-      } else {
-        tools.push({
-          name: "retrieve_knowledge",
-          duration: 600,
-          input: { query: userMessage, top_k: 5 },
-          output: JSON.stringify({ documents: 5, relevance: 0.89 }),
-        });
-      }
-
-      for (const tool of tools) {
-        const stepId = `step-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        const startTime = Date.now();
-        onUpdate({
-          step: {
-            id: stepId,
-            name: tool.name,
-            status: "running",
-            input: tool.input,
-            startTime,
-          },
-          thinking: false,
-        });
-        await delay(tool.duration);
-        onUpdate({
-          step: {
-            id: stepId,
-            name: tool.name,
-            status: "complete",
-            input: tool.input,
-            output: tool.output,
-            startTime,
-            endTime: Date.now(),
-          },
-        });
-        if (tools.indexOf(tool) < tools.length - 1) {
-          onUpdate({ thinking: true, thinkingStartTime: Date.now() });
-          await delay(400);
-        }
-      }
-
-      // Stream final response
-      onUpdate({ thinking: false });
-      const response = generateAIResponse(userMessage, aiFilters);
-      for (const char of response) {
-        onUpdate({ token: char });
-        await delay(15 + Math.random() * 25);
-      }
-
-      onUpdate({ done: true });
-    },
-    [aiFilters]
-  );
-
   // Handle AI message submission
   const handleAISubmit = useCallback(async () => {
     if (!aiInput.trim() || isAIRunning) return;
@@ -396,58 +262,89 @@ function PropertyExplorer() {
     setAiMessages((prev) => [...prev, userMessage, assistantMessage]);
     setAiInput("");
 
-    // Run mock stream
-    await runMockStream(fullMessage, (update) => {
+    // Capture attachments before clearing (for API call)
+    const attachmentsToSend = chatAttachments.length > 0 ? [...chatAttachments] : undefined;
+
+    // Clear attachments and bbox visualization immediately after submission
+    setChatAttachments([]);
+    setBboxCorners([]);
+
+    // Stream response from real AI agent
+    try {
+      // Build message history for context
+      const chatMessages = aiMessages
+        .filter((m) => m.role === "user" || m.role === "assistant")
+        .map((m) => ({ role: m.role, content: m.content }));
+      
+      // Add current message
+      chatMessages.push({ role: "user" as const, content: fullMessage });
+
+      // Stream from real agent API with attachments
+      for await (const event of api.streamAgentChat(chatMessages, attachmentsToSend)) {
+        setAiMessages((prev) => {
+          const updated = [...prev];
+          const lastIdx = updated.length - 1;
+          const lastMsg = { ...updated[lastIdx] };
+
+          if (event.event === "thinking") {
+            lastMsg.isThinking = event.data?.thinking ?? true;
+            if (event.data?.thinking) {
+              lastMsg.thinkingStartTime = Date.now();
+            }
+          } else if (event.event === "step" && event.data) {
+            const steps = [...(lastMsg.steps || [])];
+            const stepData = event.data;
+            const existingIdx = steps.findIndex((s) => s.id === stepData.id);
+            
+            if (existingIdx >= 0) {
+              // Update existing step
+              steps[existingIdx] = {
+                ...steps[existingIdx],
+                status: stepData.status as "running" | "complete" | "error",
+                output: stepData.output,
+                endTime: stepData.end_time,
+              };
+            } else {
+              // Add new step
+              steps.push({
+                id: stepData.id || `step-${Date.now()}`,
+                type: "tool_call",
+                name: stepData.name || "Unknown",
+                status: stepData.status as "running" | "complete" | "error",
+                input: stepData.input,
+                output: stepData.output,
+                startTime: stepData.start_time || Date.now(),
+                endTime: stepData.end_time,
+              });
+            }
+            lastMsg.steps = steps;
+          } else if (event.event === "token" && event.data?.token) {
+            lastMsg.content += event.data.token;
+            lastMsg.isStreaming = true;
+            lastMsg.isThinking = false;
+          } else if (event.event === "done") {
+            lastMsg.isStreaming = false;
+            lastMsg.isThinking = false;
+          }
+
+          updated[lastIdx] = lastMsg;
+          return updated;
+        });
+      }
+    } catch (error) {
+      console.error("Agent stream error:", error);
       setAiMessages((prev) => {
         const updated = [...prev];
         const lastIdx = updated.length - 1;
-        const lastMsg = { ...updated[lastIdx] };
-
-        if (update.thinking !== undefined) {
-          lastMsg.isThinking = update.thinking;
-          if (update.thinkingStartTime) {
-            lastMsg.thinkingStartTime = update.thinkingStartTime;
-          }
-        }
-        if (update.step) {
-          const steps = [...(lastMsg.steps || [])];
-          const existingIdx = steps.findIndex((s) => s.id === update.step!.id);
-          if (existingIdx >= 0) {
-            // Update existing step with new properties
-            steps[existingIdx] = {
-              ...steps[existingIdx],
-              status: update.step.status as "running" | "complete" | "error",
-              output: update.step.output,
-              endTime: update.step.endTime,
-            };
-          } else {
-            // Add new step with full details
-            steps.push({
-              id: update.step.id,
-              type: "tool_call",
-              name: update.step.name,
-              status: update.step.status as "running" | "complete" | "error",
-              input: update.step.input,
-              output: update.step.output,
-              startTime: update.step.startTime || Date.now(),
-              endTime: update.step.endTime,
-            });
-          }
-          lastMsg.steps = steps;
-        }
-        if (update.token) {
-          lastMsg.content += update.token;
-          lastMsg.isStreaming = true;
-        }
-        if (update.done) {
-          lastMsg.isStreaming = false;
-          lastMsg.isThinking = false;
-        }
-
-        updated[lastIdx] = lastMsg;
+        updated[lastIdx] = {
+          ...updated[lastIdx],
+          content: "Sorry, I encountered an error. Please try again.",
+          isStreaming: false,
+          isThinking: false,
+        };
         return updated;
       });
-    });
+    }
 
     // Reset filters after each conversation
     setAiFilters(DEFAULT_FILTERS);
@@ -457,7 +354,7 @@ function PropertyExplorer() {
     isAIRunning,
     aiFilters,
     chatAttachments,
-    runMockStream,
+    aiMessages,
   ]);
 
   // Generate icon atlas for POIs
@@ -747,8 +644,33 @@ function PropertyExplorer() {
       );
     }
 
+    // Overlay: Bbox Attachments (persistent polygon visualization)
+    const bboxAttachments = chatAttachments.filter((a) => a.type === "bbox");
+    if (bboxAttachments.length > 0) {
+      layerList.push(
+        new PolygonLayer({
+          id: "bbox-attachment-polygons",
+          data: bboxAttachments,
+          getPolygon: (d: Attachment) => {
+            const corners = d.data.corners as [number, number][];
+            if (!corners || corners.length < 3) return [];
+            // Close the polygon by repeating first point
+            return [...corners, corners[0]];
+          },
+          getFillColor: [0, 180, 255, 40], // Cyan with low opacity fill
+          getLineColor: [0, 180, 255, 200], // Cyan border
+          getLineWidth: 2,
+          lineWidthMinPixels: 2,
+          pickable: false,
+          filled: true,
+          stroked: true,
+        })
+      );
+    }
+
     // Overlay: Bbox Selection Corners (blue dots while selecting)
     if (selectionMode === "bbox" && bboxCorners.length > 0) {
+      // Show corner points
       layerList.push(
         new ScatterplotLayer({
           id: "bbox-selection-corners",
@@ -765,6 +687,27 @@ function PropertyExplorer() {
           radiusMaxPixels: 12,
         })
       );
+
+      // Show in-progress polygon outline if we have at least 2 corners
+      if (bboxCorners.length >= 2) {
+        layerList.push(
+          new PolygonLayer({
+            id: "bbox-selection-polygon-preview",
+            data: [{ corners: bboxCorners }],
+            getPolygon: (d: { corners: [number, number][] }) => {
+              // Close the polygon for preview
+              return [...d.corners, d.corners[0]];
+            },
+            getFillColor: [0, 180, 255, 30], // Very light cyan fill
+            getLineColor: [0, 180, 255, 180], // Cyan border
+            getLineWidth: 2,
+            lineWidthMinPixels: 2,
+            pickable: false,
+            filled: true,
+            stroked: true,
+          })
+        );
+      }
     }
 
     return layerList;
@@ -1301,214 +1244,6 @@ function PropertyExplorer() {
       />
     </>
   );
-}
-
-// Helper function to generate AI responses based on message content and filters
-function generateAIResponse(message: string, filters: FilterValues): string {
-  const lowerMsg = message.toLowerCase();
-
-  // Build filter context string
-  const filterParts: string[] = [];
-  if (filters.budgetMin || filters.budgetMax) {
-    const min = filters.budgetMin
-      ? `${(filters.budgetMin / 1_000_000).toFixed(1)}M`
-      : "any";
-    const max = filters.budgetMax
-      ? `${(filters.budgetMax / 1_000_000).toFixed(1)}M`
-      : "any";
-    filterParts.push(`budget ${min}-${max} THB`);
-  }
-  if (filters.areaMin) filterParts.push(`min ${filters.areaMin}+ sqw`);
-  if (filters.distanceToBTS) filterParts.push(`within ${filters.distanceToBTS}km of BTS`);
-  if (filters.undervaluedOnly) filterParts.push("undervalued properties");
-  if (filters.highGrowthOnly) filterParts.push("high growth areas");
-  if (filters.excludeFloodZones) filterParts.push("excluding flood zones");
-
-  const filterSummary =
-    filterParts.length > 0 ? `\n\n**Applied Filters:** ${filterParts.join(", ")}` : "";
-
-  // Mock answer: "Why are Soi 39 houses pricier than Soi 71?"
-  if (lowerMsg.includes("soi 39") && lowerMsg.includes("soi 71")) {
-    return `## Price Comparison: Soi 39 vs Soi 71
-
-Based on my analysis of **2,847 transactions** in the Sukhumvit corridor, here's why Soi 39 commands a premium:
-
-| Factor | Soi 39 (Phrom Phong) | Soi 71 (Phra Khanong) |
-|--------|---------------------|----------------------|
-| **Avg Price/sqm** | ฿285,000 | ฿165,000 |
-| **BTS Distance** | 200m (Phrom Phong) | 450m (Phra Khanong) |
-| **Expat Density** | Very High (28%) | Medium (12%) |
-| **International Schools** | 4 within 2km | 1 within 2km |
-| **Premium Malls** | EmQuartier, Emporium | Gateway, W District |
-| **Flood Risk** | Low | Medium |
-
-### Key Price Drivers for Soi 39:
-
-1. **Prime Location Premium** (+42%)
-   - Heart of Sukhumvit's "expat belt"
-   - Walkable to BTS Phrom Phong
-   - Surrounded by high-end retail
-
-2. **School Catchment** (+18%)
-   - NIST International School nearby
-   - Bangkok Prep within 1.5km
-   - High demand from expat families
-
-3. **Lifestyle Amenities** (+15%)
-   - Fine dining concentration
-   - Premium healthcare (Samitivej)
-   - Japanese quarter accessibility
-
-### Soi 71 Value Proposition:
-
-While 42% cheaper on average, Soi 71 offers:
-- Better value per sqm
-- Growing infrastructure (new condos)
-- Improving transit with BTS extensions
-- **Predicted appreciation: +8.5%/year** vs Soi 39's +4.2%
-
-${filterSummary}
-
-Would you like me to find specific properties in either area?`;
-  }
-
-  // Mock answer: "Show me undervalued homes near international schools."
-  if (lowerMsg.includes("undervalued") && lowerMsg.includes("school")) {
-    const mockProperties = [
-      { id: "UV001", price: 8500000, district: "บางนา", area: 280, style: "บ้านเดี่ยว 4 ห้องนอน", priceChange: -12.5, lat: 13.6673, lon: 100.6127, school: "Bangkok Patana School" },
-      { id: "UV002", price: 12800000, district: "สุขุมวิท 49", area: 320, style: "บ้านเดี่ยว 5 ห้องนอน", priceChange: -8.3, lat: 13.7321, lon: 100.5789, school: "NIST International" },
-      { id: "UV003", price: 6200000, district: "ลาดพร้าว 101", area: 195, style: "บ้านเดี่ยว 3 ห้องนอน", priceChange: -15.2, lat: 13.7856, lon: 100.6234, school: "KIS International" },
-      { id: "UV004", price: 9400000, district: "พระราม 9", area: 245, style: "บ้านเดี่ยว 4 ห้องนอน", priceChange: -9.8, lat: 13.7512, lon: 100.5678, school: "Wells International" },
-      { id: "UV005", price: 7100000, district: "ศรีนครินทร์", area: 210, style: "บ้านเดี่ยว 3 ห้องนอน", priceChange: -11.4, lat: 13.6934, lon: 100.6445, school: "Concordian International" },
-    ];
-
-    const propertiesJson = `<!--PROPERTIES_START-->\n${JSON.stringify(mockProperties)}\n<!--PROPERTIES_END-->`;
-
-    return `## Undervalued Homes Near International Schools
-
-I analyzed **1,234 properties** within 3km of top international schools and found **47 undervalued opportunities** (priced 8-20% below market).
-
-### Top 5 Picks:
-
-${propertiesJson}
-
-| Property | School Nearby | Distance | Undervalued By |
-|----------|--------------|----------|----------------|
-| บางนา 4BR | Bangkok Patana | 1.2km | **-12.5%** |
-| สุขุมวิท 49 5BR | NIST International | 0.8km | **-8.3%** |
-| ลาดพร้าว 101 3BR | KIS International | 1.5km | **-15.2%** |
-| พระราม 9 4BR | Wells International | 2.1km | **-9.8%** |
-| ศรีนครินทร์ 3BR | Concordian | 1.8km | **-11.4%** |
-
-### Why These Are Undervalued:
-
-1. **Market Timing** - Sellers motivated by relocation
-2. **Cosmetic Updates Needed** - Good bones, needs refresh
-3. **Hidden Gems** - Less marketed neighborhoods
-4. **Estate Sales** - Below-market pricing for quick sale
-
-### School Proximity Premium:
-
-Properties within 2km of international schools typically command:
-- **+15-25% premium** over similar non-school-adjacent homes
-- **Faster sales** (avg 23 days vs 45 days market average)
-- **Better rental yields** for investor buyers
-
-${filterSummary}
-
-Would you like detailed analysis on any of these properties?`;
-  }
-
-  if (lowerMsg.includes("price") || lowerMsg.includes("house") || lowerMsg.includes("property")) {
-    // Generate mock property data for the PropertyResultsCard
-    const mockProperties = [
-      { id: "P001", price: 4200000, district: "สุขุมวิท 77", area: 180, style: "บ้านเดี่ยว 3 ห้องนอน", priceChange: 5.2, lat: 13.7089, lon: 100.6012 },
-      { id: "P002", price: 5100000, district: "ลาดพร้าว 71", area: 220, style: "บ้านเดี่ยว 4 ห้องนอน", priceChange: 7.8, lat: 13.8032, lon: 100.6089 },
-      { id: "P003", price: 3800000, district: "บางกะปิ", area: 165, style: "บ้านเดี่ยว 3 ห้องนอน", priceChange: 4.1, lat: 13.7654, lon: 100.6478 },
-      { id: "P004", price: 4500000, district: "พระโขนง", area: 150, style: "ทาวน์โฮม 3 ชั้น", priceChange: 6.3, lat: 13.7112, lon: 100.5912 },
-      { id: "P005", price: 3950000, district: "อ่อนนุช", area: 175, style: "บ้านเดี่ยว 3 ห้องนอน", priceChange: 3.9, lat: 13.7056, lon: 100.6234 },
-      { id: "P006", price: 5500000, district: "เอกมัย", area: 200, style: "บ้านเดี่ยว 4 ห้องนอน", priceChange: 8.2, lat: 13.7234, lon: 100.5856 },
-    ];
-
-    const propertiesJson = `<!--PROPERTIES_START-->\n${JSON.stringify(mockProperties)}\n<!--PROPERTIES_END-->`;
-
-    return `Based on my analysis of the Bangkok property market, here's what I found:
-
-**Market Overview:**
-- Average property price in target area: **4.8M THB**
-- Year-over-year price growth: **+5.2%**
-- Properties matching your criteria: **127 found**
-
-${propertiesJson}
-
-**Top Recommendations:**
-The **Ladprao** area shows particularly strong fundamentals with new infrastructure developments. Properties near BTS On Nut offer excellent value with transit access.${filterSummary}
-
-Would you like me to analyze any of these properties in detail?`;
-  }
-
-  if (lowerMsg.includes("bts") || lowerMsg.includes("location") || lowerMsg.includes("area")) {
-    return `Here's my analysis of transit accessibility in your selected area:
-
-**Transit Score: 85/100** - Excellent public transit access
-
-**Nearby Stations:**
-- BTS Sukhumvit Line: 3 stations within 1km
-- MRT Blue Line: 2 stations within 1.5km
-- Future extensions: 2 planned stations by 2026
-
-**Impact on Property Values:**
-- Properties within 500m of BTS: +12-18% premium
-- Areas near future extensions: +8-15% appreciation expected
-
-**Recommended Zones:**
-1. **On Nut area** - Best value with BTS access
-2. **Phra Khanong** - Premium but excellent connectivity
-3. **Udom Suk** - Growing area with new developments${filterSummary}
-
-Would you like me to find specific properties near these stations?`;
-  }
-
-  if (lowerMsg.includes("undervalue") || lowerMsg.includes("invest") || lowerMsg.includes("growth")) {
-    return `I've analyzed investment opportunities in Bangkok:
-
-**High Growth Potential Areas:**
-
-1. **Bang Na-Trad corridor**
-   - Current avg: 3.2M THB
-   - 3-year appreciation: +28%
-   - Catalyst: New infrastructure projects
-
-2. **Rama 9 extension**
-   - Current avg: 4.5M THB
-   - 3-year appreciation: +22%
-   - Catalyst: MRT Orange Line
-
-3. **Minburi**
-   - Current avg: 2.8M THB
-   - 3-year appreciation: +18%
-   - Catalyst: Pink Line completion
-
-**Undervalued Opportunities:**
-Found 23 properties priced 15-20% below market average in growth areas.${filterSummary}
-
-Shall I show you specific undervalued properties in any of these areas?`;
-  }
-
-  return `I found some relevant information based on your query:
-
-**Bangkok Real Estate Insights:**
-The market shows varied trends across districts:
-- Prime areas (Sukhumvit, Silom): 10-15M+ THB average
-- Developing areas: 3-6M THB with strong appreciation
-- Suburban zones: 2-4M THB, best for families
-
-**Current Market Conditions:**
-- Buyer's market in many areas
-- Interest rates stabilizing
-- New supply expected in Q3-Q4${filterSummary}
-
-What specific aspect would you like me to explore further?`;
 }
 
 function LayerToggle({
