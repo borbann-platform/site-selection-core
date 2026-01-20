@@ -3,7 +3,7 @@
  * Shows estimated price, factors, comparables, and investment insights.
  */
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import {
   TrendingUp,
@@ -24,6 +24,9 @@ import {
   Sparkles,
   Calendar,
   DollarSign,
+  Loader2,
+  Check,
+  Copy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type {
@@ -207,6 +210,9 @@ export function ValuationReport({
   const [showFactors, setShowFactors] = useState(true);
   const [showComparables, setShowComparables] = useState(true);
   const [showInsights, setShowInsights] = useState(true);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [shareState, setShareState] = useState<"idle" | "copied">("idle");
+  const reportRef = useRef<HTMLDivElement>(null);
 
   const maxImpact = Math.max(
     ...valuation.factors.map((f) => Math.abs(f.impact))
@@ -219,8 +225,103 @@ export function ValuationReport({
       100
     : null;
 
+  // Download PDF functionality
+  const handleDownloadPDF = useCallback(async () => {
+    if (!reportRef.current || isDownloading) return;
+
+    setIsDownloading(true);
+    try {
+      // Dynamic import to avoid SSR issues
+      const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+        import("jspdf"),
+        import("html2canvas"),
+      ]);
+
+      // Capture the report element
+      const canvas = await html2canvas(reportRef.current, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#18181b", // zinc-900
+      });
+
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+      const imgX = (pdfWidth - imgWidth * ratio) / 2;
+      const imgY = 10;
+
+      pdf.addImage(
+        imgData,
+        "PNG",
+        imgX,
+        imgY,
+        imgWidth * ratio,
+        imgHeight * ratio
+      );
+
+      // Generate filename with property info
+      const district = propertyData.amphur || "Bangkok";
+      const date = new Date().toISOString().split("T")[0];
+      pdf.save(`Borbann-Valuation-${district}-${date}.pdf`);
+    } catch (error) {
+      console.error("PDF generation failed:", error);
+      alert("Failed to generate PDF. Please try again.");
+    } finally {
+      setIsDownloading(false);
+    }
+  }, [isDownloading, propertyData.amphur]);
+
+  // Share functionality
+  const handleShare = useCallback(async () => {
+    const shareData = {
+      title: "Borbann Property Valuation",
+      text: `Property Valuation: ${formatPrice(valuation.estimated_price)}\n` +
+        `Type: ${propertyData.building_style}\n` +
+        `Area: ${propertyData.building_area} sqm\n` +
+        `District: ${propertyData.amphur}\n` +
+        `Confidence: ${valuation.confidence.charAt(0).toUpperCase() + valuation.confidence.slice(1)}\n\n` +
+        `Powered by Borbann AI`,
+      url: window.location.href,
+    };
+
+    // Try native share first (mobile/modern browsers)
+    if (navigator.share && navigator.canShare?.(shareData)) {
+      try {
+        await navigator.share(shareData);
+        return;
+      } catch (error) {
+        // User cancelled or share failed, fall back to clipboard
+        if ((error as Error).name !== "AbortError") {
+          console.error("Share failed:", error);
+        }
+      }
+    }
+
+    // Fallback: copy to clipboard
+    try {
+      await navigator.clipboard.writeText(
+        `${shareData.text}\n\n${shareData.url}`
+      );
+      setShareState("copied");
+      setTimeout(() => setShareState("idle"), 2000);
+    } catch (error) {
+      console.error("Clipboard copy failed:", error);
+      alert("Failed to copy to clipboard.");
+    }
+  }, [valuation, propertyData]);
+
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div ref={reportRef} className="max-w-3xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <Button
@@ -235,24 +336,32 @@ export function ValuationReport({
           <Button
             variant="outline"
             className="border-white/20 bg-white/5 text-white hover:bg-white/10"
-            onClick={() => {
-              // Mock download functionality
-              alert("Report download feature coming soon!");
-            }}
+            onClick={handleDownloadPDF}
+            disabled={isDownloading}
           >
-            <Download size={14} className="mr-2" />
-            Download
+            {isDownloading ? (
+              <Loader2 size={14} className="mr-2 animate-spin" />
+            ) : (
+              <Download size={14} className="mr-2" />
+            )}
+            {isDownloading ? "Generating..." : "Download"}
           </Button>
           <Button
             variant="outline"
             className="border-white/20 bg-white/5 text-white hover:bg-white/10"
-            onClick={() => {
-              // Mock share functionality
-              alert("Share feature coming soon!");
-            }}
+            onClick={handleShare}
           >
-            <Share2 size={14} className="mr-2" />
-            Share
+            {shareState === "copied" ? (
+              <>
+                <Check size={14} className="mr-2 text-emerald-400" />
+                Copied!
+              </>
+            ) : (
+              <>
+                <Share2 size={14} className="mr-2" />
+                Share
+              </>
+            )}
           </Button>
         </div>
       </div>

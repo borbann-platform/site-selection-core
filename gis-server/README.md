@@ -29,11 +29,23 @@ A FastAPI backend for real estate information, price prediction AI, and property
     
     # Create unified views
     uv run python -m scripts.create_views
+    
+    # Create user properties table (for valuations)
+    uv run python -m scripts.create_user_properties_table
     ```
     
-    > ⏱️ Full data load takes ~10-15 minutes. See [docs/data_processing.md](docs/data_processing.md) for details.
+    > Full data load takes ~10-15 minutes. See [docs/data_processing.md](docs/data_processing.md) for details.
 
-4.  **Run Server**
+4.  **Train ML Models** (Optional but recommended)
+    ```bash
+    # Train baseline LightGBM model for price prediction
+    make train-baseline
+    
+    # Or train all baseline models (LightGBM, RF, Linear)
+    make train-baseline-all
+    ```
+
+5.  **Run Server**
     ```bash
     uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
     ```
@@ -103,7 +115,7 @@ uv run python -m scripts.seed_knowledge_base --clear
 The agent can:
 - **Analyze sites** for business potential (competitors, magnets)
 - **Get location intelligence** (transit, walkability, schools, flood, noise)
-- **Predict property prices** with SHAP explanations
+- **Predict property prices** using trained ML models (LightGBM/HGT)
 - **Search properties** with filters
 - **Get market statistics** by district
 - **Analyze catchment areas** with isochrones
@@ -115,12 +127,37 @@ The agent can:
 curl http://localhost:8000/chat/status
 ```
 
+## AI Property Valuation
+
+The `/valuation` endpoint provides ML-powered property price predictions.
+
+### Setup
+
+1. Ensure the baseline model is trained:
+   ```bash
+   make train-baseline
+   ```
+
+2. The valuation endpoint will automatically use the best available model:
+   - HGT (Graph Neural Network) - if trained
+   - Baseline + Hex2Vec - if available
+   - Baseline LightGBM - default
+
+### Features
+
+- **Price Prediction**: Estimates property value based on location and features
+- **Confidence Scoring**: High/Medium/Low confidence levels
+- **Feature Explanations**: Top factors affecting the price
+- **Comparable Properties**: Similar properties within 2km
+- **Market Insights**: District averages and trends
+
 ## Project Structure
 
-- `src/routes/`: API endpoints (House Prices, Analytics, Projects).
-- `src/services/`: Business logic (Price Analysis, Isochrones, Agent).
+- `src/routes/`: API endpoints (House Prices, Analytics, Projects, Valuation, Chat, Auth).
+- `src/services/`: Business logic (Price Analysis, Isochrones, Agent, Price Prediction).
 - `src/models/`: Pydantic schemas for real estate data.
 - `src/config/`: Settings and database configuration.
 - `data/`: Property data, GeoJSON, and GraphML storage.
 - `scripts/`: Data loading and initialization scripts.
 - `docs/`: API documentation and guides.
+- `models/`: Trained ML models (baseline, hex2vec, hgt).

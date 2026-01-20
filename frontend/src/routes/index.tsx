@@ -606,15 +606,15 @@ function PropertyExplorer() {
             if (t < 0.5) {
               const r = Math.round(t * 2 * 255);
               const g = Math.round(t * 2 * 200);
-              return [r, g, 255, 140];
+              return [r, g, 255, 200];
             }
             const b = Math.round((1 - (t - 0.5) * 2) * 255);
             const g = Math.round((1 - (t - 0.5) * 2) * 200);
-            return [255, g, b, 140];
+            return [255, g, b, 200];
           },
-          getLineColor: [255, 255, 255, 100],
-          lineWidthMinPixels: 1,
-          opacity: 0.6,
+          getLineColor: [255, 255, 255, 150],
+          lineWidthMinPixels: 2,
+          opacity: 0.85,
         })
       );
     }

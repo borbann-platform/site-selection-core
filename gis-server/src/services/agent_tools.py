@@ -10,7 +10,6 @@ IMPORTANT FOR LLM:
 
 import json
 import logging
-import random
 from typing import Literal
 
 from langchain_core.tools import tool
@@ -19,6 +18,7 @@ from src.config.database import SessionLocal
 from src.models.realestate import HousePrice
 from src.services.catchment import catchment_service
 from src.services.location_intelligence import location_intelligence_service
+from src.services.price_prediction import get_predictor
 
 logger = logging.getLogger(__name__)
 
@@ -273,8 +273,6 @@ def predict_property_price(
     - "What's the value of my 3-year-old townhouse?"
     - "Estimate the price for a detached house at this location"
 
-    NOTE: Currently returns MOCK data. Real HGT model integration pending.
-
     Args:
         latitude: Property latitude
         longitude: Property longitude
@@ -292,67 +290,83 @@ def predict_property_price(
     Returns:
         JSON with predicted_price_thb, price factors, and comparable analysis
     """
-    # Generate mock prediction based on building area
-    base_price_per_sqm = random.uniform(25_000, 45_000)
-    base_price = building_area_sqm * base_price_per_sqm
-    predicted_price = base_price * random.uniform(0.9, 1.1)
-    district_avg = base_price * random.uniform(0.85, 1.15)
+    try:
+        # Get the best available predictor (HGT > Baseline+Hex2Vec > Baseline)
+        predictor = get_predictor()
 
-    # Mock contributions
-    contributions = [
-        {
-            "feature": "Building Area (sqm)",
-            "value": building_area_sqm,
-            "impact_thb": round(random.uniform(100_000, 500_000), 0),
-            "direction": "positive",
-        },
-        {
-            "feature": "Transit Stops (1km)",
-            "value": random.randint(1, 5),
-            "impact_thb": round(random.uniform(50_000, 200_000), 0),
-            "direction": "positive",
-        },
-        {
-            "feature": "Building Age (years)",
-            "value": building_age_years,
-            "impact_thb": round(random.uniform(-150_000, -50_000), 0),
-            "direction": "negative",
-        },
-        {
-            "feature": "District Avg Price/sqm",
-            "value": round(district_avg / building_area_sqm, 0),
-            "impact_thb": round(random.uniform(-100_000, 100_000), 0),
-            "direction": "positive" if random.random() > 0.5 else "negative",
-        },
-        {
-            "feature": "POIs within 500m",
-            "value": random.randint(5, 20),
-            "impact_thb": round(random.uniform(20_000, 80_000), 0),
-            "direction": "positive",
-        },
-    ]
+        with SessionLocal() as db:
+            # Call real ML prediction service
+            prediction = predictor.predict(
+                db=db,
+                lat=latitude,
+                lon=longitude,
+                building_area=building_area_sqm,
+                land_area=land_area_sqwah,
+                building_age=float(building_age_years),
+                no_of_floor=float(floors),
+                building_style=building_style,
+            )
 
-    price_vs_district = ((predicted_price - district_avg) / district_avg) * 100
+            # Format feature contributions for agent response
+            contributions = [
+                {
+                    "feature": fc.feature_display,
+                    "value": fc.value,
+                    "impact_thb": round(fc.contribution, 0),
+                    "direction": fc.direction,
+                }
+                for fc in prediction.feature_contributions[:5]  # Top 5 factors
+            ]
 
-    return json.dumps(
-        {
-            "mock_mode": True,
-            "predicted_price_thb": round(predicted_price, 0),
-            "base_price_thb": round(base_price * 0.95, 0),
-            "district_avg_price_thb": round(district_avg, 0),
-            "price_vs_district_percent": round(price_vs_district, 1),
-            "top_price_factors": contributions,
-            "property_details": {
-                "building_area_sqm": building_area_sqm,
-                "land_area_sqwah": land_area_sqwah,
-                "building_style": building_style,
-                "age_years": building_age_years,
-                "floors": floors,
+            # Calculate price comparison with district
+            price_vs_district = prediction.price_vs_district or 0.0
+
+            # Map confidence to category
+            confidence_level = (
+                "high"
+                if prediction.confidence > 0.7
+                else "medium"
+                if prediction.confidence > 0.5
+                else "low"
+            )
+
+            return json.dumps(
+                {
+                    "predicted_price_thb": round(prediction.predicted_price, 0),
+                    "confidence": confidence_level,
+                    "confidence_score": round(prediction.confidence, 2),
+                    "model_type": prediction.model_type,
+                    "district": prediction.district,
+                    "district_avg_price_thb": round(prediction.district_avg_price, 0)
+                    if prediction.district_avg_price
+                    else None,
+                    "price_vs_district_percent": round(price_vs_district, 1),
+                    "h3_cell_avg_price_thb": round(prediction.h3_cell_avg_price, 0)
+                    if prediction.h3_cell_avg_price
+                    else None,
+                    "is_cold_start": prediction.is_cold_start,
+                    "top_price_factors": contributions,
+                    "property_details": {
+                        "building_area_sqm": building_area_sqm,
+                        "land_area_sqwah": land_area_sqwah,
+                        "building_style": building_style,
+                        "age_years": building_age_years,
+                        "floors": floors,
+                        "h3_index": prediction.h3_index,
+                    },
+                },
+                ensure_ascii=False,
+            )
+
+    except Exception as e:
+        logger.error(f"Price prediction failed: {e}")
+        return json.dumps(
+            {
+                "error": str(e),
+                "note": "Price prediction service unavailable. Please ensure the ML model is trained.",
             },
-            "note": "This is mock data. HGT model migration pending.",
-        },
-        ensure_ascii=False,
-    )
+            ensure_ascii=False,
+        )
 
 
 # =============================================================================
