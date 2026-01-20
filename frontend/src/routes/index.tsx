@@ -918,6 +918,27 @@ function PropertyExplorer() {
     }
   };
 
+  // Sanitize property data for JSON serialization (remove NaN, Infinity, undefined)
+  const sanitizePropertyData = useCallback((data: Record<string, unknown>): Record<string, unknown> => {
+    const sanitized: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(data)) {
+      // Skip undefined values
+      if (value === undefined) {
+        continue;
+      }
+      // Replace NaN and Infinity with null
+      if (typeof value === "number" && (!Number.isFinite(value))) {
+        sanitized[key] = null;
+      } else if (typeof value === "object" && value !== null) {
+        // Recursively sanitize nested objects
+        sanitized[key] = sanitizePropertyData(value as Record<string, unknown>);
+      } else {
+        sanitized[key] = value;
+      }
+    }
+    return sanitized;
+  }, []);
+
   // Handle adding property to chat
   const handleAddPropertyToChat = useCallback(
     (property: {
@@ -937,16 +958,14 @@ function PropertyExplorer() {
       const attachment: Attachment = {
         id: `prop-${Date.now()}`,
         type: "property",
-        data: {
-          ...property,
-        },
+        data: sanitizePropertyData(property as Record<string, unknown>),
         label: `${name}${price ? ` - ${price}` : ""}${district ? ` (${district})` : ""}`,
       };
       setChatAttachments((prev) => [...prev, attachment]);
       setSelectedProperty(null);
       setPopupPosition(null);
     },
-    []
+    [sanitizePropertyData]
   );
 
   // Handle Escape key to cancel selection

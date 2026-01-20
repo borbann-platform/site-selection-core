@@ -6,6 +6,7 @@ Provides agentic chatbot with streaming responses using LangGraph + Gemini.
 import asyncio
 import json
 import logging
+import math
 import random
 import time
 import uuid
@@ -17,6 +18,22 @@ from src.config.agent_settings import agent_settings
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 logger = logging.getLogger(__name__)
+
+
+def sanitize_json_value(obj):
+    """
+    Recursively sanitize a value for JSON serialization.
+    Replaces NaN, Infinity, -Infinity with None.
+    """
+    if isinstance(obj, dict):
+        return {k: sanitize_json_value(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [sanitize_json_value(item) for item in obj]
+    elif isinstance(obj, float):
+        if math.isnan(obj) or math.isinf(obj):
+            return None
+        return obj
+    return obj
 
 
 class ChatMessage(BaseModel):
@@ -50,20 +67,23 @@ def build_spatial_context_message(attachments: list[AttachmentData]) -> str:
     parts = ["[SPATIAL CONTEXT FROM MAP]"]
 
     for attachment in attachments:
+        # Sanitize attachment data to prevent NaN/Infinity issues
+        sanitized_data = sanitize_json_value(attachment.data)
+
         if attachment.type == "location":
-            lat = attachment.data.get("lat")
-            lon = attachment.data.get("lon")
+            lat = sanitized_data.get("lat")
+            lon = sanitized_data.get("lon")
             if lat and lon:
                 parts.append(
                     f"- PIN LOCATION: latitude={lat}, longitude={lon} (User has selected this specific point on the map)"
                 )
 
         elif attachment.type == "bbox":
-            min_lon = attachment.data.get("minLon")
-            max_lon = attachment.data.get("maxLon")
-            min_lat = attachment.data.get("minLat")
-            max_lat = attachment.data.get("maxLat")
-            corners = attachment.data.get("corners")
+            min_lon = sanitized_data.get("minLon")
+            max_lon = sanitized_data.get("maxLon")
+            min_lat = sanitized_data.get("minLat")
+            max_lat = sanitized_data.get("maxLat")
+            corners = sanitized_data.get("corners")
 
             if (
                 min_lon is not None
@@ -91,9 +111,30 @@ def build_spatial_context_message(attachments: list[AttachmentData]) -> str:
                 )
 
         elif attachment.type == "property":
-            property_id = attachment.data.get("id")
+            property_id = sanitized_data.get("id")
+            property_data = sanitized_data
+
             if property_id:
                 parts.append(f"- SELECTED PROPERTY: ID={property_id}")
+                # Include key property details if available
+                details = []
+                if property_data.get("total_price"):
+                    details.append(f"Price: ฿{property_data['total_price']:,.0f}")
+                if property_data.get("building_style_desc"):
+                    details.append(f"Type: {property_data['building_style_desc']}")
+                if property_data.get("amphur"):
+                    details.append(f"District: {property_data['amphur']}")
+                if property_data.get("building_area"):
+                    details.append(
+                        f"Building Area: {property_data['building_area']} sqm"
+                    )
+                if property_data.get("lat") and property_data.get("lon"):
+                    details.append(
+                        f"Location: ({property_data['lat']}, {property_data['lon']})"
+                    )
+
+                if details:
+                    parts.append(f"  Details: {', '.join(details)}")
 
     parts.append(
         "\nWhen the user refers to 'this location', 'here', 'this area', or 'the selected area', "
