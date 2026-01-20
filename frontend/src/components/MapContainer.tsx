@@ -3,6 +3,7 @@
 import React from "react";
 import Map, { NavigationControl } from "react-map-gl/maplibre";
 import DeckGL from "@deck.gl/react";
+import { useTheme } from "../contexts/ThemeContext";
 
 interface ViewState {
   longitude: number;
@@ -28,8 +29,10 @@ interface MapContainerProps {
   selectionMode?: SelectionMode;
 }
 
-const MAP_STYLE =
+const MAP_STYLE_DARK =
   "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
+const MAP_STYLE_LIGHT =
+  "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
 
 export function MapContainer({
   viewState,
@@ -40,6 +43,9 @@ export function MapContainer({
   getTooltip,
   selectionMode = "none",
 }: MapContainerProps) {
+  const { resolvedTheme } = useTheme();
+  const mapStyle = resolvedTheme === "dark" ? MAP_STYLE_DARK : MAP_STYLE_LIGHT;
+
   // Disable drag/pan in selection modes to allow click-based selection
   const controllerOptions =
     selectionMode !== "none"
@@ -58,7 +64,7 @@ export function MapContainer({
       >
         <Map
           {...viewState}
-          mapStyle={MAP_STYLE}
+          mapStyle={mapStyle}
           reuseMaps
           attributionControl={false}
         >

@@ -48,25 +48,25 @@ export function PropertyFilters({ filters, onChange }: PropertyFiltersProps) {
     <div className="space-y-5">
       {/* District Select */}
       <div className="space-y-2">
-        <Label className="text-xs text-white/70">District (เขต)</Label>
+        <Label className="text-xs text-muted-foreground">District (เขต)</Label>
         <Select
           value={filters.district || "all"}
           onValueChange={(value) =>
             onChange({ ...filters, district: value === "all" ? null : value })
           }
         >
-          <SelectTrigger className="bg-white/5 border-white/10 text-white">
+          <SelectTrigger className="bg-muted/50 border-border text-foreground">
             <SelectValue placeholder="All Districts" />
           </SelectTrigger>
-          <SelectContent className="bg-zinc-900 border-white/10">
-            <SelectItem value="all" className="text-white hover:bg-white/10">
+          <SelectContent className="bg-card border-border">
+            <SelectItem value="all" className="text-foreground hover:bg-muted">
               All Districts
             </SelectItem>
             {districts?.map((d) => (
               <SelectItem
                 key={d.amphur}
                 value={d.amphur}
-                className="text-white hover:bg-white/10"
+                className="text-foreground hover:bg-muted"
               >
                 {d.amphur} ({d.count})
               </SelectItem>
@@ -77,7 +77,7 @@ export function PropertyFilters({ filters, onChange }: PropertyFiltersProps) {
 
       {/* Building Style Select */}
       <div className="space-y-2">
-        <Label className="text-xs text-white/70">Building Type</Label>
+        <Label className="text-xs text-muted-foreground">Building Type</Label>
         <Select
           value={filters.buildingStyle || "all"}
           onValueChange={(value) =>
@@ -87,18 +87,18 @@ export function PropertyFilters({ filters, onChange }: PropertyFiltersProps) {
             })
           }
         >
-          <SelectTrigger className="bg-white/5 border-white/10 text-white">
+          <SelectTrigger className="bg-muted/50 border-border text-foreground">
             <SelectValue placeholder="All Types" />
           </SelectTrigger>
-          <SelectContent className="bg-zinc-900 border-white/10">
-            <SelectItem value="all" className="text-white hover:bg-white/10">
+          <SelectContent className="bg-card border-border">
+            <SelectItem value="all" className="text-foreground hover:bg-muted">
               All Types
             </SelectItem>
             {buildingStyles?.map((s) => (
               <SelectItem
                 key={s.building_style_desc}
                 value={s.building_style_desc}
-                className="text-white hover:bg-white/10"
+                className="text-foreground hover:bg-muted"
               >
                 {s.building_style_desc} ({s.count})
               </SelectItem>
@@ -110,8 +110,8 @@ export function PropertyFilters({ filters, onChange }: PropertyFiltersProps) {
       {/* Price Range Slider */}
       <div className="space-y-3">
         <div className="flex justify-between items-center">
-          <Label className="text-xs text-white/70">Price Range (THB)</Label>
-          <span className="text-xs text-emerald-400 font-mono">
+          <Label className="text-xs text-muted-foreground">Price Range (THB)</Label>
+          <span className="text-xs text-emerald-500 dark:text-emerald-400 font-mono">
             {formatPrice(filters.minPrice)} - {formatPrice(filters.maxPrice)}
           </span>
         </div>
@@ -125,7 +125,7 @@ export function PropertyFilters({ filters, onChange }: PropertyFiltersProps) {
           }
           className="**:[[role=slider]]:bg-emerald-500"
         />
-        <div className="flex justify-between text-[10px] text-white/40">
+        <div className="flex justify-between text-[10px] text-muted-foreground/70">
           <span>500K</span>
           <span>50M</span>
         </div>
@@ -134,8 +134,8 @@ export function PropertyFilters({ filters, onChange }: PropertyFiltersProps) {
       {/* Area Range Slider */}
       <div className="space-y-3">
         <div className="flex justify-between items-center">
-          <Label className="text-xs text-white/70">Building Area (sqm)</Label>
-          <span className="text-xs text-emerald-400 font-mono">
+          <Label className="text-xs text-muted-foreground">Building Area (sqm)</Label>
+          <span className="text-xs text-emerald-500 dark:text-emerald-400 font-mono">
             {filters.minArea} - {filters.maxArea} sqm
           </span>
         </div>
@@ -149,7 +149,7 @@ export function PropertyFilters({ filters, onChange }: PropertyFiltersProps) {
           }
           className="**:[[role=slider]]:bg-emerald-500"
         />
-        <div className="flex justify-between text-[10px] text-white/40">
+        <div className="flex justify-between text-[10px] text-muted-foreground/70">
           <span>20 sqm</span>
           <span>1000 sqm</span>
         </div>

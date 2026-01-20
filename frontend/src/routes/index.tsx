@@ -35,6 +35,7 @@ import {
 import { MarketStats } from "../components/MarketStats";
 import { PriceLegend } from "../components/PriceLegend";
 import { PropertyPopup } from "../components/PropertyPopup";
+import { MapLegend } from "../components/MapLegend";
 import {
   Collapsible,
   CollapsibleTrigger,
@@ -447,7 +448,7 @@ function PropertyExplorer() {
               getIcon: () => "home",
               getPosition: (d: DeckGLObject) =>
                 d.geometry?.coordinates ?? [0, 0],
-              getSize: 24,
+              getSize: 32,
               getColor: (d: DeckGLObject) => {
                 const price = Number(d.properties?.total_price) || 0;
                 const minPrice = propertyFilters.minPrice;
@@ -464,8 +465,8 @@ function PropertyExplorer() {
                 return [255, g, 50];
               },
               sizeScale: 1,
-              sizeMinPixels: 20,
-              sizeMaxPixels: 40,
+              sizeMinPixels: 28,
+              sizeMaxPixels: 48,
               pickable: true,
               autoHighlight: true,
               highlightColor: [255, 255, 255, 100],
@@ -970,10 +971,10 @@ function PropertyExplorer() {
       {/* Header */}
       <div>
         <div className="flex items-center gap-2 mb-1">
-          <Home className="w-5 h-5 text-amber-400" />
-          <h2 className="text-xl font-bold text-white">Property Explorer</h2>
+          <Home className="w-5 h-5 text-amber-500" />
+          <h2 className="text-xl font-bold text-foreground">Property Explorer</h2>
         </div>
-        <p className="text-xs text-white/50">
+        <p className="text-xs text-muted-foreground">
           Browse real estate prices in Bangkok
         </p>
       </div>
@@ -985,17 +986,17 @@ function PropertyExplorer() {
           setOpenSections((s) => ({ ...s, filters: open }))
         }
       >
-        <div className="border border-white/10 rounded-lg overflow-hidden">
-          <CollapsibleTrigger className="w-full flex items-center justify-between p-3 bg-white/5 hover:bg-white/10 transition-colors">
-            <h3 className="text-sm font-bold text-white">Filters</h3>
+        <div className="border border-border rounded-lg overflow-hidden">
+          <CollapsibleTrigger className="w-full flex items-center justify-between p-3 bg-muted/50 hover:bg-muted transition-colors">
+            <h3 className="text-sm font-bold text-foreground">Filters</h3>
             {openSections.filters ? (
-              <ChevronUp className="w-4 h-4 text-white/50" />
+              <ChevronUp className="w-4 h-4 text-muted-foreground" />
             ) : (
-              <ChevronDown className="w-4 h-4 text-white/50" />
+              <ChevronDown className="w-4 h-4 text-muted-foreground" />
             )}
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <div className="p-3 bg-black/20">
+            <div className="p-3 bg-muted/30">
               <PropertyFilters
                 filters={propertyFilters}
                 onChange={setPropertyFilters}
@@ -1010,17 +1011,17 @@ function PropertyExplorer() {
         open={openSections.stats}
         onOpenChange={(open) => setOpenSections((s) => ({ ...s, stats: open }))}
       >
-        <div className="border border-white/10 rounded-lg overflow-hidden">
-          <CollapsibleTrigger className="w-full flex items-center justify-between p-3 bg-white/5 hover:bg-white/10 transition-colors">
-            <h3 className="text-sm font-bold text-white">Market Statistics</h3>
+        <div className="border border-border rounded-lg overflow-hidden">
+          <CollapsibleTrigger className="w-full flex items-center justify-between p-3 bg-muted/50 hover:bg-muted transition-colors">
+            <h3 className="text-sm font-bold text-foreground">Market Statistics</h3>
             {openSections.stats ? (
-              <ChevronUp className="w-4 h-4 text-white/50" />
+              <ChevronUp className="w-4 h-4 text-muted-foreground" />
             ) : (
-              <ChevronDown className="w-4 h-4 text-white/50" />
+              <ChevronDown className="w-4 h-4 text-muted-foreground" />
             )}
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <div className="p-3 bg-black/20">
+            <div className="p-3 bg-muted/30">
               <MarketStats
                 filters={{
                   district: propertyFilters.district,
@@ -1039,17 +1040,17 @@ function PropertyExplorer() {
           setOpenSections((s) => ({ ...s, overlays: open }))
         }
       >
-        <div className="border border-white/10 rounded-lg overflow-hidden">
-          <CollapsibleTrigger className="w-full flex items-center justify-between p-3 bg-white/5 hover:bg-white/10 transition-colors">
-            <h3 className="text-sm font-bold text-white">Map Overlays</h3>
+        <div className="border border-border rounded-lg overflow-hidden">
+          <CollapsibleTrigger className="w-full flex items-center justify-between p-3 bg-muted/50 hover:bg-muted transition-colors">
+            <h3 className="text-sm font-bold text-foreground">Map Overlays</h3>
             {openSections.overlays ? (
-              <ChevronUp className="w-4 h-4 text-white/50" />
+              <ChevronUp className="w-4 h-4 text-muted-foreground" />
             ) : (
-              <ChevronDown className="w-4 h-4 text-white/50" />
+              <ChevronDown className="w-4 h-4 text-muted-foreground" />
             )}
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <div className="p-3 bg-black/20 space-y-2">
+            <div className="p-3 bg-muted/30 space-y-2">
               <LayerToggle
                 label="Transit Lines (BTS/MRT)"
                 active={overlays.transitRail}
@@ -1085,7 +1086,7 @@ function PropertyExplorer() {
                 <select
                   value={h3Metric}
                   onChange={(e) => setH3Metric(e.target.value)}
-                  className="w-full px-2 py-1 text-xs bg-zinc-700 rounded text-white border border-zinc-600 mt-1"
+                  className="w-full px-2 py-1 text-xs bg-muted rounded text-foreground border border-border mt-1"
                 >
                   <optgroup label="POI Counts">
                     <option value="poi_total">Total POIs</option>
@@ -1120,7 +1121,7 @@ function PropertyExplorer() {
       </Collapsible>
 
       {/* Info Section */}
-      <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded text-xs text-amber-200">
+      <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded text-xs text-amber-700 dark:text-amber-200">
         <span className="font-bold">💡 Tip:</span> Click on a property to see
         full details. Zoom in past level 13 for MVT tiles.
       </div>
@@ -1128,7 +1129,7 @@ function PropertyExplorer() {
       {/* District Analysis Link */}
       <Link
         to="/districts"
-        className="flex items-center justify-center gap-2 w-full py-3 bg-white/5 hover:bg-white/10 rounded-lg text-sm text-white/70 hover:text-white transition-colors border border-white/10"
+        className="flex items-center justify-center gap-2 w-full py-3 bg-muted/50 hover:bg-muted rounded-lg text-sm text-muted-foreground hover:text-foreground transition-colors border border-border"
       >
         <BarChart3 className="w-4 h-4" />
         View District Analysis
@@ -1139,7 +1140,7 @@ function PropertyExplorer() {
   return (
     <>
       <Shell panelContent={PanelContent}>
-        <div className="w-full h-full bg-black relative overflow-hidden">
+        <div className="w-full h-full bg-background relative overflow-hidden">
           <MapContainer
             viewState={viewState}
             onViewStateChange={(e) => setViewState(e.viewState)}
@@ -1155,6 +1156,12 @@ function PropertyExplorer() {
             maxPrice={propertyFilters.maxPrice}
           />
 
+          {/* Map Legend */}
+          <MapLegend
+            showHouses={true}
+            showPOIs={overlays.pois}
+          />
+
           {/* Property Popup */}
           <PropertyPopup
             property={selectedProperty}
@@ -1167,8 +1174,8 @@ function PropertyExplorer() {
           />
 
           {/* Info Badge */}
-          <div className="absolute top-6 left-1/2 -translate-x-1/2 z-40 bg-black/80 backdrop-blur-md border border-white/10 rounded-full px-4 py-2">
-            <div className="flex items-center gap-2 text-xs text-white/70">
+          <div className="absolute top-6 left-1/2 -translate-x-1/2 z-40 bg-card/90 backdrop-blur-md border border-border rounded-full px-4 py-2 shadow-lg">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Home className="w-3 h-3" />
               <span>
                 {housePrices?.count || 0} properties |{" "}
@@ -1197,7 +1204,7 @@ function PropertyExplorer() {
                       : `CLICK CORNER ${bboxCorners.length + 1} OF 4`}
                   </span>
                 </div>
-                <div className="text-[10px] font-normal text-white/90 text-center mt-1">
+                <div className="text-[10px] font-normal opacity-90 text-center mt-1">
                   Press ESC to cancel
                 </div>
               </div>
@@ -1266,13 +1273,13 @@ function LayerToggle({
       className={cn(
         "w-full flex items-center justify-between p-3 rounded-lg transition-all border",
         active
-          ? "bg-white/10 border-white/10"
-          : "bg-transparent border-transparent hover:bg-white/5"
+          ? "bg-muted border-border"
+          : "bg-transparent border-transparent hover:bg-muted/50"
       )}
     >
       <div className="flex items-center gap-3">
         {icon ? (
-          <span className={cn(active ? "text-white" : "text-white/30")}>
+          <span className={cn(active ? "text-foreground" : "text-muted-foreground/50")}>
             {icon}
           </span>
         ) : (
@@ -1287,16 +1294,16 @@ function LayerToggle({
         <span
           className={cn(
             "text-sm font-medium",
-            active ? "text-white" : "text-white/50"
+            active ? "text-foreground" : "text-muted-foreground"
           )}
         >
           {label}
         </span>
       </div>
       {active ? (
-        <Eye size={16} className="text-white/70" />
+        <Eye size={16} className="text-muted-foreground" />
       ) : (
-        <EyeOff size={16} className="text-white/30" />
+        <EyeOff size={16} className="text-muted-foreground/50" />
       )}
     </button>
   );

@@ -50,13 +50,13 @@ function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md bg-zinc-900 border-zinc-800">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <Card className="w-full max-w-md bg-card border-border">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold text-white">
+          <CardTitle className="text-2xl font-bold text-foreground">
             Welcome Back
           </CardTitle>
-          <p className="text-sm text-zinc-400">
+          <p className="text-sm text-muted-foreground">
             Sign in to your account
           </p>
         </CardHeader>
@@ -69,7 +69,7 @@ function LoginPage() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-zinc-300">
+              <Label htmlFor="email" className="text-foreground">
                 Email
               </Label>
               <Input
@@ -79,13 +79,13 @@ function LoginPage() {
                 value={formData.email}
                 onChange={handleChange}
                 required
-                className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500"
+                className="bg-input border-border text-foreground placeholder:text-muted-foreground"
                 placeholder="john@example.com"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-zinc-300">
+              <Label htmlFor="password" className="text-foreground">
                 Password
               </Label>
               <Input
@@ -95,7 +95,7 @@ function LoginPage() {
                 value={formData.password}
                 onChange={handleChange}
                 required
-                className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500"
+                className="bg-input border-border text-foreground placeholder:text-muted-foreground"
                 placeholder="Enter your password"
               />
             </div>
@@ -108,7 +108,7 @@ function LoginPage() {
               {isLoading ? "Signing in..." : "Sign In"}
             </Button>
 
-            <p className="text-center text-sm text-zinc-400">
+            <p className="text-center text-sm text-muted-foreground">
               Don't have an account?{" "}
               <Link to="/register" className="text-amber-400 hover:underline">
                 Sign up

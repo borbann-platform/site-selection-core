@@ -9,6 +9,7 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
+import { useTheme } from "@/contexts/ThemeContext";
 
 interface MarketStatsProps {
   filters?: {
@@ -25,6 +26,9 @@ const formatPriceShort = (value: number): string => {
 };
 
 export function MarketStats({ filters }: MarketStatsProps) {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
+
   const { data: stats, isLoading } = useQuery({
     queryKey: ["housePriceStats"],
     queryFn: api.getHousePriceStats,
@@ -34,7 +38,7 @@ export function MarketStats({ filters }: MarketStatsProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <Loader2 className="w-5 h-5 animate-spin text-white/50" />
+        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -74,37 +78,40 @@ export function MarketStats({ filters }: MarketStatsProps) {
     avgPrice: d.avg_price,
   }));
 
+  // Chart colors based on theme
+  const axisTextColor = isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)";
+
   return (
     <div className="space-y-4">
       {/* Summary Stats */}
       <div className="grid grid-cols-3 gap-2">
-        <div className="bg-white/5 rounded-lg p-3 text-center">
-          <Home className="w-4 h-4 mx-auto mb-1 text-emerald-400" />
-          <div className="text-lg font-bold text-white">
+        <div className="bg-muted/50 rounded-lg p-3 text-center">
+          <Home className="w-4 h-4 mx-auto mb-1 text-emerald-500 dark:text-emerald-400" />
+          <div className="text-lg font-bold text-foreground">
             {totalCount.toLocaleString()}
           </div>
-          <div className="text-[10px] text-white/50">Properties</div>
+          <div className="text-[10px] text-muted-foreground">Properties</div>
         </div>
-        <div className="bg-white/5 rounded-lg p-3 text-center">
-          <TrendingUp className="w-4 h-4 mx-auto mb-1 text-amber-400" />
-          <div className="text-lg font-bold text-white">
+        <div className="bg-muted/50 rounded-lg p-3 text-center">
+          <TrendingUp className="w-4 h-4 mx-auto mb-1 text-amber-500 dark:text-amber-400" />
+          <div className="text-lg font-bold text-foreground">
             {formatPriceShort(avgPrice)}
           </div>
-          <div className="text-[10px] text-white/50">Avg Price</div>
+          <div className="text-[10px] text-muted-foreground">Avg Price</div>
         </div>
-        <div className="bg-white/5 rounded-lg p-3 text-center">
-          <MapPin className="w-4 h-4 mx-auto mb-1 text-blue-400" />
-          <div className="text-lg font-bold text-white">
+        <div className="bg-muted/50 rounded-lg p-3 text-center">
+          <MapPin className="w-4 h-4 mx-auto mb-1 text-blue-500 dark:text-blue-400" />
+          <div className="text-lg font-bold text-foreground">
             {formatPriceShort(avgPricePerSqm)}
           </div>
-          <div className="text-[10px] text-white/50">/sqm</div>
+          <div className="text-[10px] text-muted-foreground">/sqm</div>
         </div>
       </div>
 
       {/* Top Districts Chart */}
       {!filters?.district && (
         <div className="space-y-2">
-          <div className="text-xs text-white/70 font-medium">
+          <div className="text-xs text-muted-foreground font-medium">
             Top Districts by Count
           </div>
           <div className="h-32">
@@ -119,7 +126,7 @@ export function MarketStats({ filters }: MarketStatsProps) {
                   type="category"
                   dataKey="name"
                   width={80}
-                  tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 10 }}
+                  tick={{ fill: axisTextColor, fontSize: 10 }}
                   axisLine={false}
                   tickLine={false}
                 />
@@ -139,7 +146,7 @@ export function MarketStats({ filters }: MarketStatsProps) {
 
       {/* Building Type Breakdown */}
       <div className="space-y-2">
-        <div className="text-xs text-white/70 font-medium">
+        <div className="text-xs text-muted-foreground font-medium">
           By Building Type
         </div>
         <div className="space-y-1">
@@ -148,12 +155,12 @@ export function MarketStats({ filters }: MarketStatsProps) {
             return (
               <div key={style.building_style_desc} className="space-y-1">
                 <div className="flex justify-between text-[11px]">
-                  <span className="text-white/70 truncate max-w-[140px]">
+                  <span className="text-muted-foreground truncate max-w-[140px]">
                     {style.building_style_desc}
                   </span>
-                  <span className="text-white/50">{style.count}</span>
+                  <span className="text-muted-foreground/70">{style.count}</span>
                 </div>
-                <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                   <div
                     className="h-full bg-amber-500/70 rounded-full"
                     style={{ width: `${pct}%` }}

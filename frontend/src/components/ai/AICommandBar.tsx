@@ -79,7 +79,7 @@ export function AICommandBar({
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-2xl px-4">
       <form
         onSubmit={handleSubmit}
-        className="bg-zinc-900/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+        className="bg-card/95 backdrop-blur-xl border border-border rounded-2xl shadow-2xl overflow-hidden"
       >
         {/* Selection Mode Indicator */}
         {selectionMode !== "none" && (
@@ -102,7 +102,7 @@ export function AICommandBar({
 
         {/* Attachments */}
         {attachments.length > 0 && (
-          <div className="px-4 py-2 border-b border-white/10 flex flex-wrap gap-2">
+          <div className="px-4 py-2 border-b border-border flex flex-wrap gap-2">
             {attachments.map((att) => (
               <AttachmentBadge
                 key={att.id}
@@ -125,7 +125,7 @@ export function AICommandBar({
                 "p-2 rounded-lg transition-colors",
                 selectionMode === "location"
                   ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                  : "bg-white/5 hover:bg-white/10 text-white/70 hover:text-white disabled:opacity-30"
+                  : "bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground disabled:opacity-30"
               )}
               title="Pick point location"
             >
@@ -139,7 +139,7 @@ export function AICommandBar({
                 "p-2 rounded-lg transition-colors",
                 selectionMode === "bbox"
                   ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                  : "bg-white/5 hover:bg-white/10 text-white/70 hover:text-white disabled:opacity-30"
+                  : "bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground disabled:opacity-30"
               )}
               title="Draw area on map"
             >
@@ -159,7 +159,7 @@ export function AICommandBar({
                 : "Ask AI: Find houses, analyze locations... (press / to focus)"
             }
             disabled={isRunning || selectionMode !== "none"}
-            className="flex-1 bg-transparent text-sm text-white placeholder:text-white/40 focus:outline-none disabled:opacity-50"
+            className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-50"
           />
 
           {/* Send Button */}
@@ -176,7 +176,7 @@ export function AICommandBar({
           <button
             type="button"
             onClick={onToggleExpanded}
-            className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-colors"
+            className="p-2 rounded-lg bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
             title={isExpanded ? "Collapse panel" : "Expand panel"}
           >
             {isExpanded ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
@@ -185,8 +185,8 @@ export function AICommandBar({
 
         {/* Example Prompts */}
         {showExamples && (
-          <div className="px-4 pb-3 border-t border-white/10">
-            <div className="text-[10px] text-white/40 mb-2 mt-2">
+          <div className="px-4 pb-3 border-t border-border">
+            <div className="text-[10px] text-muted-foreground mb-2 mt-2">
               Try asking:
             </div>
             <div className="flex flex-wrap gap-2">
@@ -195,7 +195,7 @@ export function AICommandBar({
                   key={prompt}
                   type="button"
                   onClick={() => onInputChange(prompt)}
-                  className="px-2 py-1 text-[11px] bg-white/5 hover:bg-white/10 text-white/60 hover:text-white/90 rounded border border-white/10 transition-colors"
+                  className="px-2 py-1 text-[11px] bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded border border-border transition-colors"
                 >
                   {prompt}
                 </button>

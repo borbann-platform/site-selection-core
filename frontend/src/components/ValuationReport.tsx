@@ -26,7 +26,6 @@ import {
   DollarSign,
   Loader2,
   Check,
-  Copy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type {
