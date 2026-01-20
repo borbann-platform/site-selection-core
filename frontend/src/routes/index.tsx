@@ -1184,8 +1184,8 @@ function PropertyExplorer() {
                 className={cn(
                   "absolute top-24 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full font-bold shadow-2xl backdrop-blur-md border-2 animate-bounce-slight transition-colors",
                   selectionMode === "location"
-                    ? "bg-emerald-500/90 border-emerald-300 text-black shadow-emerald-500/20"
-                    : "bg-cyan-500/90 border-cyan-300 text-black shadow-cyan-500/20"
+                    ? "bg-emerald-600 border-emerald-400 text-white shadow-emerald-500/30"
+                    : "bg-cyan-600 border-cyan-400 text-white shadow-cyan-500/30"
                 )}
               >
                 <div className="flex items-center gap-2">
@@ -1197,7 +1197,7 @@ function PropertyExplorer() {
                       : `CLICK CORNER ${bboxCorners.length + 1} OF 4`}
                   </span>
                 </div>
-                <div className="text-[10px] font-normal opacity-80 text-center mt-1">
+                <div className="text-[10px] font-normal text-white/90 text-center mt-1">
                   Press ESC to cancel
                 </div>
               </div>

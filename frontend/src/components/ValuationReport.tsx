@@ -237,12 +237,38 @@ export function ValuationReport({
         import("html2canvas"),
       ]);
 
-      // Capture the report element
-      const canvas = await html2canvas(reportRef.current, {
+      const element = reportRef.current;
+      
+      // Ensure element is scrolled into view and visible
+      element.scrollIntoView({ behavior: "instant", block: "start" });
+      
+      // Small delay to ensure rendering is complete
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Capture the report element with settings optimized for dark backgrounds
+      const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
         logging: false,
         backgroundColor: "#18181b", // zinc-900
+        allowTaint: true,
+        windowWidth: element.scrollWidth,
+        windowHeight: element.scrollHeight,
+        // Ignore problematic elements (buttons, spinners)
+        ignoreElements: (el) => {
+          if (!(el instanceof HTMLElement)) return false;
+          return el.classList?.contains('animate-spin') || 
+                 el.tagName === 'BUTTON' ||
+                 el.classList?.contains('backdrop-blur') ||
+                 el.classList?.contains('backdrop-blur-md');
+        },
+        onclone: (clonedDoc) => {
+          // Ensure cloned element has solid background
+          const clonedElement = clonedDoc.body.querySelector('[class*="max-w-3xl"]');
+          if (clonedElement instanceof HTMLElement) {
+            clonedElement.style.backgroundColor = '#18181b';
+          }
+        }
       });
 
       const imgData = canvas.toDataURL("image/png");
@@ -256,18 +282,49 @@ export function ValuationReport({
       const pdfHeight = pdf.internal.pageSize.getHeight();
       const imgWidth = canvas.width;
       const imgHeight = canvas.height;
-      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+      
+      // Calculate dimensions to fit content
+      const ratio = Math.min(
+        (pdfWidth - 20) / imgWidth,  // 10mm margin on each side
+        (pdfHeight - 20) / imgHeight
+      );
       const imgX = (pdfWidth - imgWidth * ratio) / 2;
       const imgY = 10;
 
-      pdf.addImage(
-        imgData,
-        "PNG",
-        imgX,
-        imgY,
-        imgWidth * ratio,
-        imgHeight * ratio
-      );
+      // Handle multi-page if content is too long
+      const scaledHeight = imgHeight * ratio;
+      if (scaledHeight > pdfHeight - 20) {
+        // Content is longer than one page, scale to fit width and add pages
+        const pageHeight = pdfHeight - 20;
+        const contentHeight = (imgHeight * (pdfWidth - 20)) / imgWidth;
+        let position = 0;
+        let page = 0;
+        
+        while (position < contentHeight) {
+          if (page > 0) {
+            pdf.addPage();
+          }
+          pdf.addImage(
+            imgData,
+            "PNG",
+            10,
+            10 - position,
+            pdfWidth - 20,
+            contentHeight
+          );
+          position += pageHeight;
+          page++;
+        }
+      } else {
+        pdf.addImage(
+          imgData,
+          "PNG",
+          imgX,
+          imgY,
+          imgWidth * ratio,
+          imgHeight * ratio
+        );
+      }
 
       // Generate filename with property info
       const district = propertyData.amphur || "Bangkok";
@@ -275,7 +332,9 @@ export function ValuationReport({
       pdf.save(`Borbann-Valuation-${district}-${date}.pdf`);
     } catch (error) {
       console.error("PDF generation failed:", error);
-      alert("Failed to generate PDF. Please try again.");
+      // More helpful error message
+      const errorMsg = error instanceof Error ? error.message : "Unknown error";
+      alert(`Failed to generate PDF: ${errorMsg}. Try refreshing the page.`);
     } finally {
       setIsDownloading(false);
     }
