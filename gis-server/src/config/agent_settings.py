@@ -13,7 +13,7 @@ class AgentSettings(BaseSettings):
     GOOGLE_API_KEY: str = ""
 
     # Model configuration
-    AGENT_MODEL: str = "gemini-2.0-flash"
+    AGENT_MODEL: str = "gemini-2.5-flash-lite"
     EMBEDDING_MODEL: str = "models/text-embedding-004"
 
     # Agent safety limits
