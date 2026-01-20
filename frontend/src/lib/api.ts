@@ -856,177 +856,120 @@ export const api = {
     return res.json();
   },
 
-  // ============= Property Valuation (Mock) =============
+  // ============= Property Valuation =============
 
   /**
-   * Get property valuation based on input data.
-   * This is a mock implementation that simulates the valuation model.
-   * In production, this would call the actual ML model endpoint.
+   * Get AI-powered property valuation.
+   * Uses real ML models (LightGBM baseline or HGT Graph Neural Network)
+   * to predict property values based on location and property features.
    */
   getPropertyValuation: async (
-    data: PropertyUploadRequest
+    data: PropertyUploadRequest,
+    options?: { saveProperty?: boolean; userId?: string }
   ): Promise<ValuationResponse> => {
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    // District price multipliers (mock data)
-    const districtMultipliers: Record<string, number> = {
-      วัฒนา: 1.8,
-      ปทุมวัน: 1.7,
-      คลองเตย: 1.3,
-      พระโขนง: 1.2,
-      สวนหลวง: 1.1,
-      บางกะปิ: 0.95,
-      ลาดพร้าว: 1.05,
-      จตุจักร: 1.15,
-      บางนา: 1.0,
-      ห้วยขวาง: 1.1,
+    const requestBody = {
+      building_style: data.building_style,
+      building_area: data.building_area,
+      land_area: data.land_area,
+      no_of_floor: data.no_of_floor,
+      building_age: data.building_age,
+      amphur: data.amphur,
+      tumbon: data.tumbon,
+      village: data.village,
+      latitude: data.latitude,
+      longitude: data.longitude,
+      asking_price: data.asking_price,
+      save_property: options?.saveProperty ?? false,
+      user_id: options?.userId,
     };
 
-    // Building style base prices per sqm
-    const styleBasePrices: Record<string, number> = {
-      บ้านเดี่ยว: 45000,
-      ทาวน์เฮ้าส์: 35000,
-      บ้านแฝด: 38000,
-      อาคารพาณิชย์: 42000,
-      ตึกแถว: 32000,
-    };
-
-    const basePrice = styleBasePrices[data.building_style] || 40000;
-    const districtMultiplier = districtMultipliers[data.amphur] || 1.0;
-
-    // Calculate base estimated price
-    let estimatedPrice = basePrice * data.building_area * districtMultiplier;
-
-    // Apply modifiers
-    const factors: ValuationFactor[] = [];
-
-    // Land area bonus
-    if (data.land_area && data.land_area > 0) {
-      const landBonus = data.land_area * 8000 * districtMultiplier;
-      estimatedPrice += landBonus;
-      factors.push({
-        name: "land_area",
-        display_name: "Land Area",
-        impact: landBonus,
-        direction: "positive",
-        description: `${data.land_area} sqm of land adds significant value`,
-      });
-    }
-
-    // Building age depreciation
-    if (data.building_age > 0) {
-      const depreciation = Math.min(data.building_age * 0.015, 0.3); // Max 30% depreciation
-      const depreciationAmount = estimatedPrice * depreciation;
-      estimatedPrice -= depreciationAmount;
-      factors.push({
-        name: "building_age",
-        display_name: "Building Age",
-        impact: -depreciationAmount,
-        direction: "negative",
-        description: `${data.building_age} years old (${(depreciation * 100).toFixed(0)}% depreciation)`,
-      });
-    }
-
-    // Floor bonus
-    if (data.no_of_floor > 1) {
-      const floorBonus = (data.no_of_floor - 1) * 200000;
-      estimatedPrice += floorBonus;
-      factors.push({
-        name: "floors",
-        display_name: "Number of Floors",
-        impact: floorBonus,
-        direction: "positive",
-        description: `${data.no_of_floor} floors provides more living space`,
-      });
-    }
-
-    // Location quality factor (based on coordinates - simplified)
-    const locationScore = 70 + Math.random() * 25;
-    const locationImpact = estimatedPrice * ((locationScore - 70) / 100);
-    estimatedPrice += locationImpact;
-    factors.push({
-      name: "location",
-      display_name: "Location Quality",
-      impact: locationImpact,
-      direction: locationImpact >= 0 ? "positive" : "negative",
-      description: `Location score: ${locationScore.toFixed(0)}/100`,
+    const res = await fetch(`${API_URL}/valuation`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(requestBody),
     });
 
-    // District premium
-    if (districtMultiplier > 1.0) {
-      const premiumAmount = estimatedPrice * (districtMultiplier - 1) * 0.3;
-      factors.push({
-        name: "district",
-        display_name: "District Premium",
-        impact: premiumAmount,
-        direction: "positive",
-        description: `${data.amphur} commands a ${((districtMultiplier - 1) * 100).toFixed(0)}% premium`,
-      });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: "Valuation failed" }));
+      throw new Error(error.detail || "Failed to get property valuation");
     }
 
-    // Round to nearest 100,000
-    estimatedPrice = Math.round(estimatedPrice / 100000) * 100000;
+    return res.json();
+  },
 
-    // Calculate confidence based on data completeness
-    const dataPoints = [
-      data.building_area > 0,
-      data.land_area && data.land_area > 0,
-      data.building_age >= 0,
-      data.no_of_floor > 0,
-      data.amphur,
-      data.tumbon,
-    ].filter(Boolean).length;
+  /**
+   * Get available valuation models.
+   */
+  getValuationModels: async (): Promise<{
+    models: Array<{ model_type: string; available: boolean }>;
+    default: string | null;
+  }> => {
+    const res = await fetch(`${API_URL}/valuation/models`);
+    if (!res.ok) throw new Error("Failed to get valuation models");
+    return res.json();
+  },
 
-    const confidence: "high" | "medium" | "low" =
-      dataPoints >= 5 ? "high" : dataPoints >= 3 ? "medium" : "low";
+  /**
+   * List user properties with their valuations.
+   */
+  listUserProperties: async (
+    userId?: string,
+    limit = 20,
+    offset = 0
+  ): Promise<
+    Array<{
+      id: string;
+      building_style: string | null;
+      building_area: number | null;
+      estimated_price: number | null;
+      confidence: string | null;
+      created_at: string;
+    }>
+  > => {
+    const params = new URLSearchParams();
+    if (userId) params.append("user_id", userId);
+    params.append("limit", limit.toString());
+    params.append("offset", offset.toString());
 
-    // Price range based on confidence
-    const rangePercent = confidence === "high" ? 0.08 : confidence === "medium" ? 0.12 : 0.18;
+    const res = await fetch(`${API_URL}/valuation/user-properties?${params}`);
+    if (!res.ok) throw new Error("Failed to list user properties");
+    return res.json();
+  },
 
-    // Mock comparable properties
-    const comparables: ValuationComparable[] = [
-      {
-        id: 1001,
-        price: Math.round(estimatedPrice * (0.9 + Math.random() * 0.2)),
-        building_style_desc: data.building_style,
-        building_area: data.building_area + Math.round(Math.random() * 40 - 20),
-        distance_m: 200 + Math.round(Math.random() * 600),
-        similarity_score: 85 + Math.round(Math.random() * 10),
-      },
-      {
-        id: 1002,
-        price: Math.round(estimatedPrice * (0.85 + Math.random() * 0.3)),
-        building_style_desc: data.building_style,
-        building_area: data.building_area + Math.round(Math.random() * 60 - 30),
-        distance_m: 400 + Math.round(Math.random() * 800),
-        similarity_score: 75 + Math.round(Math.random() * 15),
-      },
-      {
-        id: 1003,
-        price: Math.round(estimatedPrice * (0.8 + Math.random() * 0.4)),
-        building_style_desc: data.building_style,
-        building_area: data.building_area + Math.round(Math.random() * 80 - 40),
-        distance_m: 600 + Math.round(Math.random() * 1000),
-        similarity_score: 65 + Math.round(Math.random() * 20),
-      },
-    ];
-
-    return {
-      estimated_price: estimatedPrice,
-      price_range: {
-        min: Math.round(estimatedPrice * (1 - rangePercent)),
-        max: Math.round(estimatedPrice * (1 + rangePercent)),
-      },
-      confidence,
-      price_per_sqm: Math.round(estimatedPrice / data.building_area),
-      factors: factors.sort((a, b) => Math.abs(b.impact) - Math.abs(a.impact)),
-      comparable_properties: comparables,
-      market_insights: {
-        district_avg_price: Math.round(basePrice * districtMultiplier * 150),
-        district_price_trend: 4 + Math.random() * 6,
-        days_on_market_avg: 30 + Math.round(Math.random() * 40),
-      },
-    };
+  /**
+   * Get details of a specific user property.
+   */
+  getUserProperty: async (propertyId: string): Promise<{
+    id: string;
+    user_id: string | null;
+    building_style: string | null;
+    building_area: number | null;
+    land_area: number | null;
+    no_of_floor: number | null;
+    building_age: number | null;
+    amphur: string | null;
+    tumbon: string | null;
+    village: string | null;
+    asking_price: number | null;
+    estimated_price: number | null;
+    confidence: string | null;
+    confidence_score: number | null;
+    model_type: string | null;
+    h3_index: string | null;
+    is_cold_start: boolean | null;
+    valuation_factors: ValuationFactor[] | null;
+    market_insights: {
+      district_avg_price: number;
+      district_price_trend: number;
+      days_on_market_avg: number;
+    } | null;
+    latitude: number | null;
+    longitude: number | null;
+    created_at: string;
+    updated_at: string;
+  }> => {
+    const res = await fetch(`${API_URL}/valuation/user-properties/${propertyId}`);
+    if (!res.ok) throw new Error("Failed to get user property");
+    return res.json();
   },
 };
