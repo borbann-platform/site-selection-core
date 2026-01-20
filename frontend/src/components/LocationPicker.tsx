@@ -141,8 +141,8 @@ export function LocationPicker({
 
           {/* Selected location info */}
           {selectedLocation && (
-            <div className="absolute bottom-4 left-4 bg-black/80 backdrop-blur-sm rounded-lg px-4 py-3 border border-emerald-500/30">
-              <p className="text-xs text-white/50 mb-1">Selected Location</p>
+            <div className="absolute bottom-4 left-4 bg-black/90 backdrop-blur-sm rounded-lg px-4 py-3 border border-emerald-500/30">
+              <p className="text-xs text-white/70 mb-1">Selected Location</p>
               <p className="text-sm font-mono text-white">
                 {selectedLocation.lat.toFixed(6)}, {selectedLocation.lon.toFixed(6)}
               </p>

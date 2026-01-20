@@ -4,9 +4,13 @@ AI-powered property valuation platform for Bangkok, Thailand. Provides intellige
 
 ## Features
 
+- **AI Property Valuation** - Get instant property valuations with ML-powered price predictions
+- **AI Chat Agent** - Interactive assistant for property search and location analysis
 - **Property Price Prediction** - Predict property values using AI models
 - **Site Analytics** - Analyze locations with spatial intelligence
 - **Interactive Map** - Explore properties and points of interest in Bangkok
+- **Location Intelligence** - Transit scores, walkability, flood risk, and more
+- **User Authentication** - Secure registration and login system
 - **Multi-Model Support** - Compare predictions from multiple ML models
   - LightGBM baseline with spatial features
   - Graph Neural Network (HGT) for complex relationships
@@ -106,11 +110,13 @@ make mlflow-ui
 - PyTorch Geometric - Graph neural networks
 - MLflow - Experiment tracking
 - H3 - Hexagonal hierarchical spatial indexing
+- LangGraph - AI agent orchestration
 
 **Frontend:**
-- React - UI framework
+- React 19 - UI framework
 - Vite - Build tool
-- Leaflet - Interactive maps
+- Deck.gl - WebGL-powered map visualization
+- TanStack Router - Type-safe routing
 
 ## Environment Variables
 
@@ -118,7 +124,8 @@ Create `.env` file in `gis-server/`:
 
 ```env
 DATABASE_URL=postgresql://user:password@localhost:5432/dbname
-GOOGLE_MAPS_API_KEY=your_api_key_here
+GOOGLE_MAPS_API_KEY=your_google_maps_api_key
+GOOGLE_API_KEY=your_gemini_api_key  # For AI chat agent
 ```
 
 ## Testing

@@ -162,8 +162,8 @@ class TestGetLocationIntelligence:
 class TestPredictPropertyPrice:
     """Tests for predict_property_price tool (currently mock mode)."""
 
-    def test_prediction_returns_mock_data(self):
-        """Test that price prediction returns mock data with expected fields."""
+    def test_prediction_returns_expected_fields(self):
+        """Test that price prediction returns data with expected fields."""
         from src.services.agent_tools import predict_property_price
 
         result = predict_property_price.invoke(
@@ -176,8 +176,9 @@ class TestPredictPropertyPrice:
 
         data = json.loads(result)
         assert "predicted_price_thb" in data
-        assert "mock_mode" in data
-        assert data["mock_mode"] is True
+        assert "confidence" in data
+        assert "model_type" in data
+        assert "property_details" in data
 
     def test_prediction_returns_valid_price(self):
         """Test that prediction returns a valid price value."""
