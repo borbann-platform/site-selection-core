@@ -449,7 +449,7 @@ class BaselinePredictor(PricePredictor):
         if self._h3_features is not None:
             cell = self._h3_features[self._h3_features["h3_index"] == h3_index]
             if not cell.empty:
-                is_cold_start = cell.iloc[0].get("is_cold_start", True)
+                is_cold_start = bool(cell.iloc[0].get("is_cold_start", True))
 
         # Build features
         features = self._build_features(
