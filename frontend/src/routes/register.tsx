@@ -81,13 +81,13 @@ function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md bg-zinc-900 border-zinc-800">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <Card className="w-full max-w-md bg-card border-border">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold text-white">
+          <CardTitle className="text-2xl font-bold text-foreground">
             Create Account
           </CardTitle>
-          <p className="text-sm text-zinc-400">
+          <p className="text-sm text-muted-foreground">
             Sign up to access the Real Estate Platform
           </p>
         </CardHeader>
@@ -101,7 +101,7 @@ function RegisterPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="firstName" className="text-zinc-300">
+                <Label htmlFor="firstName" className="text-foreground">
                   First Name
                 </Label>
                 <Input
@@ -111,12 +111,12 @@ function RegisterPage() {
                   value={formData.firstName}
                   onChange={handleChange}
                   required
-                  className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500"
+                  className="bg-input border-border text-foreground placeholder:text-muted-foreground"
                   placeholder="John"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="lastName" className="text-zinc-300">
+                <Label htmlFor="lastName" className="text-foreground">
                   Last Name
                 </Label>
                 <Input
@@ -126,14 +126,14 @@ function RegisterPage() {
                   value={formData.lastName}
                   onChange={handleChange}
                   required
-                  className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500"
+                  className="bg-input border-border text-foreground placeholder:text-muted-foreground"
                   placeholder="Doe"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-zinc-300">
+              <Label htmlFor="email" className="text-foreground">
                 Email
               </Label>
               <Input
@@ -143,13 +143,13 @@ function RegisterPage() {
                 value={formData.email}
                 onChange={handleChange}
                 required
-                className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500"
+                className="bg-input border-border text-foreground placeholder:text-muted-foreground"
                 placeholder="john@example.com"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-zinc-300">
+              <Label htmlFor="password" className="text-foreground">
                 Password
               </Label>
               <Input
@@ -160,16 +160,16 @@ function RegisterPage() {
                 onChange={handleChange}
                 required
                 minLength={8}
-                className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500"
+                className="bg-input border-border text-foreground placeholder:text-muted-foreground"
                 placeholder="Min 8 characters"
               />
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-muted-foreground">
                 Must contain uppercase, lowercase, and a number
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword" className="text-zinc-300">
+              <Label htmlFor="confirmPassword" className="text-foreground">
                 Confirm Password
               </Label>
               <Input
@@ -179,7 +179,7 @@ function RegisterPage() {
                 value={formData.confirmPassword}
                 onChange={handleChange}
                 required
-                className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500"
+                className="bg-input border-border text-foreground placeholder:text-muted-foreground"
                 placeholder="Repeat your password"
               />
             </div>
@@ -192,7 +192,7 @@ function RegisterPage() {
               {isLoading ? "Creating account..." : "Create Account"}
             </Button>
 
-            <p className="text-center text-sm text-zinc-400">
+            <p className="text-center text-sm text-muted-foreground">
               Already have an account?{" "}
               <Link to="/login" className="text-amber-400 hover:underline">
                 Sign in

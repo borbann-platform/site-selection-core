@@ -89,7 +89,7 @@ function ValuationPage() {
 
   return (
     <Shell>
-      <div className="flex h-full bg-black text-white overflow-auto">
+      <div className="flex h-full bg-background text-foreground overflow-auto">
         <div className="flex-1 p-6 md:p-8">
           {/* Header */}
           <div className="max-w-3xl mx-auto mb-8">
@@ -98,7 +98,7 @@ function ValuationPage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-white/70 hover:text-white hover:bg-white/10"
+                  className="text-muted-foreground hover:text-foreground hover:bg-muted"
                 >
                   <ArrowLeft size={16} className="mr-2" />
                   Back to Explorer
@@ -111,10 +111,10 @@ function ValuationPage() {
                 <Sparkles size={24} className="text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-white">
+                <h1 className="text-2xl font-bold text-foreground">
                   AI Property Valuation
                 </h1>
-                <p className="text-white/60">
+                <p className="text-muted-foreground">
                   Get an instant estimate of your property's value using our AI
                   model
                 </p>
@@ -148,7 +148,7 @@ function ValuationPage() {
               <p className="text-rose-400 text-sm">
                 Failed to get valuation. Please try again.
               </p>
-              <p className="text-white/50 text-xs mt-1">
+              <p className="text-muted-foreground text-xs mt-1">
                 {(valuationMutation.error as Error)?.message}
               </p>
             </div>

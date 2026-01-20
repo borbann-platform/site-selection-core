@@ -1,6 +1,6 @@
 /**
  * Markdown renderer component with GitHub Flavored Markdown support.
- * Styled for dark theme with emerald accents.
+ * Styled for theme support with emerald accents.
  */
 
 import ReactMarkdown from "react-markdown";
@@ -17,7 +17,7 @@ const components: Components = {
   // Headers
   h1: ({ children, ...props }) => (
     <h1
-      className="text-xl font-bold text-white mb-3 mt-4 first:mt-0"
+      className="text-xl font-bold text-foreground mb-3 mt-4 first:mt-0"
       {...props}
     >
       {children}
@@ -25,7 +25,7 @@ const components: Components = {
   ),
   h2: ({ children, ...props }) => (
     <h2
-      className="text-lg font-semibold text-white mb-2 mt-3 first:mt-0"
+      className="text-lg font-semibold text-foreground mb-2 mt-3 first:mt-0"
       {...props}
     >
       {children}
@@ -33,35 +33,35 @@ const components: Components = {
   ),
   h3: ({ children, ...props }) => (
     <h3
-      className="text-base font-semibold text-white mb-2 mt-3 first:mt-0"
+      className="text-base font-semibold text-foreground mb-2 mt-3 first:mt-0"
       {...props}
     >
       {children}
     </h3>
   ),
   h4: ({ children, ...props }) => (
-    <h4 className="text-sm font-semibold text-white mb-1 mt-2" {...props}>
+    <h4 className="text-sm font-semibold text-foreground mb-1 mt-2" {...props}>
       {children}
     </h4>
   ),
 
   // Paragraph
   p: ({ children, ...props }) => (
-    <p className="text-white/90 mb-2 last:mb-0 leading-relaxed" {...props}>
+    <p className="text-foreground/90 mb-2 last:mb-0 leading-relaxed" {...props}>
       {children}
     </p>
   ),
 
   // Strong/Bold
   strong: ({ children, ...props }) => (
-    <strong className="font-semibold text-white" {...props}>
+    <strong className="font-semibold text-foreground" {...props}>
       {children}
     </strong>
   ),
 
   // Emphasis/Italic
   em: ({ children, ...props }) => (
-    <em className="italic text-white/90" {...props}>
+    <em className="italic text-foreground/90" {...props}>
       {children}
     </em>
   ),
@@ -70,7 +70,7 @@ const components: Components = {
   a: ({ children, href, ...props }) => (
     <a
       href={href}
-      className="text-emerald-400 hover:text-emerald-300 underline underline-offset-2 transition-colors"
+      className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300 underline underline-offset-2 transition-colors"
       target="_blank"
       rel="noopener noreferrer"
       {...props}
@@ -81,7 +81,7 @@ const components: Components = {
 
   // Unordered List
   ul: ({ children, ...props }) => (
-    <ul className="list-disc list-inside mb-2 space-y-1 text-white/90" {...props}>
+    <ul className="list-disc list-inside mb-2 space-y-1 text-foreground/90" {...props}>
       {children}
     </ul>
   ),
@@ -89,7 +89,7 @@ const components: Components = {
   // Ordered List
   ol: ({ children, ...props }) => (
     <ol
-      className="list-decimal list-inside mb-2 space-y-1 text-white/90"
+      className="list-decimal list-inside mb-2 space-y-1 text-foreground/90"
       {...props}
     >
       {children}
@@ -98,7 +98,7 @@ const components: Components = {
 
   // List Item
   li: ({ children, ...props }) => (
-    <li className="text-white/90" {...props}>
+    <li className="text-foreground/90" {...props}>
       {children}
     </li>
   ),
@@ -106,7 +106,7 @@ const components: Components = {
   // Blockquote
   blockquote: ({ children, ...props }) => (
     <blockquote
-      className="border-l-2 border-emerald-500/50 pl-3 my-2 text-white/70 italic"
+      className="border-l-2 border-emerald-500/50 pl-3 my-2 text-muted-foreground italic"
       {...props}
     >
       {children}
@@ -122,7 +122,7 @@ const components: Components = {
       return (
         <code
           className={cn(
-            "block bg-black/60 rounded-lg p-3 my-2 overflow-x-auto text-sm font-mono text-emerald-300",
+            "block bg-muted rounded-lg p-3 my-2 overflow-x-auto text-sm font-mono text-emerald-600 dark:text-emerald-300",
             className
           )}
           {...props}
@@ -134,7 +134,7 @@ const components: Components = {
 
     return (
       <code
-        className="bg-white/10 text-emerald-300 px-1.5 py-0.5 rounded text-sm font-mono"
+        className="bg-muted text-emerald-600 dark:text-emerald-300 px-1.5 py-0.5 rounded text-sm font-mono"
         {...props}
       >
         {children}
@@ -145,7 +145,7 @@ const components: Components = {
   // Code Block wrapper
   pre: ({ children, ...props }) => (
     <pre
-      className="bg-black/60 rounded-lg p-3 my-2 overflow-x-auto"
+      className="bg-muted rounded-lg p-3 my-2 overflow-x-auto"
       {...props}
     >
       {children}
@@ -166,21 +166,21 @@ const components: Components = {
 
   // Table Head
   thead: ({ children, ...props }) => (
-    <thead className="bg-white/10" {...props}>
+    <thead className="bg-muted" {...props}>
       {children}
     </thead>
   ),
 
   // Table Body
   tbody: ({ children, ...props }) => (
-    <tbody className="divide-y divide-white/10" {...props}>
+    <tbody className="divide-y divide-border" {...props}>
       {children}
     </tbody>
   ),
 
   // Table Row
   tr: ({ children, ...props }) => (
-    <tr className="border-b border-white/10 last:border-0" {...props}>
+    <tr className="border-b border-border last:border-0" {...props}>
       {children}
     </tr>
   ),
@@ -188,7 +188,7 @@ const components: Components = {
   // Table Header Cell
   th: ({ children, ...props }) => (
     <th
-      className="px-3 py-2 text-left font-semibold text-white/90 whitespace-nowrap"
+      className="px-3 py-2 text-left font-semibold text-foreground/90 whitespace-nowrap"
       {...props}
     >
       {children}
@@ -197,17 +197,17 @@ const components: Components = {
 
   // Table Data Cell
   td: ({ children, ...props }) => (
-    <td className="px-3 py-2 text-white/80" {...props}>
+    <td className="px-3 py-2 text-foreground/80" {...props}>
       {children}
     </td>
   ),
 
   // Horizontal Rule
-  hr: (props) => <hr className="border-white/20 my-4" {...props} />,
+  hr: (props) => <hr className="border-border my-4" {...props} />,
 
   // Strikethrough (GFM)
   del: ({ children, ...props }) => (
-    <del className="text-white/50 line-through" {...props}>
+    <del className="text-muted-foreground line-through" {...props}>
       {children}
     </del>
   ),
@@ -241,9 +241,9 @@ export function StreamingMarkdown({
   if (isStreaming) {
     // While streaming, show plain text with cursor to avoid layout jumps
     return (
-      <div className={cn("whitespace-pre-wrap text-white/90", className)}>
+      <div className={cn("whitespace-pre-wrap text-foreground/90", className)}>
         {content}
-        <span className="inline-block w-2 h-4 ml-0.5 bg-emerald-400 animate-pulse rounded-sm" />
+        <span className="inline-block w-2 h-4 ml-0.5 bg-emerald-500 dark:bg-emerald-400 animate-pulse rounded-sm" />
       </div>
     );
   }

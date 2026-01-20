@@ -90,14 +90,14 @@ function DistrictsPage() {
 
   return (
     <Shell>
-      <div className="flex h-full flex-col overflow-hidden bg-black text-white">
+      <div className="flex h-full flex-col overflow-hidden bg-background text-foreground">
         {/* Header */}
-        <div className="border-b border-white/10 bg-black px-6 py-4">
+        <div className="border-b border-border bg-background px-6 py-4">
           <div className="flex items-center gap-3">
             <Building2 className="h-6 w-6 text-emerald-400" />
             <div>
               <h1 className="text-xl font-semibold">District Analytics</h1>
-              <p className="text-sm text-white/50">
+              <p className="text-sm text-muted-foreground">
                 Property market statistics by Bangkok district
               </p>
             </div>
@@ -107,18 +107,18 @@ function DistrictsPage() {
           {stats && (
             <div className="mt-4 flex gap-6">
               <div className="flex items-center gap-2">
-                <Home className="h-4 w-4 text-white/40" />
-                <span className="text-sm text-white/70">
-                  <span className="font-medium text-white">
+                <Home className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">
+                  <span className="font-medium text-foreground">
                     {stats.total_count.toLocaleString()}
                   </span>{" "}
                   properties
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-white/40" />
-                <span className="text-sm text-white/70">
-                  <span className="font-medium text-white">
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">
+                  <span className="font-medium text-foreground">
                     {stats.by_district.length}
                   </span>{" "}
                   districts
@@ -146,51 +146,51 @@ function DistrictsPage() {
               </p>
             </div>
           ) : (
-            <div className="rounded-lg border border-white/10 bg-black">
+            <div className="rounded-lg border border-border bg-card">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-white/10">
-                    <TableHead className="w-50 text-white/60">
+                  <TableRow className="border-border">
+                    <TableHead className="w-50 text-muted-foreground">
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="-ml-3 h-8 text-white/70 hover:bg-white/10 hover:text-white"
+                        className="-ml-3 h-8 text-muted-foreground hover:bg-muted hover:text-foreground"
                         onClick={() => handleSort("amphur")}
                       >
                         District
                         <SortIcon columnKey="amphur" />
                       </Button>
                     </TableHead>
-                    <TableHead className="text-right text-white/60">
+                    <TableHead className="text-right text-muted-foreground">
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="-mr-3 h-8 text-white/70 hover:bg-white/10 hover:text-white"
+                        className="-mr-3 h-8 text-muted-foreground hover:bg-muted hover:text-foreground"
                         onClick={() => handleSort("count")}
                       >
                         Properties
                         <SortIcon columnKey="count" />
                       </Button>
                     </TableHead>
-                    <TableHead className="text-right text-white/60">
+                    <TableHead className="text-right text-muted-foreground">
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="-mr-3 h-8 text-white/70 hover:bg-white/10 hover:text-white"
+                        className="-mr-3 h-8 text-muted-foreground hover:bg-muted hover:text-foreground"
                         onClick={() => handleSort("avg_price")}
                       >
                         Avg Price
                         <SortIcon columnKey="avg_price" />
                       </Button>
                     </TableHead>
-                    <TableHead className="text-right text-white/60">
+                    <TableHead className="text-right text-muted-foreground">
                       Price Range
                     </TableHead>
-                    <TableHead className="text-right text-white/60">
+                    <TableHead className="text-right text-muted-foreground">
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="-mr-3 h-8 text-white/70 hover:bg-white/10 hover:text-white"
+                        className="-mr-3 h-8 text-muted-foreground hover:bg-muted hover:text-foreground"
                         onClick={() => handleSort("avg_price_per_sqm")}
                       >
                         Avg ฿/sqm
@@ -203,7 +203,7 @@ function DistrictsPage() {
                   {sortedDistricts.map((district) => (
                     <TableRow
                       key={district.amphur}
-                      className="cursor-pointer border-white/10 hover:bg-white/5"
+                      className="cursor-pointer border-border hover:bg-muted/50"
                     >
                       <TableCell>
                         <Link
@@ -214,17 +214,17 @@ function DistrictsPage() {
                           {district.amphur}
                         </Link>
                       </TableCell>
-                      <TableCell className="text-right text-white/80">
+                      <TableCell className="text-right text-foreground/80">
                         {district.count.toLocaleString()}
                       </TableCell>
-                      <TableCell className="text-right font-medium text-white">
+                      <TableCell className="text-right font-medium text-foreground">
                         {formatPrice(district.avg_price)}
                       </TableCell>
-                      <TableCell className="text-right text-sm text-white/50">
+                      <TableCell className="text-right text-sm text-muted-foreground">
                         {formatPrice(district.min_price)} –{" "}
                         {formatPrice(district.max_price)}
                       </TableCell>
-                      <TableCell className="text-right text-white/80">
+                      <TableCell className="text-right text-foreground/80">
                         {formatPricePerSqm(district.avg_price_per_sqm)}
                       </TableCell>
                     </TableRow>

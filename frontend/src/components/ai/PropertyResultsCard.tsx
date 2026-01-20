@@ -58,13 +58,13 @@ export function PropertyResultsCard({
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 bg-amber-500/10 border-b border-amber-500/20">
         <div className="flex items-center gap-2">
-          <Home size={14} className="text-amber-400" />
-          <span className="text-xs font-semibold text-amber-300">
+          <Home size={14} className="text-amber-500 dark:text-amber-400" />
+          <span className="text-xs font-semibold text-amber-600 dark:text-amber-300">
             {totalCount || results.length} Properties Found
           </span>
         </div>
         {priceRange && (
-          <span className="text-[10px] text-amber-400/70">
+          <span className="text-[10px] text-amber-500/70 dark:text-amber-400/70">
             {formatPrice(priceRange.min)} - {formatPrice(priceRange.max)}
           </span>
         )}
@@ -87,7 +87,7 @@ export function PropertyResultsCard({
           <button
             type="button"
             onClick={() => setIsExpanded(!isExpanded)}
-            className="flex items-center gap-1 text-[10px] text-amber-400/70 hover:text-amber-400 transition-colors"
+            className="flex items-center gap-1 text-[10px] text-amber-500/70 dark:text-amber-400/70 hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
           >
             {isExpanded ? (
               <>
@@ -103,7 +103,7 @@ export function PropertyResultsCard({
           </button>
 
           {totalCount && totalCount > results.length && (
-            <span className="text-[10px] text-white/40">
+            <span className="text-[10px] text-muted-foreground">
               +{totalCount - results.length} more
             </span>
           )}
@@ -134,20 +134,20 @@ function PropertyMiniCard({
       onClick={onClick}
       className={cn(
         "flex flex-col gap-1 p-2 rounded-lg text-left transition-all",
-        "bg-white/5 hover:bg-white/10 border border-white/5 hover:border-amber-500/30",
+        "bg-muted/50 hover:bg-muted border border-border/50 hover:border-amber-500/30",
         "group"
       )}
     >
       {/* Price */}
       <div className="flex items-center justify-between">
-        <span className="text-sm font-bold text-white">
+        <span className="text-sm font-bold text-foreground">
           {formatPrice(property.price)}
         </span>
         {property.priceChange !== undefined && (
           <span
             className={cn(
               "flex items-center gap-0.5 text-[9px] font-medium",
-              property.priceChange >= 0 ? "text-emerald-400" : "text-red-400"
+              property.priceChange >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
             )}
           >
             <TrendingUp
@@ -160,12 +160,12 @@ function PropertyMiniCard({
       </div>
 
       {/* Style */}
-      <div className="text-[11px] text-white/70 truncate">
+      <div className="text-[11px] text-muted-foreground truncate">
         {property.style || "Property"}
       </div>
 
       {/* Location & Area */}
-      <div className="flex items-center gap-2 text-[10px] text-white/50">
+      <div className="flex items-center gap-2 text-[10px] text-muted-foreground/70">
         <span className="flex items-center gap-0.5 truncate">
           <MapPin size={10} />
           {property.district}
@@ -178,7 +178,7 @@ function PropertyMiniCard({
         to="/property/$propertyId"
         params={{ propertyId: String(property.id) }}
         onClick={(e) => e.stopPropagation()}
-        className="mt-1 flex items-center gap-1 text-[10px] text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity"
+        className="mt-1 flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity"
       >
         View details
         <ExternalLink size={10} />

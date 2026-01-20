@@ -83,15 +83,15 @@ function SettingsPage() {
 
   return (
     <Shell>
-      <div className="h-full w-full bg-black text-white overflow-y-auto custom-scrollbar">
+      <div className="h-full w-full bg-background text-foreground overflow-y-auto custom-scrollbar">
         <div className="max-w-4xl mx-auto py-12 px-6">
           <div className="flex items-center gap-4 mb-8">
-            <div className="p-3 bg-white/10 rounded-xl">
+            <div className="p-3 bg-muted rounded-xl">
               <SettingsIcon size={32} className="text-emerald-400" />
             </div>
             <div>
               <h1 className="text-3xl font-bold">Settings</h1>
-              <p className="text-white/60">
+              <p className="text-muted-foreground">
                 Manage your preferences and account
               </p>
             </div>
@@ -104,37 +104,37 @@ function SettingsPage() {
                 <User size={20} className="text-blue-400" />
                 Profile & Account
               </h2>
-              <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+              <div className="bg-card border border-border rounded-2xl overflow-hidden">
                 {authLoading ? (
                   <div className="p-6 flex items-center justify-center">
-                    <Loader2 size={24} className="animate-spin text-white/40" />
+                    <Loader2 size={24} className="animate-spin text-muted-foreground" />
                   </div>
                 ) : isAuthenticated && user ? (
                   <>
-                    <div className="p-6 border-b border-white/10 flex items-center justify-between">
+                    <div className="p-6 border-b border-border flex items-center justify-between">
                       <div>
                         <div className="font-medium">Display Name</div>
-                        <div className="text-sm text-white/60">
+                        <div className="text-sm text-muted-foreground">
                           How you appear to others
                         </div>
                       </div>
-                      <div className="text-white/40">
+                      <div className="text-muted-foreground">
                         {user.first_name} {user.last_name}
                       </div>
                     </div>
-                    <div className="p-6 border-b border-white/10 flex items-center justify-between">
+                    <div className="p-6 border-b border-border flex items-center justify-between">
                       <div>
                         <div className="font-medium">Email Address</div>
-                        <div className="text-sm text-white/60">
+                        <div className="text-sm text-muted-foreground">
                           Used for notifications
                         </div>
                       </div>
-                      <div className="text-white/40">{user.email}</div>
+                      <div className="text-muted-foreground">{user.email}</div>
                     </div>
                     <div className="p-6 flex items-center justify-between">
                       <div>
                         <div className="font-medium">Sign Out</div>
-                        <div className="text-sm text-white/60">
+                        <div className="text-sm text-muted-foreground">
                           End your current session
                         </div>
                       </div>
@@ -150,11 +150,11 @@ function SettingsPage() {
                   </>
                 ) : (
                   <div className="p-8 flex flex-col items-center justify-center text-center">
-                    <div className="p-4 bg-white/10 rounded-full mb-4">
-                      <User size={32} className="text-white/40" />
+                    <div className="p-4 bg-muted rounded-full mb-4">
+                      <User size={32} className="text-muted-foreground" />
                     </div>
                     <div className="text-lg font-medium mb-2">Not Signed In</div>
-                    <div className="text-sm text-white/60 mb-6">
+                    <div className="text-sm text-muted-foreground mb-6">
                       Sign in to access your profile and save your preferences
                     </div>
                     <div className="flex gap-3">
@@ -167,7 +167,7 @@ function SettingsPage() {
                       </Link>
                       <Link
                         to="/register"
-                        className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm font-medium transition-colors"
+                        className="px-4 py-2 bg-muted hover:bg-muted/80 text-foreground rounded-lg text-sm font-medium transition-colors"
                       >
                         Create Account
                       </Link>
@@ -183,15 +183,15 @@ function SettingsPage() {
                 <Database size={20} className="text-purple-400" />
                 Data & Analysis
               </h2>
-              <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
-                <div className="p-6 border-b border-white/10 flex items-center justify-between">
+              <div className="bg-card border border-border rounded-2xl overflow-hidden">
+                <div className="p-6 border-b border-border flex items-center justify-between">
                   <div>
                     <div className="font-medium">Default Search Radius</div>
-                    <div className="text-sm text-white/60">
+                    <div className="text-sm text-muted-foreground">
                       Base radius for site analysis
                     </div>
                   </div>
-                  <select className="bg-black/50 border border-white/20 rounded px-3 py-1 text-sm">
+                  <select className="bg-input border border-border rounded px-3 py-1 text-sm">
                     <option>1 km</option>
                     <option>2 km</option>
                     <option>5 km</option>
@@ -200,20 +200,20 @@ function SettingsPage() {
                 <div className="p-6 flex items-center justify-between">
                   <div>
                     <div className="font-medium">Isochrone Mode</div>
-                    <div className="text-sm text-white/60">
+                    <div className="text-sm text-muted-foreground">
                       Default travel mode for catchments
                     </div>
                   </div>
-                  <div className="flex bg-black/50 rounded-lg p-1 border border-white/10">
+                  <div className="flex bg-input rounded-lg p-1 border border-border">
                     <button
                       type="button"
-                      className="px-3 py-1 rounded bg-white/20 text-xs font-bold"
+                      className="px-3 py-1 rounded bg-muted text-xs font-bold"
                     >
                       Walk
                     </button>
                     <button
                       type="button"
-                      className="px-3 py-1 rounded text-white/40 text-xs font-bold hover:text-white"
+                      className="px-3 py-1 rounded text-muted-foreground text-xs font-bold hover:text-foreground"
                     >
                       Drive
                     </button>
@@ -228,11 +228,11 @@ function SettingsPage() {
                 <Bell size={20} className="text-yellow-400" />
                 Notifications
               </h2>
-              <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+              <div className="bg-card border border-border rounded-2xl overflow-hidden">
                 <div className="p-6 flex items-center justify-between">
                   <div>
                     <div className="font-medium">Report Ready Alerts</div>
-                    <div className="text-sm text-white/60">
+                    <div className="text-sm text-muted-foreground">
                       Email me when large reports are done
                     </div>
                   </div>
@@ -249,17 +249,17 @@ function SettingsPage() {
                 <Shield size={20} className="text-red-400" />
                 Security
               </h2>
-              <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+              <div className="bg-card border border-border rounded-2xl overflow-hidden">
                 <div className="p-6 flex items-center justify-between">
                   <div>
                     <div className="font-medium">API Keys</div>
-                    <div className="text-sm text-white/60">
+                    <div className="text-sm text-muted-foreground">
                       Manage access tokens
                     </div>
                   </div>
                   <button
                     type="button"
-                    className="text-sm font-bold text-white/60 hover:text-white"
+                    className="text-sm font-bold text-muted-foreground hover:text-foreground"
                   >
                     Manage
                   </button>
@@ -292,12 +292,12 @@ function SettingsPage() {
                 </div>
               )}
 
-              <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+              <div className="bg-card border border-border rounded-2xl overflow-hidden">
                 {/* Cache Status */}
-                <div className="p-6 border-b border-white/10 flex items-center justify-between">
+                <div className="p-6 border-b border-border flex items-center justify-between">
                   <div>
                     <div className="font-medium">Tile Cache Status</div>
-                    <div className="text-sm text-white/60">
+                    <div className="text-sm text-muted-foreground">
                       Cached tiles for faster map loading
                     </div>
                   </div>
@@ -305,15 +305,15 @@ function SettingsPage() {
                     <div className="text-lg font-mono text-emerald-400">
                       {cacheStatus?.tile_cache_size ?? "—"}
                     </div>
-                    <div className="text-xs text-white/40">tiles cached</div>
+                    <div className="text-xs text-muted-foreground">tiles cached</div>
                   </div>
                 </div>
 
                 {/* Refresh POI Data */}
-                <div className="p-6 border-b border-white/10 flex items-center justify-between">
+                <div className="p-6 border-b border-border flex items-center justify-between">
                   <div>
                     <div className="font-medium">Refresh POI Data</div>
-                    <div className="text-sm text-white/60">
+                    <div className="text-sm text-muted-foreground">
                       Update materialized view from source tables
                     </div>
                   </div>
@@ -336,7 +336,7 @@ function SettingsPage() {
                 <div className="p-6 flex items-center justify-between">
                   <div>
                     <div className="font-medium">Clear Tile Cache</div>
-                    <div className="text-sm text-white/60">
+                    <div className="text-sm text-muted-foreground">
                       Force fresh tile generation on next load
                     </div>
                   </div>

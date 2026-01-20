@@ -55,7 +55,7 @@ export function AIExpandedPanel({
 
   return (
     <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40 w-full max-w-2xl px-4">
-      <div className="bg-zinc-900/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[60vh]">
+      <div className="bg-card/95 backdrop-blur-xl border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[60vh]">
         {/* Conversation History */}
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 custom-scrollbar">
           {messages.map((message) =>
@@ -136,7 +136,7 @@ function AssistantMessage({ message, onPropertyClick }: AssistantMessageProps) {
               onClick={() => setShowSteps(!showSteps)}
               className={cn(
                 "flex items-center gap-1.5 text-[10px] transition-colors",
-                showSteps ? "text-white/70" : "text-white/50 hover:text-white/70"
+                showSteps ? "text-muted-foreground" : "text-muted-foreground/70 hover:text-muted-foreground"
               )}
             >
               {showSteps ? (
@@ -174,7 +174,7 @@ function AssistantMessage({ message, onPropertyClick }: AssistantMessageProps) {
                   <button
                     type="button"
                     onClick={() => setShowSteps(true)}
-                    className="text-[10px] text-white/40 hover:text-white/60 px-2"
+                    className="text-[10px] text-muted-foreground/60 hover:text-muted-foreground px-2"
                   >
                     +{stepsCount - 3} more
                   </button>
@@ -186,7 +186,7 @@ function AssistantMessage({ message, onPropertyClick }: AssistantMessageProps) {
 
         {/* Message content with streaming cursor and markdown rendering */}
         {cleanContent && (
-          <div className="max-w-full rounded-xl px-3 py-2 text-sm bg-white/5">
+          <div className="max-w-full rounded-xl px-3 py-2 text-sm bg-muted">
             <StreamingMarkdown content={cleanContent} isStreaming={message.isStreaming} />
           </div>
         )}

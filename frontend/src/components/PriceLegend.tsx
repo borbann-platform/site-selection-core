@@ -12,8 +12,8 @@ const formatPrice = (value: number): string => {
 
 export function PriceLegend({ minPrice, maxPrice }: PriceLegendProps) {
   return (
-    <div className="absolute bottom-6 right-6 z-40 bg-black/80 backdrop-blur-md border border-white/10 rounded-lg p-3 min-w-40">
-      <div className="text-[10px] text-white/50 mb-2 font-medium">
+    <div className="absolute bottom-6 right-6 z-40 bg-card/90 backdrop-blur-md border border-border rounded-lg p-3 min-w-40">
+      <div className="text-[10px] text-muted-foreground mb-2 font-medium">
         Price (THB)
       </div>
       <div
@@ -23,7 +23,7 @@ export function PriceLegend({ minPrice, maxPrice }: PriceLegendProps) {
             "linear-gradient(to right, rgb(50, 200, 50), rgb(255, 200, 50), rgb(255, 50, 50))",
         }}
       />
-      <div className="flex justify-between text-[10px] text-white/70">
+      <div className="flex justify-between text-[10px] text-muted-foreground">
         <span>{formatPrice(minPrice)}</span>
         <span>{formatPrice(maxPrice)}</span>
       </div>

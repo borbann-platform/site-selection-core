@@ -239,20 +239,20 @@ function SiteInspector() {
       <div>
         <div className="flex justify-between items-start">
           <div>
-            <div className="text-xs font-bold text-white/40 uppercase tracking-widest mb-1">
+            <div className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">
               Site Inspector
             </div>
-            <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+            <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
               <MapPin className="text-emerald-400" />
               Site #{siteId === "new" ? "Draft" : siteId}
             </h2>
-            <p className="text-white/60 text-sm mt-1">
+            <p className="text-muted-foreground text-sm mt-1">
               Lat: {lat.toFixed(4)}, Lon: {lon.toFixed(4)}
             </p>
           </div>
           <button
             onClick={handleExportReport}
-            className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors"
+            className="p-2 bg-muted hover:bg-muted/80 text-foreground rounded-lg transition-colors"
             title="Export Report"
           >
             <Download size={20} />
@@ -276,8 +276,8 @@ function SiteInspector() {
       )}
 
       {/* Demographics Card */}
-      <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
-        <h3 className="text-lg font-semibold text-white mb-4">Demographics</h3>
+      <div className="bg-card rounded-2xl p-6 border border-border">
+        <h3 className="text-lg font-semibold text-foreground mb-4">Demographics</h3>
         <div className="space-y-4">
           {isAnalysisLoading ? (
             <>
@@ -341,8 +341,8 @@ function SiteInspector() {
       </div>
 
       {/* Friction / Risks */}
-      <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
-        <h3 className="text-lg font-semibold text-white mb-4">Risk Factors</h3>
+      <div className="bg-card rounded-2xl p-6 border border-border">
+        <h3 className="text-lg font-semibold text-foreground mb-4">Risk Factors</h3>
         <div className="space-y-3">
           <RiskItem label="High Competition" status="warning" />
           <RiskItem label="Flood Zone" status="safe" />
@@ -351,8 +351,8 @@ function SiteInspector() {
       </div>
 
       {/* Layers Control */}
-      <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
-        <h3 className="text-lg font-semibold text-white mb-4">Map Layers</h3>
+      <div className="bg-card rounded-2xl p-6 border border-border">
+        <h3 className="text-lg font-semibold text-foreground mb-4">Map Layers</h3>
         <div className="space-y-2">
           <LayerToggle
             label="Competitors"
@@ -368,18 +368,18 @@ function SiteInspector() {
           />
         </div>
 
-        <div className="mt-4 pt-4 border-t border-white/10">
-          <div className="text-xs font-bold text-white/40 uppercase tracking-widest mb-2">
+        <div className="mt-4 pt-4 border-t border-border">
+          <div className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-2">
             Legend
           </div>
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-white border border-black" />
-              <span className="text-xs text-white/60">Selected Site</span>
+              <span className="text-xs text-muted-foreground">Selected Site</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded bg-blue-500/20 border border-blue-500" />
-              <span className="text-xs text-white/60">
+              <span className="text-xs text-muted-foreground">
                 15min Walk Isochrone
               </span>
             </div>
@@ -391,7 +391,7 @@ function SiteInspector() {
 
   return (
     <Shell panelContent={PanelContent}>
-      <div className="w-full h-full bg-black relative overflow-hidden">
+      <div className="w-full h-full bg-background relative overflow-hidden">
         <MapContainer
           viewState={viewState}
           onViewStateChange={(e) => setViewState(e.viewState)}
@@ -400,9 +400,9 @@ function SiteInspector() {
         />
 
         {/* Floating Score Card (Always Visible) */}
-        <div className="absolute top-6 right-6 w-64 bg-black/80 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-2xl z-50">
+        <div className="absolute top-6 right-6 w-64 bg-card/90 backdrop-blur-xl border border-border rounded-2xl p-6 shadow-2xl z-50">
           <div className="flex justify-between items-start mb-4">
-            <h3 className="text-lg font-semibold text-white">
+            <h3 className="text-lg font-semibold text-foreground">
               Potential Score
             </h3>
             <div className="text-3xl font-bold text-emerald-400">
@@ -432,12 +432,12 @@ function SiteInspector() {
                 </Pie>
               </PieChart>
             </ResponsiveContainer>
-            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 text-white/40 text-xs">
+            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 text-muted-foreground text-xs">
               AI Confidence: 92%
             </div>
           </div>
 
-          <div className="mt-4 text-sm text-white/70 bg-white/5 p-3 rounded border border-white/5">
+          <div className="mt-4 text-sm text-muted-foreground bg-muted p-3 rounded border border-border">
             <span className="text-emerald-400 font-bold">Why?</span> Boosted by
             high student traffic, penalized by{" "}
             {analysis?.summary.competitors_count} nearby rivals.
@@ -452,7 +452,7 @@ function DemographicRow({ label, count, total, icon: Icon, color, bg }: any) {
   const percentage = Math.round((count / total) * 100);
   return (
     <div>
-      <div className="flex justify-between text-sm text-white/80 mb-1">
+      <div className="flex justify-between text-sm text-foreground/80 mb-1">
         <div className="flex items-center gap-2">
           <Icon size={14} className={color} />
           {label}
@@ -461,7 +461,7 @@ function DemographicRow({ label, count, total, icon: Icon, color, bg }: any) {
           {count.toLocaleString()} ({percentage}%)
         </span>
       </div>
-      <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
+      <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
         <div
           className={cn("h-full rounded-full", bg)}
           style={{ width: `${percentage}%` }}
@@ -488,8 +488,8 @@ function LayerToggle({
       className={cn(
         "w-full flex items-center justify-between p-3 rounded-lg transition-all border",
         active
-          ? "bg-white/10 border-white/10"
-          : "bg-transparent border-transparent hover:bg-white/5"
+          ? "bg-muted border-border"
+          : "bg-transparent border-transparent hover:bg-muted/50"
       )}
     >
       <div className="flex items-center gap-3">
@@ -503,16 +503,16 @@ function LayerToggle({
         <span
           className={cn(
             "text-sm font-medium",
-            active ? "text-white" : "text-white/50"
+            active ? "text-foreground" : "text-muted-foreground"
           )}
         >
           {label}
         </span>
       </div>
       {active ? (
-        <Eye size={16} className="text-white/70" />
+        <Eye size={16} className="text-muted-foreground" />
       ) : (
-        <EyeOff size={16} className="text-white/30" />
+        <EyeOff size={16} className="text-muted-foreground/50" />
       )}
     </button>
   );
@@ -526,8 +526,8 @@ function RiskItem({
   status: "safe" | "warning" | "danger";
 }) {
   return (
-    <div className="flex items-center justify-between p-3 bg-black/20 rounded border border-white/5">
-      <span className="text-white/80 text-sm">{label}</span>
+    <div className="flex items-center justify-between p-3 bg-muted/50 rounded border border-border">
+      <span className="text-foreground/80 text-sm">{label}</span>
       {status === "safe" && (
         <div className="flex items-center gap-1 text-emerald-400 text-xs font-bold">
           <CheckCircle size={14} /> LOW RISK

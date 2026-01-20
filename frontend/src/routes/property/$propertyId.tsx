@@ -134,13 +134,13 @@ function PropertyDetailPage() {
   if (isPropertyError) {
     return (
       <Shell>
-        <div className="flex h-full items-center justify-center bg-black text-white">
+        <div className="flex h-full items-center justify-center bg-background text-foreground">
           <div className="text-center">
             <p className="mb-4 text-rose-400">Property not found</p>
             <Link to="/" search={{ district: undefined }}>
               <Button
                 variant="outline"
-                className="border-white/10 bg-white/5 text-white hover:bg-white/10"
+                className="border-border bg-muted text-foreground hover:bg-muted/80"
               >
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to Explorer
@@ -154,16 +154,16 @@ function PropertyDetailPage() {
 
   return (
     <Shell>
-      <div className="flex h-full bg-black text-white">
+      <div className="flex h-full bg-background text-foreground">
         {/* Left Panel - Property Details */}
-        <div className="w-100 shrink-0 overflow-auto border-r border-white/10 bg-black">
+        <div className="w-100 shrink-0 overflow-auto border-r border-border bg-background">
           {/* Back button */}
-          <div className="border-b border-white/10 p-4">
+          <div className="border-b border-border p-4">
             <Link to="/" search={{ district: undefined }}>
               <Button
                 variant="ghost"
                 size="sm"
-                className="-ml-2 text-white/70 hover:bg-white/10 hover:text-white"
+                className="-ml-2 text-muted-foreground hover:bg-muted hover:text-foreground"
               >
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to Explorer
@@ -196,7 +196,7 @@ function PropertyDetailPage() {
                     <h1 className="text-lg font-semibold">
                       {property.building_style_desc || "Property"}
                     </h1>
-                    <p className="text-sm text-white/50">ID: {property.id}</p>
+                    <p className="text-sm text-muted-foreground">ID: {property.id}</p>
                   </div>
                 </div>
                 <div className="mt-4">
@@ -204,7 +204,7 @@ function PropertyDetailPage() {
                     {formatPrice(property.total_price)}
                   </p>
                   {property.building_area && property.total_price && (
-                    <p className="text-sm text-white/50">
+                    <p className="text-sm text-muted-foreground">
                       ฿
                       {Math.round(
                         property.total_price / property.building_area
@@ -286,14 +286,14 @@ function PropertyDetailPage() {
                           key={nearby.id}
                           to="/property/$propertyId"
                           params={{ propertyId: String(nearby.id) }}
-                          className="block rounded-lg border border-white/10 bg-white/5 p-3 transition-colors hover:bg-white/10"
+                          className="block rounded-lg border border-border bg-muted/50 p-3 transition-colors hover:bg-muted"
                         >
                           <div className="flex items-center justify-between">
                             <div>
                               <p className="text-sm font-medium">
                                 {nearby.building_style_desc || "Property"}
                               </p>
-                              <p className="text-xs text-white/50">
+                              <p className="text-xs text-muted-foreground">
                                 {Math.round(nearby.distance_m)}m away
                               </p>
                             </div>
@@ -308,7 +308,7 @@ function PropertyDetailPage() {
               )}
 
               {/* Location Intelligence */}
-              <div className="mt-8 border-t border-white/10 pt-6">
+              <div className="mt-8 border-t border-border pt-6">
                 {locationIntelligence && (
                   <LocationIntelligencePanel
                     data={locationIntelligence}
@@ -317,12 +317,12 @@ function PropertyDetailPage() {
                 )}
                 {isLocationLoading && !locationIntelligence && (
                   <div className="space-y-4">
-                    <div className="h-6 w-48 animate-pulse rounded bg-white/10" />
+                    <div className="h-6 w-48 animate-pulse rounded bg-muted" />
                     <div className="grid grid-cols-3 gap-3">
                       {[1, 2, 3].map((n) => (
                         <div
                           key={`li-skeleton-${n}`}
-                          className="h-24 animate-pulse rounded-lg bg-white/10"
+                          className="h-24 animate-pulse rounded-lg bg-muted"
                         />
                       ))}
                     </div>
@@ -372,7 +372,7 @@ function PropertyDetailPage() {
               }}
             />
           ) : (
-            <div className="flex h-full items-center justify-center bg-black">
+            <div className="flex h-full items-center justify-center bg-background">
               <Skeleton className="h-full w-full" />
             </div>
           )}
@@ -393,11 +393,11 @@ function DetailRow({
   value: string;
 }) {
   return (
-    <div className="flex items-start gap-3 rounded-lg border border-white/10 bg-white/5 p-3">
-      <Icon className="mt-0.5 h-4 w-4 text-white/40" />
+    <div className="flex items-start gap-3 rounded-lg border border-border bg-muted/50 p-3">
+      <Icon className="mt-0.5 h-4 w-4 text-muted-foreground" />
       <div>
-        <p className="text-xs text-white/50">{label}</p>
-        <p className="text-sm font-medium text-white">{value}</p>
+        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className="text-sm font-medium text-foreground">{value}</p>
       </div>
     </div>
   );

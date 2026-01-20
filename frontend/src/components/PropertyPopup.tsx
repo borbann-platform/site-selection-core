@@ -56,17 +56,17 @@ export function PropertyPopup({
         transform: "translate(-50%, -100%) translateY(-10px)",
       }}
     >
-      <div className="bg-zinc-900/95 border border-zinc-700 rounded-xl shadow-2xl backdrop-blur-md overflow-hidden min-w-64">
+      <div className="bg-card/95 border border-border rounded-xl shadow-2xl backdrop-blur-md overflow-hidden min-w-64">
         {/* Header */}
-        <div className="flex items-center gap-2 px-3 py-2 bg-amber-500/10 border-b border-zinc-700">
-          <Home size={14} className="text-amber-400" />
-          <span className="flex-1 font-bold text-sm text-amber-400 truncate">
+        <div className="flex items-center gap-2 px-3 py-2 bg-amber-500/10 border-b border-border">
+          <Home size={14} className="text-amber-500 dark:text-amber-400" />
+          <span className="flex-1 font-bold text-sm text-amber-600 dark:text-amber-400 truncate">
             {property.building_style_desc || "Property"}
           </span>
           <button
             type="button"
             onClick={onClose}
-            className="p-1 hover:bg-white/10 rounded text-white/50 hover:text-white transition-colors"
+            className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors"
           >
             <X size={14} />
           </button>
@@ -74,32 +74,32 @@ export function PropertyPopup({
 
         {/* Content */}
         <div className="p-3">
-          <div className="text-lg font-bold text-white mb-2">
+          <div className="text-lg font-bold text-foreground mb-2">
             {formatPrice(price)}
           </div>
-          <div className="grid grid-cols-2 gap-1 text-[11px] text-zinc-300">
+          <div className="grid grid-cols-2 gap-1 text-[11px] text-muted-foreground">
             <div>District:</div>
-            <div className="text-right font-medium">
+            <div className="text-right font-medium text-foreground/80">
               {property.amphur || "N/A"}
             </div>
             <div>Sub-district:</div>
-            <div className="text-right font-medium">
+            <div className="text-right font-medium text-foreground/80">
               {property.tumbon || "N/A"}
             </div>
             <div>Area:</div>
-            <div className="text-right font-medium">
+            <div className="text-right font-medium text-foreground/80">
               {property.building_area ? `${property.building_area} sqm` : "N/A"}
             </div>
             <div>Price/sqm:</div>
-            <div className="text-right font-medium text-emerald-400">
+            <div className="text-right font-medium text-emerald-600 dark:text-emerald-400">
               {pricePerSqm}
             </div>
             <div>Floors:</div>
-            <div className="text-right font-medium">
+            <div className="text-right font-medium text-foreground/80">
               {property.no_of_floor || "N/A"}
             </div>
             <div>Age:</div>
-            <div className="text-right font-medium">
+            <div className="text-right font-medium text-foreground/80">
               {property.building_age ? `${property.building_age} yrs` : "N/A"}
             </div>
           </div>
@@ -121,7 +121,7 @@ export function PropertyPopup({
             <button
               type="button"
               onClick={handleAddToChat}
-              className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 border border-zinc-600 hover:bg-zinc-700 text-zinc-300 hover:text-white text-xs font-medium rounded-lg transition-colors"
+              className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 border border-border hover:bg-muted text-muted-foreground hover:text-foreground text-xs font-medium rounded-lg transition-colors"
             >
               <MessageSquarePlus size={14} />
               <span>Add to Chat</span>
@@ -132,7 +132,7 @@ export function PropertyPopup({
 
       {/* Pointer arrow */}
       <div className="absolute left-1/2 -translate-x-1/2 bottom-0 translate-y-full">
-        <div className="w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-zinc-700" />
+        <div className="w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-border" />
       </div>
     </div>
   );
@@ -153,13 +153,13 @@ export function PropertyMiniCard({
 }) {
   return (
     <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-lg px-2 py-1.5">
-      <Home size={12} className="text-amber-400" />
+      <Home size={12} className="text-amber-500 dark:text-amber-400" />
       <div className="flex-1 min-w-0">
-        <div className="text-xs font-medium text-white truncate">
+        <div className="text-xs font-medium text-foreground truncate">
           {property.name || "Property"}
         </div>
         {property.price && (
-          <div className="text-[10px] text-amber-300">
+          <div className="text-[10px] text-amber-600 dark:text-amber-300">
             ฿{(property.price / 1000000).toFixed(1)}M
             {property.area && ` • ${property.area}sqm`}
           </div>
@@ -169,7 +169,7 @@ export function PropertyMiniCard({
         <button
           type="button"
           onClick={onRemove}
-          className="p-0.5 hover:bg-white/10 rounded text-white/50 hover:text-white"
+          className="p-0.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground"
         >
           <X size={12} />
         </button>
