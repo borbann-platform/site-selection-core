@@ -15,6 +15,7 @@ from src.routes.price_prediction import router as price_prediction_router
 from src.routes.projects import router as projects_router
 from src.routes.site import router as site_router
 from src.routes.transit import router as transit_router
+from src.routes.valuation import router as valuation_router
 
 
 @asynccontextmanager
@@ -63,6 +64,7 @@ app.include_router(
 app.include_router(transit_router, prefix="/api/v1", tags=["Transit"])
 app.include_router(admin_router, prefix="/api/v1", tags=["Admin"])
 app.include_router(auth_router, prefix="/api/v1", tags=["Authentication"])
+app.include_router(valuation_router, prefix="/api/v1", tags=["Property Valuation"])
 
 
 @app.get("/", tags=["Root"])
