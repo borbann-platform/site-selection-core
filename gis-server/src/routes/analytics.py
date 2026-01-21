@@ -6,7 +6,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from src.config.database import get_db_session
-from src.dependencies.auth import get_current_active_user
+from src.dependencies.auth import get_current_user_optional
 from src.models.user import User
 from src.services.analytics import analytics_service
 
@@ -75,7 +75,7 @@ def get_pois_tile(
     z: int,
     x: int,
     y: int,
-    current_user: Annotated[User, Depends(get_current_active_user)] = None,
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
     db: Session = Depends(get_db_session),
 ):
     """
@@ -114,7 +114,7 @@ def get_all_pois_tile(
     z: int,
     x: int,
     y: int,
-    current_user: Annotated[User, Depends(get_current_active_user)] = None,
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
     db: Session = Depends(get_db_session),
 ):
     """
@@ -178,7 +178,7 @@ def get_residential_tile(
     z: int,
     x: int,
     y: int,
-    current_user: Annotated[User, Depends(get_current_active_user)] = None,
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
     db: Session = Depends(get_db_session),
 ):
     """
@@ -214,7 +214,7 @@ def get_residential_tile(
 
 @router.get("/grid", response_model=GridResponse)
 def get_analytics_grid(
-    current_user: Annotated[User, Depends(get_current_active_user)] = None,
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
     db: Session = Depends(get_db_session),
 ):
     """
@@ -270,7 +270,7 @@ def get_h3_hexagons(
     min_lon: float | None = None,
     max_lon: float | None = None,
     limit: int = 5000,
-    current_user: Annotated[User, Depends(get_current_active_user)] = None,
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
 ):
     """
     Returns H3 hexagon data for overlay visualization.
@@ -356,7 +356,7 @@ def get_h3_hexagons(
 @router.get("/h3-hexagons/metrics")
 def get_available_metrics(
     resolution: int = 9,
-    current_user: Annotated[User, Depends(get_current_active_user)] = None,
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
 ):
     """
     Returns list of available metrics for H3 hexagon overlay.
@@ -423,7 +423,7 @@ def get_available_metrics(
 
 @router.get("/flood-risk")
 def get_flood_risk_by_district(
-    current_user: Annotated[User, Depends(get_current_active_user)] = None,
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
 ):
     """
     Returns flood risk data aggregated by district.
@@ -456,7 +456,7 @@ def get_flood_risk_by_district(
 @router.post("/cannibalization")
 def analyze_cannibalization(
     request: CannibalizationRequest,
-    current_user: Annotated[User, Depends(get_current_active_user)] = None,
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
     db: Session = Depends(get_db_session),
 ):
     """

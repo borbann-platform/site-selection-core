@@ -6,7 +6,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from src.config.database import get_db_session
-from src.dependencies.auth import get_current_active_user
+from src.dependencies.auth import get_current_user_optional
 from src.models.site import (
     AnalysisDetails,
     AnalysisSummary,
@@ -40,7 +40,7 @@ MAGNET_CATEGORIES = [
 @router.get("/site/{site_id}", response_model=SiteResponse)
 def get_site_details(
     site_id: str,
-    current_user: Annotated[User, Depends(get_current_active_user)] = None,
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
     db: Session = Depends(get_db_session),
 ):
     """
@@ -104,7 +104,7 @@ def get_site_details(
 )
 def analyze_site(
     payload: SiteRequest,
-    current_user: Annotated[User, Depends(get_current_active_user)] = None,
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
     db: Session = Depends(get_db_session),
 ):
     """
@@ -265,7 +265,7 @@ def analyze_site(
 )
 def get_nearby_pois(
     payload: NearbyRequest,
-    current_user: Annotated[User, Depends(get_current_active_user)] = None,
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
     db: Session = Depends(get_db_session),
 ):
     """

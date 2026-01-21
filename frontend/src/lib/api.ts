@@ -781,9 +781,15 @@ export const api = {
   streamChat: async function* (
     messages: ChatMessage[]
   ): AsyncGenerator<string, void, unknown> {
+    const token = getAccessToken();
+    const headers: HeadersInit = { "Content-Type": "application/json" };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
     const res = await fetch(`${API_URL}/chat`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ messages }),
     });
 
@@ -821,9 +827,15 @@ export const api = {
     messages: ChatMessage[],
     attachments?: Attachment[]
   ): AsyncGenerator<AgentStreamEvent, void, unknown> {
+    const token = getAccessToken();
+    const headers: HeadersInit = { "Content-Type": "application/json" };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
     const res = await fetch(`${API_URL}/chat/agent`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ messages, attachments }),
     });
 

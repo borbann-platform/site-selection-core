@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from src.config.database import get_db_session
-from src.dependencies.auth import get_current_active_user
+from src.dependencies.auth import get_current_user_optional
 from src.models.catchment import (
     CatchmentAnalysisResponse,
     CatchmentRequest,
@@ -23,7 +23,7 @@ router = APIRouter()
 )
 def analyze_catchment(
     payload: CatchmentRequest,
-    current_user: Annotated[User, Depends(get_current_active_user)] = None,
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
     db: Session = Depends(get_db_session),
 ):
     """
@@ -62,7 +62,7 @@ def analyze_catchment(
 )
 def get_isochrone(
     payload: CatchmentRequest,
-    current_user: Annotated[User, Depends(get_current_active_user)] = None,
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
 ):
     """
     Calculates the area reachable within a given time and mode.

@@ -16,7 +16,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from src.config.database import get_db_session
-from src.dependencies.auth import get_current_active_user
+from src.dependencies.auth import get_current_user_optional
 from src.models.user import User
 from src.services.price_prediction import (
     PredictorType,
@@ -78,7 +78,7 @@ class ModelStatusResponse(BaseModel):
 
 @router.get("/models/status", response_model=ModelStatusResponse)
 def get_models_status(
-    current_user: Annotated[User, Depends(get_current_active_user)] = None,
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
 ):
     """Get status of all available prediction models."""
     available = get_available_predictors()
@@ -97,7 +97,7 @@ def explain_price(
     model: PredictorType | None = Query(
         None, description="Model to use for prediction"
     ),
-    current_user: Annotated[User, Depends(get_current_active_user)] = None,
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
     db: Session = Depends(get_db_session),
 ):
     """
@@ -195,7 +195,7 @@ def predict_price(
     model: PredictorType | None = Query(
         None, description="Model to use for prediction"
     ),
-    current_user: Annotated[User, Depends(get_current_active_user)] = None,
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
     db: Session = Depends(get_db_session),
 ):
     """
