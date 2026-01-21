@@ -15,8 +15,10 @@ import { Route as RegisterRouteImport } from './routes/register'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DistrictsRouteImport } from './routes/districts'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ChatIndexRouteImport } from './routes/chat/index'
 import { Route as SiteSiteIdRouteImport } from './routes/site/$siteId'
 import { Route as PropertyPropertyIdRouteImport } from './routes/property/$propertyId'
+import { Route as ChatSessionIdRouteImport } from './routes/chat/$sessionId'
 
 const ValuationRoute = ValuationRouteImport.update({
   id: '/valuation',
@@ -48,6 +50,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ChatIndexRoute = ChatIndexRouteImport.update({
+  id: '/chat/',
+  path: '/chat/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SiteSiteIdRoute = SiteSiteIdRouteImport.update({
   id: '/site/$siteId',
   path: '/site/$siteId',
@@ -58,6 +65,11 @@ const PropertyPropertyIdRoute = PropertyPropertyIdRouteImport.update({
   path: '/property/$propertyId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ChatSessionIdRoute = ChatSessionIdRouteImport.update({
+  id: '/chat/$sessionId',
+  path: '/chat/$sessionId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -66,8 +78,10 @@ export interface FileRoutesByFullPath {
   '/register': typeof RegisterRoute
   '/settings': typeof SettingsRoute
   '/valuation': typeof ValuationRoute
+  '/chat/$sessionId': typeof ChatSessionIdRoute
   '/property/$propertyId': typeof PropertyPropertyIdRoute
   '/site/$siteId': typeof SiteSiteIdRoute
+  '/chat': typeof ChatIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -76,8 +90,10 @@ export interface FileRoutesByTo {
   '/register': typeof RegisterRoute
   '/settings': typeof SettingsRoute
   '/valuation': typeof ValuationRoute
+  '/chat/$sessionId': typeof ChatSessionIdRoute
   '/property/$propertyId': typeof PropertyPropertyIdRoute
   '/site/$siteId': typeof SiteSiteIdRoute
+  '/chat': typeof ChatIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -87,8 +103,10 @@ export interface FileRoutesById {
   '/register': typeof RegisterRoute
   '/settings': typeof SettingsRoute
   '/valuation': typeof ValuationRoute
+  '/chat/$sessionId': typeof ChatSessionIdRoute
   '/property/$propertyId': typeof PropertyPropertyIdRoute
   '/site/$siteId': typeof SiteSiteIdRoute
+  '/chat/': typeof ChatIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -99,8 +117,10 @@ export interface FileRouteTypes {
     | '/register'
     | '/settings'
     | '/valuation'
+    | '/chat/$sessionId'
     | '/property/$propertyId'
     | '/site/$siteId'
+    | '/chat'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -109,8 +129,10 @@ export interface FileRouteTypes {
     | '/register'
     | '/settings'
     | '/valuation'
+    | '/chat/$sessionId'
     | '/property/$propertyId'
     | '/site/$siteId'
+    | '/chat'
   id:
     | '__root__'
     | '/'
@@ -119,8 +141,10 @@ export interface FileRouteTypes {
     | '/register'
     | '/settings'
     | '/valuation'
+    | '/chat/$sessionId'
     | '/property/$propertyId'
     | '/site/$siteId'
+    | '/chat/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -130,8 +154,10 @@ export interface RootRouteChildren {
   RegisterRoute: typeof RegisterRoute
   SettingsRoute: typeof SettingsRoute
   ValuationRoute: typeof ValuationRoute
+  ChatSessionIdRoute: typeof ChatSessionIdRoute
   PropertyPropertyIdRoute: typeof PropertyPropertyIdRoute
   SiteSiteIdRoute: typeof SiteSiteIdRoute
+  ChatIndexRoute: typeof ChatIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -178,6 +204,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/chat/': {
+      id: '/chat/'
+      path: '/chat'
+      fullPath: '/chat'
+      preLoaderRoute: typeof ChatIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/site/$siteId': {
       id: '/site/$siteId'
       path: '/site/$siteId'
@@ -192,6 +225,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PropertyPropertyIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/chat/$sessionId': {
+      id: '/chat/$sessionId'
+      path: '/chat/$sessionId'
+      fullPath: '/chat/$sessionId'
+      preLoaderRoute: typeof ChatSessionIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -202,8 +242,10 @@ const rootRouteChildren: RootRouteChildren = {
   RegisterRoute: RegisterRoute,
   SettingsRoute: SettingsRoute,
   ValuationRoute: ValuationRoute,
+  ChatSessionIdRoute: ChatSessionIdRoute,
   PropertyPropertyIdRoute: PropertyPropertyIdRoute,
   SiteSiteIdRoute: SiteSiteIdRoute,
+  ChatIndexRoute: ChatIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

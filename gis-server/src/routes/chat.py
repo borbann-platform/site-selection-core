@@ -6,17 +6,41 @@ Provides agentic chatbot with streaming responses using LangGraph + Gemini.
 import asyncio
 import json
 import logging
+import math
 import random
 import time
-import uuid
+import uuid as uuid_lib
+from typing import Any
 
-from fastapi import APIRouter, Query, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Response
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
 from src.config.agent_settings import agent_settings
+from src.config.database import get_db_session
+from src.dependencies.auth import get_current_user_optional
+from src.models.user import User
+from src.services.chat_service import ChatService
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 logger = logging.getLogger(__name__)
+
+
+def sanitize_json_value(obj):
+    """
+    Recursively sanitize a value for JSON serialization.
+    Replaces NaN, Infinity, -Infinity with None.
+    """
+    if isinstance(obj, dict):
+        return {k: sanitize_json_value(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [sanitize_json_value(item) for item in obj]
+    elif isinstance(obj, float):
+        if math.isnan(obj) or math.isinf(obj):
+            return None
+        return obj
+    return obj
 
 
 class ChatMessage(BaseModel):
@@ -50,20 +74,23 @@ def build_spatial_context_message(attachments: list[AttachmentData]) -> str:
     parts = ["[SPATIAL CONTEXT FROM MAP]"]
 
     for attachment in attachments:
+        # Sanitize attachment data to prevent NaN/Infinity issues
+        sanitized_data = sanitize_json_value(attachment.data)
+
         if attachment.type == "location":
-            lat = attachment.data.get("lat")
-            lon = attachment.data.get("lon")
+            lat = sanitized_data.get("lat")
+            lon = sanitized_data.get("lon")
             if lat and lon:
                 parts.append(
                     f"- PIN LOCATION: latitude={lat}, longitude={lon} (User has selected this specific point on the map)"
                 )
 
         elif attachment.type == "bbox":
-            min_lon = attachment.data.get("minLon")
-            max_lon = attachment.data.get("maxLon")
-            min_lat = attachment.data.get("minLat")
-            max_lat = attachment.data.get("maxLat")
-            corners = attachment.data.get("corners")
+            min_lon = sanitized_data.get("minLon")
+            max_lon = sanitized_data.get("maxLon")
+            min_lat = sanitized_data.get("minLat")
+            max_lat = sanitized_data.get("maxLat")
+            corners = sanitized_data.get("corners")
 
             if (
                 min_lon is not None
@@ -91,9 +118,30 @@ def build_spatial_context_message(attachments: list[AttachmentData]) -> str:
                 )
 
         elif attachment.type == "property":
-            property_id = attachment.data.get("id")
+            property_id = sanitized_data.get("id")
+            property_data = sanitized_data
+
             if property_id:
                 parts.append(f"- SELECTED PROPERTY: ID={property_id}")
+                # Include key property details if available
+                details = []
+                if property_data.get("total_price"):
+                    details.append(f"Price: ฿{property_data['total_price']:,.0f}")
+                if property_data.get("building_style_desc"):
+                    details.append(f"Type: {property_data['building_style_desc']}")
+                if property_data.get("amphur"):
+                    details.append(f"District: {property_data['amphur']}")
+                if property_data.get("building_area"):
+                    details.append(
+                        f"Building Area: {property_data['building_area']} sqm"
+                    )
+                if property_data.get("lat") and property_data.get("lon"):
+                    details.append(
+                        f"Location: ({property_data['lat']}, {property_data['lon']})"
+                    )
+
+                if details:
+                    parts.append(f"  Details: {', '.join(details)}")
 
     parts.append(
         "\nWhen the user refers to 'this location', 'here', 'this area', or 'the selected area', "
@@ -526,6 +574,9 @@ async def generate_real_agent_stream_with_steps(
     messages: list[ChatMessage],
     session_id: str | None = None,
     attachments: list[AttachmentData] | None = None,
+    db_session_id: str | None = None,
+    db: Session | None = None,
+    user: User | None = None,
 ):
     """
     Generate streaming response from real LangGraph agent with structured events.
@@ -538,8 +589,11 @@ async def generate_real_agent_stream_with_steps(
 
     Args:
         messages: List of chat messages
-        session_id: Optional session ID for conversation memory
+        session_id: Optional session ID for in-memory conversation memory (legacy)
         attachments: Optional list of spatial attachments (bbox, location, property)
+        db_session_id: Optional database session ID for persistent storage
+        db: Optional database session for persistence
+        user: Optional authenticated user
     """
     from src.services.agent_graph import agent_service
     from src.services.conversation_memory import conversation_memory
@@ -549,8 +603,10 @@ async def generate_real_agent_stream_with_steps(
 
     # Build spatial context from attachments
     spatial_context = ""
+    attachments_data = None
     if attachments:
         spatial_context = build_spatial_context_message(attachments)
+        attachments_data = [a.model_dump() for a in attachments]
 
     # Inject spatial context into the last user message if present
     if spatial_context and message_dicts:
@@ -562,8 +618,36 @@ async def generate_real_agent_stream_with_steps(
                 )
                 break
 
-    # Get conversation history if session exists
-    if session_id:
+    # Persistent session: Load history from database
+    if db_session_id and db and user:
+        try:
+            chat_service = ChatService(db)
+            db_session = chat_service.get_session(
+                uuid_lib.UUID(db_session_id), user.id, include_messages=True
+            )
+            if db_session and db_session.messages:
+                history = [
+                    {"role": m.role, "content": m.content}
+                    for m in db_session.messages[-10:]  # Last 10 messages for context
+                ]
+                # Prepend history (excluding current message which is already in message_dicts)
+                if history:
+                    message_dicts = history + message_dicts[-1:]
+
+            # Save the new user message to database
+            user_msg = messages[-1] if messages else None
+            if user_msg and user_msg.role == "user":
+                chat_service.add_message(
+                    session_id=uuid_lib.UUID(db_session_id),
+                    role="user",
+                    content=user_msg.content,
+                    attachments=attachments_data,
+                )
+        except Exception as e:
+            logger.warning(f"Failed to load/save from DB session: {e}")
+
+    # Legacy in-memory session support
+    elif session_id:
         history = conversation_memory.get_history(session_id, limit=10)
         if history:
             # Prepend history to messages (but keep the new user message)
@@ -582,6 +666,7 @@ async def generate_real_agent_stream_with_steps(
     current_tool_start: int | None = None
     response_content = ""
     has_started_response = False
+    collected_tool_calls: list[dict[str, Any]] = []  # Track tool calls for persistence
 
     try:
         async for event in agent_service.astream(message_dicts):
@@ -592,7 +677,7 @@ async def generate_real_agent_stream_with_steps(
                 # A new tool is being called
                 tool_info = content
                 current_tool_id = (
-                    f"step-{int(time.time() * 1000)}-{uuid.uuid4().hex[:6]}"
+                    f"step-{int(time.time() * 1000)}-{uuid_lib.uuid4().hex[:6]}"
                 )
                 current_tool_name = tool_info.get("name", "unknown")
                 current_tool_start = int(time.time() * 1000)
@@ -632,6 +717,9 @@ async def generate_real_agent_stream_with_steps(
                     }
                     yield f"data: {json.dumps({'event': 'step', 'data': step_data})}\n\n"
 
+                    # Collect tool call for persistence
+                    collected_tool_calls.append(step_data)
+
                     # Reset tool tracking
                     current_tool_id = None
                     current_tool_name = None
@@ -667,8 +755,19 @@ async def generate_real_agent_stream_with_steps(
                 error_msg = f"\n\n**Error:** {content}"
                 yield f"data: {json.dumps({'event': 'token', 'data': {'token': error_msg}})}\n\n"
 
-        # Save assistant response to memory
-        if session_id and response_content:
+        # Save assistant response to database or memory
+        if db_session_id and db and user and response_content:
+            try:
+                chat_service = ChatService(db)
+                chat_service.add_message(
+                    session_id=uuid_lib.UUID(db_session_id),
+                    role="assistant",
+                    content=response_content,
+                    tool_calls=collected_tool_calls if collected_tool_calls else None,
+                )
+            except Exception as e:
+                logger.warning(f"Failed to save assistant response to DB: {e}")
+        elif session_id and response_content:
             conversation_memory.add_message(session_id, "assistant", response_content)
 
     except Exception as e:
@@ -682,7 +781,13 @@ async def generate_real_agent_stream_with_steps(
 
 
 @router.post("/agent")
-async def agent_chat(request: ChatRequest, response: Response):
+async def agent_chat(
+    request: ChatRequest,
+    response: Response,
+    background_tasks: BackgroundTasks,
+    current_user: User | None = Depends(get_current_user_optional),
+    db: Session = Depends(get_db_session),
+):
     """
     Stream agent chat responses with structured tool steps.
     Returns Server-Sent Events (SSE) with JSON-formatted events.
@@ -696,25 +801,69 @@ async def agent_chat(request: ChatRequest, response: Response):
     Optional:
     - Pass session_id to maintain conversation context across requests.
     - Pass attachments for spatial context (bbox, location, property selections from map).
+
+    Authentication:
+    - If authenticated, messages are persisted to the database.
+    - If not authenticated, in-memory session is used (legacy behavior).
     """
     from src.services.conversation_memory import conversation_memory
 
-    # Create or use session
-    session_id = request.session_id
-    if not session_id:
-        session_id = conversation_memory.create_session()
+    db_session_id = None
+    legacy_session_id = None
+
+    # Check if user is authenticated and using a database session
+    if current_user and request.session_id:
+        # Validate the session belongs to the user
+        try:
+            chat_service = ChatService(db)
+            session = chat_service.get_session(
+                uuid_lib.UUID(request.session_id),
+                current_user.id,
+                include_messages=False,
+            )
+            if session:
+                db_session_id = request.session_id
+            else:
+                # Session doesn't exist or doesn't belong to user - create new
+                new_session = chat_service.create_session(user_id=current_user.id)
+                db_session_id = str(new_session.id)
+        except Exception as e:
+            logger.warning(f"Failed to validate session: {e}")
+            # Fall back to creating a new session
+            chat_service = ChatService(db)
+            new_session = chat_service.create_session(user_id=current_user.id)
+            db_session_id = str(new_session.id)
+    elif current_user:
+        # User authenticated but no session_id - create new database session
+        chat_service = ChatService(db)
+        new_session = chat_service.create_session(user_id=current_user.id)
+        db_session_id = str(new_session.id)
+    else:
+        # Not authenticated - use legacy in-memory session
+        legacy_session_id = request.session_id
+        if not legacy_session_id:
+            legacy_session_id = conversation_memory.create_session()
 
     # Choose real agent or mock based on configuration
     if agent_settings.is_configured:
         logger.info(
-            f"Using real agent for session {session_id} with {len(request.attachments or [])} attachments"
+            f"Using real agent for session db={db_session_id} legacy={legacy_session_id} "
+            f"with {len(request.attachments or [])} attachments"
         )
         stream_generator = generate_real_agent_stream_with_steps(
-            request.messages, session_id, request.attachments
+            messages=request.messages,
+            session_id=legacy_session_id,
+            attachments=request.attachments,
+            db_session_id=db_session_id,
+            db=db,
+            user=current_user,
         )
     else:
         logger.warning("Agent not configured, using mock stream")
         stream_generator = generate_mock_agent_stream_with_steps(request.messages)
+
+    # Determine session ID for response header
+    response_session_id = db_session_id or legacy_session_id or ""
 
     streaming_response = StreamingResponse(
         stream_generator,
@@ -722,34 +871,48 @@ async def agent_chat(request: ChatRequest, response: Response):
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
-            "X-Session-ID": session_id,
+            "X-Session-ID": response_session_id,
         },
     )
+
+    # Schedule title generation in background (only for new sessions with authenticated users)
+    if current_user and db_session_id and len(request.messages) == 1:
+
+        async def generate_title_background():
+            try:
+                chat_service = ChatService(db)
+                await chat_service.generate_title(
+                    uuid_lib.UUID(db_session_id), current_user.id
+                )
+            except Exception as e:
+                logger.warning(f"Background title generation failed: {e}")
+
+        background_tasks.add_task(generate_title_background)
 
     return streaming_response
 
 
-@router.post("/sessions")
-async def create_session():
-    """Create a new conversation session."""
+@router.post("/memory-sessions")
+async def create_memory_session():
+    """Create a new in-memory conversation session (legacy, use /sessions for persistent)."""
     from src.services.conversation_memory import conversation_memory
 
     session_id = conversation_memory.create_session()
     return {"session_id": session_id}
 
 
-@router.get("/sessions/{session_id}/history")
-async def get_session_history(session_id: str, limit: int = Query(20, le=100)):
-    """Get conversation history for a session."""
+@router.get("/memory-sessions/{session_id}/history")
+async def get_memory_session_history(session_id: str, limit: int = Query(20, le=100)):
+    """Get conversation history for an in-memory session (legacy)."""
     from src.services.conversation_memory import conversation_memory
 
     history = conversation_memory.get_history(session_id, limit=limit)
     return {"session_id": session_id, "messages": history}
 
 
-@router.delete("/sessions/{session_id}")
-async def clear_session(session_id: str):
-    """Clear conversation history for a session."""
+@router.delete("/memory-sessions/{session_id}")
+async def clear_memory_session(session_id: str):
+    """Clear conversation history for an in-memory session (legacy)."""
     from src.services.conversation_memory import conversation_memory
 
     conversation_memory.clear_session(session_id)

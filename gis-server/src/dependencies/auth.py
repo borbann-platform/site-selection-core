@@ -9,6 +9,9 @@ from src.models.user import User
 from src.utils.auth import decode_token
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+oauth2_scheme_optional = OAuth2PasswordBearer(
+    tokenUrl="/api/v1/auth/login", auto_error=False
+)
 
 
 def get_current_user(
@@ -50,3 +53,29 @@ def get_current_active_user(
             detail="Inactive user",
         )
     return current_user
+
+
+def get_current_user_optional(
+    token: Annotated[str | None, Depends(oauth2_scheme_optional)],
+    db: Annotated[Session, Depends(get_db_session)],
+) -> User | None:
+    """
+    Get the current authenticated user from the JWT token, or None if not authenticated.
+    This allows endpoints to work for both authenticated and unauthenticated users.
+    """
+    if token is None:
+        return None
+
+    payload = decode_token(token)
+    if payload is None:
+        return None
+
+    if payload.get("type") != "access":
+        return None
+
+    user_id: str | None = payload.get("sub")
+    if user_id is None:
+        return None
+
+    user = db.query(User).filter(User.id == user_id).first()
+    return user

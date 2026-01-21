@@ -10,6 +10,7 @@ import {
   Sun,
   Moon,
   Monitor,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useTheme } from "../contexts/ThemeContext";
@@ -40,6 +41,7 @@ export function Shell({ children, panelContent }: ShellProps) {
           <NavItem to="/" icon={MapIcon} label="Map" />
           <NavItem to="/districts" icon={BarChart2} label="Districts" />
           <NavItem to="/valuation" icon={Sparkles} label="Valuation" highlight />
+          <NavItem to="/chat" icon={MessageSquare} label="Chat" />
           <NavItem to="/settings" icon={Settings} label="Settings" />
         </div>
 
