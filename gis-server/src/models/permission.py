@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, Table, Text
+from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, String, Table, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -31,13 +31,13 @@ class RoleScope(str, enum.Enum):
 role_permissions = Table(
     "role_permissions",
     Base.metadata,
-    mapped_column(
+    Column(
         "role_id",
         UUID(as_uuid=True),
         ForeignKey("roles.id", ondelete="CASCADE"),
         primary_key=True,
     ),
-    mapped_column(
+    Column(
         "permission_id",
         UUID(as_uuid=True),
         ForeignKey("permissions.id", ondelete="CASCADE"),

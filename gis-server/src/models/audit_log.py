@@ -134,8 +134,8 @@ class AuditLog(Base):
         nullable=True,
     )
 
-    # Additional metadata
-    metadata: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # Additional context/details (renamed from 'metadata' which is reserved in SQLAlchemy)
+    extra_data: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     # Relationships
     user = relationship("User")
