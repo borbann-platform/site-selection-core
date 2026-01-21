@@ -22,7 +22,7 @@ import {
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 
-export const Route = createFileRoute("/districts")({
+export const Route = createFileRoute("/_authenticated/districts")({
   component: DistrictsPage,
 });
 

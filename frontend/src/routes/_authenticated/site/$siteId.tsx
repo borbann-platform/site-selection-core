@@ -1,11 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo, useEffect } from "react";
-import { MapContainer } from "../../components/MapContainer";
-import { Shell } from "../../components/Shell";
+import { MapContainer } from "../../../components/MapContainer";
+import { Shell } from "../../../components/Shell";
 import { GeoJsonLayer, ScatterplotLayer } from "@deck.gl/layers";
 import { FlyToInterpolator } from "@deck.gl/core";
-import { api } from "../../lib/api";
+import { api } from "../../../lib/api";
 
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import {
@@ -19,15 +19,15 @@ import {
   EyeOff,
   Download,
 } from "lucide-react";
-import { cn } from "../../lib/utils";
-import { Skeleton } from "../../components/ui/skeleton";
+import { cn } from "../../../lib/utils";
+import { Skeleton } from "../../../components/ui/skeleton";
 
 interface SiteSearch {
   lat: number;
   lon: number;
 }
 
-export const Route = createFileRoute("/site/$siteId")({
+export const Route = createFileRoute("/_authenticated/site/$siteId")({
   component: SiteInspector,
   validateSearch: (search: Record<string, unknown>): SiteSearch => {
     return {
@@ -251,6 +251,7 @@ function SiteInspector() {
             </p>
           </div>
           <button
+            type="button"
             onClick={handleExportReport}
             className="p-2 bg-muted hover:bg-muted/80 text-foreground rounded-lg transition-colors"
             title="Export Report"
@@ -484,6 +485,7 @@ function LayerToggle({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       className={cn(
         "w-full flex items-center justify-between p-3 rounded-lg transition-all border",

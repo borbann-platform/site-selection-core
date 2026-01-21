@@ -52,8 +52,19 @@ export interface GenerateTitleResponse {
 
 // ============= Helper Functions =============
 
+function getAccessToken(): string | null {
+  const stored = localStorage.getItem("auth_tokens");
+  if (!stored) return null;
+  try {
+    const tokens = JSON.parse(stored);
+    return tokens.access_token || null;
+  } catch {
+    return null;
+  }
+}
+
 function getAuthHeaders(): HeadersInit {
-  const token = localStorage.getItem("access_token");
+  const token = getAccessToken();
   const headers: HeadersInit = {
     "Content-Type": "application/json",
   };
@@ -169,7 +180,7 @@ export const chatApi = {
       attachments?: Attachment[];
     }
   ): AsyncGenerator<AgentStreamEvent, void, unknown> {
-    const token = localStorage.getItem("access_token");
+    const token = getAccessToken();
     const headers: HeadersInit = {
       "Content-Type": "application/json",
     };

@@ -8,11 +8,16 @@ Uses pluggable prediction service with support for:
 - Automatic model selection based on availability
 """
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+
 from src.config.database import get_db_session
+from src.dependencies.auth import get_current_active_user
+from src.models.user import User
 from src.services.price_prediction import (
     PredictorType,
     get_available_predictors,
@@ -72,7 +77,9 @@ class ModelStatusResponse(BaseModel):
 
 
 @router.get("/models/status", response_model=ModelStatusResponse)
-def get_models_status():
+def get_models_status(
+    current_user: Annotated[User, Depends(get_current_active_user)] = None,
+):
     """Get status of all available prediction models."""
     available = get_available_predictors()
     default = None
@@ -90,6 +97,7 @@ def explain_price(
     model: PredictorType | None = Query(
         None, description="Model to use for prediction"
     ),
+    current_user: Annotated[User, Depends(get_current_active_user)] = None,
     db: Session = Depends(get_db_session),
 ):
     """
@@ -187,6 +195,7 @@ def predict_price(
     model: PredictorType | None = Query(
         None, description="Model to use for prediction"
     ),
+    current_user: Annotated[User, Depends(get_current_active_user)] = None,
     db: Session = Depends(get_db_session),
 ):
     """

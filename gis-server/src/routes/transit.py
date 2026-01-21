@@ -1,13 +1,16 @@
 """Transit routes API - serves transit line data for map visualization."""
 
 from enum import IntEnum
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Response
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+
 from src.config.database import get_db_session
+from src.dependencies.auth import get_current_active_user
+from src.models.user import User
 
 router = APIRouter(prefix="/transit", tags=["Transit"])
 
@@ -41,6 +44,7 @@ def get_transit_lines(
     route_type: int | None = Query(
         None, description="Filter by route type: 0=Tram/BTS, 1=Metro/MRT, 2=Rail, 3=Bus"
     ),
+    current_user: Annotated[User, Depends(get_current_active_user)] = None,
     db: Session = Depends(get_db_session),
 ):
     """
@@ -98,6 +102,7 @@ def get_transit_lines_tile(
     route_type: int | None = Query(
         None, description="Filter by route type: 0=Tram/BTS, 1=Metro/MRT, 2=Rail, 3=Bus"
     ),
+    current_user: Annotated[User, Depends(get_current_active_user)] = None,
     db: Session = Depends(get_db_session),
 ):
     """
@@ -145,6 +150,7 @@ def get_transit_lines_tile(
 
 @router.get("/stops", response_model=TransitLinesResponse)
 def get_transit_stops(
+    current_user: Annotated[User, Depends(get_current_active_user)] = None,
     db: Session = Depends(get_db_session),
 ):
     """Get all transit stops as GeoJSON FeatureCollection."""

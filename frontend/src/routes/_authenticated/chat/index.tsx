@@ -4,10 +4,10 @@
 
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { ChatLayout } from "../../components/chat";
-import { useChatStore } from "../../stores/chatStore";
+import { ChatLayout } from "../../../components/chat";
+import { useChatStore } from "../../../stores/chatStore";
 
-export const Route = createFileRoute("/chat/")({
+export const Route = createFileRoute("/_authenticated/chat/")({
   component: ChatIndex,
 });
 

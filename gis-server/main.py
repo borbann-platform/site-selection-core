@@ -11,10 +11,13 @@ from src.routes.chat import router as chat_router
 from src.routes.chat_sessions import router as chat_sessions_router
 from src.routes.hgt_prediction import router as hgt_prediction_router
 from src.routes.house_prices import router as house_prices_router
+from src.routes.invitations import router as invitations_router
 from src.routes.location_intelligence import router as location_intelligence_router
+from src.routes.organizations import router as organizations_router
 from src.routes.price_prediction import router as price_prediction_router
 from src.routes.projects import router as projects_router
 from src.routes.site import router as site_router
+from src.routes.teams import router as teams_router
 from src.routes.transit import router as transit_router
 from src.routes.valuation import router as valuation_router
 
@@ -67,6 +70,11 @@ app.include_router(transit_router, prefix="/api/v1", tags=["Transit"])
 app.include_router(admin_router, prefix="/api/v1", tags=["Admin"])
 app.include_router(auth_router, prefix="/api/v1", tags=["Authentication"])
 app.include_router(valuation_router, prefix="/api/v1", tags=["Property Valuation"])
+
+# Enterprise auth routers
+app.include_router(organizations_router, prefix="/api/v1", tags=["Organizations"])
+app.include_router(teams_router, prefix="/api/v1", tags=["Teams"])
+app.include_router(invitations_router, prefix="/api/v1", tags=["Invitations"])
 
 
 @app.get("/", tags=["Root"])

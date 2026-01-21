@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export const Route = createFileRoute("/property/$propertyId")({
+export const Route = createFileRoute("/_authenticated/property/$propertyId")({
   component: PropertyDetailPage,
 });
 
