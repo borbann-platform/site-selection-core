@@ -144,20 +144,20 @@ code {
   cursor: crosshair !important;
 }
 
-/* Custom Scrollbar */
+/* Custom Scrollbar (theme-agnostic) */
 .custom-scrollbar::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+  width: 5px;
+  height: 5px;
 }
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
+  background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 2px;
+  background: oklch(0.5 0 0 / 0.2);
+  border-radius: 4px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: oklch(0.5 0 0 / 0.35);
 }
 
 /* Animations */
@@ -176,4 +176,28 @@ code {
 }
 .animate-bounce-slight {
   animation: bounce-slight 2s infinite ease-in-out;
+}
+
+/* Fade-in entrance animation */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+/* Slide-in from left */
+@keyframes slide-in-left {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.animate-slide-in-left {
+  animation: slide-in-left 0.25s ease-out;
+}
+
+/* Focus-visible accessibility ring */
+*:focus-visible {
+  outline: 2px solid oklch(0.696 0.17 162.48);
+  outline-offset: 2px;
 }

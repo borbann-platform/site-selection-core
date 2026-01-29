@@ -47,9 +47,12 @@ function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <Card className="w-full max-w-md bg-card border-border">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-emerald-950/20 flex items-center justify-center p-4">
+      <Card className="w-full max-w-md bg-card border-border shadow-2xl shadow-black/10 animate-fade-in">
         <CardHeader className="text-center">
+          <div className="w-12 h-12 bg-emerald-500 rounded-xl flex items-center justify-center font-bold text-black text-xl mx-auto mb-4 shadow-lg shadow-emerald-500/25">
+            K
+          </div>
           <CardTitle className="text-2xl font-bold text-foreground">
             Welcome Back
           </CardTitle>
@@ -60,7 +63,7 @@ function LoginPage() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-md text-red-400 text-sm">
+              <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-md text-red-400 text-sm animate-fade-in">
                 {error}
               </div>
             )}
@@ -76,7 +79,7 @@ function LoginPage() {
                 value={formData.email}
                 onChange={handleChange}
                 required
-                className="bg-input border-border text-foreground placeholder:text-muted-foreground"
+                className="bg-input border-border text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500/40 transition-all duration-200"
                 placeholder="john@example.com"
               />
             </div>
@@ -92,14 +95,14 @@ function LoginPage() {
                 value={formData.password}
                 onChange={handleChange}
                 required
-                className="bg-input border-border text-foreground placeholder:text-muted-foreground"
+                className="bg-input border-border text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500/40 transition-all duration-200"
                 placeholder="Enter your password"
               />
             </div>
 
             <Button
               type="submit"
-              className="w-full"
+              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white active:scale-[0.98] transition-all duration-150"
               disabled={isLoading}
             >
               {isLoading ? "Signing in..." : "Sign In"}
@@ -107,7 +110,7 @@ function LoginPage() {
 
             <p className="text-center text-sm text-muted-foreground">
               Don't have an account?{" "}
-              <Link to="/register" className="text-amber-400 hover:underline">
+              <Link to="/register" className="text-emerald-400 hover:text-emerald-300 hover:underline transition-colors">
                 Sign up
               </Link>
             </p>

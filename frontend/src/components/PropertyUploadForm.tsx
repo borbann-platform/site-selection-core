@@ -96,10 +96,10 @@ function StepIndicator({
             <div className="flex flex-col items-center">
               <div
                 className={cn(
-                  "w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all",
+                  "w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300",
                   isCompleted && "bg-emerald-500 border-emerald-500",
                   isActive && "border-emerald-500 bg-emerald-500/20",
-                  !isActive && !isCompleted && "border-white/20 bg-white/5"
+                  !isActive && !isCompleted && "border-border bg-muted/50"
                 )}
               >
                 {isCompleted ? (
@@ -108,15 +108,15 @@ function StepIndicator({
                   <Icon
                     size={18}
                     className={cn(
-                      isActive ? "text-emerald-400" : "text-white/50"
+                      isActive ? "text-emerald-400" : "text-muted-foreground"
                     )}
                   />
                 )}
               </div>
               <span
                 className={cn(
-                  "text-xs mt-2 font-medium",
-                  isActive ? "text-emerald-400" : "text-white/50"
+                  "text-xs mt-2 font-medium transition-colors duration-300",
+                  isActive ? "text-emerald-400" : "text-muted-foreground"
                 )}
               >
                 {step.title}
@@ -125,8 +125,8 @@ function StepIndicator({
             {index < steps.length - 1 && (
               <div
                 className={cn(
-                  "flex-1 h-0.5 mx-3",
-                  isCompleted ? "bg-emerald-500" : "bg-white/10"
+                  "flex-1 h-0.5 mx-3 transition-colors duration-500",
+                  isCompleted ? "bg-emerald-500" : "bg-border"
                 )}
               />
             )}
@@ -150,8 +150,8 @@ function InputField({
 }) {
   return (
     <div className="space-y-2">
-      <Label className="text-white/80 flex items-center gap-2">
-        {Icon && <Icon size={14} className="text-white/50" />}
+      <Label className="text-foreground/80 flex items-center gap-2">
+        {Icon && <Icon size={14} className="text-muted-foreground" />}
         {label}
       </Label>
       {children}
@@ -270,8 +270,8 @@ export function PropertyUploadForm({
       {/* Step 1: Property Details */}
       {currentStep === 1 && (
         <div className="space-y-6">
-          <div className="bg-black/40 border border-white/10 rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
+          <div className="bg-card/80 backdrop-blur-sm border border-border rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-foreground mb-6 flex items-center gap-2">
               <Home size={20} className="text-emerald-400" />
               Property Details
             </h3>
@@ -286,7 +286,7 @@ export function PropertyUploadForm({
                 <select
                   value={formData.building_style}
                   onChange={(e) => updateField("building_style", e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-emerald-500/50"
+                  className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2.5 text-foreground focus:outline-none focus:border-emerald-500/50 transition-colors duration-200"
                 >
                   <option value="" className="bg-zinc-900">
                     Select building type...
@@ -315,7 +315,7 @@ export function PropertyUploadForm({
                   value={formData.building_area}
                   onChange={(e) => updateField("building_area", e.target.value)}
                   placeholder="e.g., 150"
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white placeholder:text-white/30 focus:outline-none focus:border-emerald-500/50"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white placeholder:text-muted-foreground focus:outline-none focus:border-emerald-500/50"
                 />
               </InputField>
 
@@ -327,7 +327,7 @@ export function PropertyUploadForm({
                   value={formData.land_area}
                   onChange={(e) => updateField("land_area", e.target.value)}
                   placeholder="e.g., 200"
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white placeholder:text-white/30 focus:outline-none focus:border-emerald-500/50"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white placeholder:text-muted-foreground focus:outline-none focus:border-emerald-500/50"
                 />
               </InputField>
 
@@ -344,7 +344,7 @@ export function PropertyUploadForm({
                     max="10"
                     value={formData.no_of_floor}
                     onChange={(e) => updateField("no_of_floor", e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-emerald-500/50"
+                    className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2.5 text-foreground focus:outline-none focus:border-emerald-500/50 transition-colors duration-200"
                   />
                 </InputField>
 
@@ -356,7 +356,7 @@ export function PropertyUploadForm({
                     max="100"
                     value={formData.building_age}
                     onChange={(e) => updateField("building_age", e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-emerald-500/50"
+                    className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2.5 text-foreground focus:outline-none focus:border-emerald-500/50 transition-colors duration-200"
                   />
                 </InputField>
               </div>
@@ -368,8 +368,8 @@ export function PropertyUploadForm({
       {/* Step 2: Location */}
       {currentStep === 2 && (
         <div className="space-y-6">
-          <div className="bg-black/40 border border-white/10 rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
+          <div className="bg-card/80 backdrop-blur-sm border border-border rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-foreground mb-6 flex items-center gap-2">
               <MapPin size={20} className="text-emerald-400" />
               Location
             </h3>
@@ -384,7 +384,7 @@ export function PropertyUploadForm({
                 <select
                   value={formData.amphur}
                   onChange={(e) => updateField("amphur", e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-emerald-500/50"
+                  className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2.5 text-foreground focus:outline-none focus:border-emerald-500/50 transition-colors duration-200"
                 >
                   <option value="" className="bg-zinc-900">
                     Select district...
@@ -408,7 +408,7 @@ export function PropertyUploadForm({
                   value={formData.tumbon}
                   onChange={(e) => updateField("tumbon", e.target.value)}
                   placeholder="e.g., คลองตันเหนือ"
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white placeholder:text-white/30 focus:outline-none focus:border-emerald-500/50"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white placeholder:text-muted-foreground focus:outline-none focus:border-emerald-500/50"
                 />
               </InputField>
 
@@ -419,14 +419,14 @@ export function PropertyUploadForm({
                   value={formData.village}
                   onChange={(e) => updateField("village", e.target.value)}
                   placeholder="e.g., บ้านกลางเมือง"
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white placeholder:text-white/30 focus:outline-none focus:border-emerald-500/50"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white placeholder:text-muted-foreground focus:outline-none focus:border-emerald-500/50"
                 />
               </InputField>
 
               {/* Location Picker */}
               <div className="space-y-2">
-                <Label className="text-white/80 flex items-center gap-2">
-                  <MapPin size={14} className="text-white/50" />
+                <Label className="text-foreground/80 flex items-center gap-2">
+                  <MapPin size={14} className="text-muted-foreground" />
                   Property Location
                 </Label>
                 <div
@@ -434,16 +434,16 @@ export function PropertyUploadForm({
                     "border rounded-lg p-4 transition-all",
                     selectedLocation
                       ? "border-emerald-500/50 bg-emerald-500/10"
-                      : "border-white/10 bg-white/5"
+                      : "border-border bg-muted/50"
                   )}
                 >
                   {selectedLocation ? (
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-white font-medium">
+                        <p className="text-sm text-foreground font-medium">
                           Location Selected
                         </p>
-                        <p className="text-xs text-white/50">
+                        <p className="text-xs text-muted-foreground">
                           {selectedLocation.lat.toFixed(6)},{" "}
                           {selectedLocation.lon.toFixed(6)}
                         </p>
@@ -453,7 +453,7 @@ export function PropertyUploadForm({
                         variant="outline"
                         size="sm"
                         onClick={onLocationPick}
-                        className="border-white/20 bg-white/5 text-white hover:bg-white/10"
+                        className="border-border bg-muted/50 text-foreground hover:bg-muted"
                       >
                         Change
                       </Button>
@@ -462,9 +462,9 @@ export function PropertyUploadForm({
                     <div className="text-center py-4">
                       <MapPin
                         size={32}
-                        className="mx-auto text-white/30 mb-3"
+                        className="mx-auto text-muted-foreground mb-3"
                       />
-                      <p className="text-sm text-white/70 mb-3">
+                      <p className="text-sm text-muted-foreground mb-3">
                         Click to select property location on map
                       </p>
                       <Button
@@ -493,8 +493,8 @@ export function PropertyUploadForm({
       {/* Step 3: Review */}
       {currentStep === 3 && (
         <div className="space-y-6">
-          <div className="bg-black/40 border border-white/10 rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
+          <div className="bg-card/80 backdrop-blur-sm border border-border rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-foreground mb-6 flex items-center gap-2">
               <Check size={20} className="text-emerald-400" />
               Review Your Property
             </h3>
@@ -537,9 +537,9 @@ export function PropertyUploadForm({
 
               {/* Location */}
               {selectedLocation && (
-                <div className="mt-4 p-3 bg-white/5 rounded-lg">
-                  <p className="text-xs text-white/50 mb-1">Location</p>
-                  <p className="text-sm text-white font-mono">
+                <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+                  <p className="text-xs text-muted-foreground mb-1">Location</p>
+                  <p className="text-sm text-foreground font-mono">
                     {selectedLocation.lat.toFixed(6)},{" "}
                     {selectedLocation.lon.toFixed(6)}
                   </p>
@@ -547,7 +547,7 @@ export function PropertyUploadForm({
               )}
 
               {/* Optional: Asking Price */}
-              <div className="mt-4 pt-4 border-t border-white/10">
+              <div className="mt-4 pt-4 border-t border-border">
                 <InputField label="Your Asking Price (optional, for comparison)">
                   <input
                     type="number"
@@ -555,10 +555,10 @@ export function PropertyUploadForm({
                     value={formData.asking_price}
                     onChange={(e) => updateField("asking_price", e.target.value)}
                     placeholder="e.g., 5000000"
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white placeholder:text-white/30 focus:outline-none focus:border-emerald-500/50"
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white placeholder:text-muted-foreground focus:outline-none focus:border-emerald-500/50"
                   />
                 </InputField>
-                <p className="text-xs text-white/50 mt-2">
+                <p className="text-xs text-muted-foreground mt-2">
                   If you have an asking price in mind, we'll compare it with our
                   AI valuation.
                 </p>
@@ -576,7 +576,7 @@ export function PropertyUploadForm({
           onClick={handleBack}
           disabled={currentStep === 1}
           className={cn(
-            "border-white/20 bg-white/5 text-white hover:bg-white/10",
+            "border-border bg-muted/50 text-foreground hover:bg-muted active:scale-[0.98] transition-all duration-150",
             currentStep === 1 && "opacity-0 pointer-events-none"
           )}
         >
@@ -588,7 +588,7 @@ export function PropertyUploadForm({
           <Button
             type="button"
             onClick={handleNext}
-            className="bg-emerald-500 hover:bg-emerald-600 text-black"
+            className="bg-emerald-600 hover:bg-emerald-500 text-white active:scale-[0.98] transition-all duration-150"
           >
             Next
             <ChevronRight size={16} className="ml-1" />
@@ -598,7 +598,7 @@ export function PropertyUploadForm({
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting || !selectedLocation}
-            className="bg-emerald-500 hover:bg-emerald-600 text-black disabled:opacity-50"
+            className="bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50 active:scale-[0.98] transition-all duration-150"
           >
             {isSubmitting ? (
               <>
@@ -641,9 +641,9 @@ export function PropertyUploadForm({
 
 function ReviewItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-white/5 rounded-lg p-3">
-      <p className="text-xs text-white/50 mb-1">{label}</p>
-      <p className="text-sm text-white font-medium">{value}</p>
+    <div className="bg-muted/50 rounded-lg p-3 hover:bg-muted/70 transition-colors duration-150">
+      <p className="text-xs text-muted-foreground mb-1">{label}</p>
+      <p className="text-sm text-foreground font-medium">{value}</p>
     </div>
   );
 }

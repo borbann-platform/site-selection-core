@@ -45,7 +45,7 @@ export function PropertyFilters({ filters, onChange }: PropertyFiltersProps) {
   });
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 divide-y divide-border/30">
       {/* District Select */}
       <div className="space-y-2">
         <Label className="text-xs text-muted-foreground">District (เขต)</Label>
@@ -55,7 +55,7 @@ export function PropertyFilters({ filters, onChange }: PropertyFiltersProps) {
             onChange({ ...filters, district: value === "all" ? null : value })
           }
         >
-          <SelectTrigger className="bg-muted/50 border-border text-foreground">
+          <SelectTrigger className="bg-muted/50 border-border text-foreground transition-colors duration-150 hover:bg-muted/80">
             <SelectValue placeholder="All Districts" />
           </SelectTrigger>
           <SelectContent className="bg-card border-border">
@@ -76,7 +76,7 @@ export function PropertyFilters({ filters, onChange }: PropertyFiltersProps) {
       </div>
 
       {/* Building Style Select */}
-      <div className="space-y-2">
+      <div className="space-y-2 pt-5">
         <Label className="text-xs text-muted-foreground">Building Type</Label>
         <Select
           value={filters.buildingStyle || "all"}
@@ -87,7 +87,7 @@ export function PropertyFilters({ filters, onChange }: PropertyFiltersProps) {
             })
           }
         >
-          <SelectTrigger className="bg-muted/50 border-border text-foreground">
+          <SelectTrigger className="bg-muted/50 border-border text-foreground transition-colors duration-150 hover:bg-muted/80">
             <SelectValue placeholder="All Types" />
           </SelectTrigger>
           <SelectContent className="bg-card border-border">
@@ -108,10 +108,10 @@ export function PropertyFilters({ filters, onChange }: PropertyFiltersProps) {
       </div>
 
       {/* Price Range Slider */}
-      <div className="space-y-3">
+      <div className="space-y-3 pt-5">
         <div className="flex justify-between items-center">
           <Label className="text-xs text-muted-foreground">Price Range (THB)</Label>
-          <span className="text-xs text-emerald-500 dark:text-emerald-400 font-mono">
+          <span className="text-xs text-emerald-500 dark:text-emerald-400 font-mono bg-emerald-500/10 px-2 py-0.5 rounded-full">
             {formatPrice(filters.minPrice)} - {formatPrice(filters.maxPrice)}
           </span>
         </div>
@@ -123,7 +123,7 @@ export function PropertyFilters({ filters, onChange }: PropertyFiltersProps) {
           onValueChange={([min, max]) =>
             onChange({ ...filters, minPrice: min, maxPrice: max })
           }
-          className="**:[[role=slider]]:bg-emerald-500"
+          className="**:[[role=slider]]:bg-emerald-500 **:[[role=slider]]:shadow-md **:[[role=slider]]:shadow-emerald-500/20 **:[[role=slider]]:border-2 **:[[role=slider]]:border-emerald-400"
         />
         <div className="flex justify-between text-[10px] text-muted-foreground/70">
           <span>500K</span>
@@ -132,10 +132,10 @@ export function PropertyFilters({ filters, onChange }: PropertyFiltersProps) {
       </div>
 
       {/* Area Range Slider */}
-      <div className="space-y-3">
+      <div className="space-y-3 pt-5">
         <div className="flex justify-between items-center">
           <Label className="text-xs text-muted-foreground">Building Area (sqm)</Label>
-          <span className="text-xs text-emerald-500 dark:text-emerald-400 font-mono">
+          <span className="text-xs text-emerald-500 dark:text-emerald-400 font-mono bg-emerald-500/10 px-2 py-0.5 rounded-full">
             {filters.minArea} - {filters.maxArea} sqm
           </span>
         </div>
@@ -147,7 +147,7 @@ export function PropertyFilters({ filters, onChange }: PropertyFiltersProps) {
           onValueChange={([min, max]) =>
             onChange({ ...filters, minArea: min, maxArea: max })
           }
-          className="**:[[role=slider]]:bg-emerald-500"
+          className="**:[[role=slider]]:bg-emerald-500 **:[[role=slider]]:shadow-md **:[[role=slider]]:shadow-emerald-500/20 **:[[role=slider]]:border-2 **:[[role=slider]]:border-emerald-400"
         />
         <div className="flex justify-between text-[10px] text-muted-foreground/70">
           <span>20 sqm</span>

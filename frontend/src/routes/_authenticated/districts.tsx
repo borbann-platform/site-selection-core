@@ -40,9 +40,9 @@ function SortIcon({
 }) {
   if (sortKey !== columnKey) return <ArrowUpDown className="ml-1 h-3 w-3" />;
   return sortOrder === "asc" ? (
-    <ArrowUp className="ml-1 h-3 w-3" />
+    <ArrowUp className="ml-1 h-3 w-3 text-emerald-400" />
   ) : (
-    <ArrowDown className="ml-1 h-3 w-3" />
+    <ArrowDown className="ml-1 h-3 w-3 text-emerald-400" />
   );
 }
 
@@ -98,7 +98,7 @@ function DistrictsPage() {
 
   return (
     <Shell>
-      <div className="flex h-full flex-col overflow-hidden bg-background text-foreground">
+      <div className="flex h-full flex-col overflow-hidden bg-background text-foreground animate-fade-in">
         {/* Header */}
         <div className="border-b border-border bg-background px-6 py-4">
           <div className="flex items-center gap-3">
@@ -113,9 +113,9 @@ function DistrictsPage() {
 
           {/* Summary Stats */}
           {stats && (
-            <div className="mt-4 flex gap-6">
-              <div className="flex items-center gap-2">
-                <Home className="h-4 w-4 text-muted-foreground" />
+            <div className="mt-4 flex gap-3">
+              <div className="flex items-center gap-2 bg-muted/50 rounded-lg px-4 py-2 border border-border/50">
+                <Home className="h-4 w-4 text-emerald-500 dark:text-emerald-400" />
                 <span className="text-sm text-muted-foreground">
                   <span className="font-medium text-foreground">
                     {stats.total_count.toLocaleString()}
@@ -123,8 +123,8 @@ function DistrictsPage() {
                   properties
                 </span>
               </div>
-              <div className="flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              <div className="flex items-center gap-2 bg-muted/50 rounded-lg px-4 py-2 border border-border/50">
+                <TrendingUp className="h-4 w-4 text-amber-500 dark:text-amber-400" />
                 <span className="text-sm text-muted-foreground">
                   <span className="font-medium text-foreground">
                     {stats.by_district.length}
@@ -227,7 +227,7 @@ function DistrictsPage() {
                   {sortedDistricts.map((district) => (
                     <TableRow
                       key={district.amphur}
-                      className="cursor-pointer border-border hover:bg-muted/50"
+                      className="cursor-pointer border-border hover:bg-emerald-500/5 even:bg-muted/15 transition-colors duration-100"
                     >
                       <TableCell>
                         <Link
