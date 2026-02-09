@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { MapContainer } from "../components/MapContainer";
-import { Shell } from "../components/Shell";
+import { MapContainer } from "../../components/MapContainer";
+import { Shell } from "../../components/Shell";
 import {
   AICommandBar,
   AIExpandedPanel,
@@ -11,7 +11,7 @@ import {
   type SelectionMode,
   type AgentMessage,
   type FilterValues,
-} from "../components/ai";
+} from "../../components/ai";
 import { PathLayer, IconLayer, ScatterplotLayer, PolygonLayer } from "@deck.gl/layers";
 import { MVTLayer, H3HexagonLayer } from "@deck.gl/geo-layers";
 import {
@@ -24,23 +24,23 @@ import {
   Train,
   Target,
 } from "lucide-react";
-import { cn } from "../lib/utils";
-import { api, API_URL } from "../lib/api";
-import type { TransitLineFeature } from "../lib/api";
-import { generateIconAtlas, getIconNameForType } from "../lib/map-icons";
+import { cn } from "../../lib/utils";
+import { api, API_URL } from "../../lib/api";
+import type { TransitLineFeature } from "../../lib/api";
+import { generateIconAtlas, getIconNameForType } from "../../lib/map-icons";
 import {
   PropertyFilters,
   type PropertyFiltersState,
-} from "../components/PropertyFilters";
-import { MarketStats } from "../components/MarketStats";
-import { PriceLegend } from "../components/PriceLegend";
-import { PropertyPopup } from "../components/PropertyPopup";
-import { MapLegend } from "../components/MapLegend";
+} from "../../components/PropertyFilters";
+import { MarketStats } from "../../components/MarketStats";
+import { PriceLegend } from "../../components/PriceLegend";
+import { PropertyPopup } from "../../components/PropertyPopup";
+import { MapLegend } from "../../components/MapLegend";
 import {
   Collapsible,
   CollapsibleTrigger,
   CollapsibleContent,
-} from "../components/ui/collapsible";
+} from "../../components/ui/collapsible";
 
 // Type definitions
 interface ViewState {
@@ -68,7 +68,7 @@ interface DeckGLObject {
   geometry?: { coordinates: [number, number] };
 }
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/_authenticated/")({
   component: PropertyExplorer,
   validateSearch: (search: Record<string, unknown>) => {
     return {

@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from src.config.agent_settings import agent_settings
 from src.config.database import get_db_session
-from src.dependencies.auth import get_current_user_optional
+from src.dependencies.auth import get_current_active_user
 from src.models.user import User
 from src.services.chat_service import ChatService
 
@@ -226,6 +226,7 @@ async def generate_agent_stream(messages: list[ChatMessage], debug: bool = False
 @router.post("")
 async def chat(
     request: ChatRequest,
+    current_user: User = Depends(get_current_active_user),
     debug: bool = Query(False, description="Include tool call info in response"),
 ):
     """
@@ -785,7 +786,7 @@ async def agent_chat(
     request: ChatRequest,
     response: Response,
     background_tasks: BackgroundTasks,
-    current_user: User | None = Depends(get_current_user_optional),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db_session),
 ):
     """
@@ -803,19 +804,15 @@ async def agent_chat(
     - Pass attachments for spatial context (bbox, location, property selections from map).
 
     Authentication:
-    - If authenticated, messages are persisted to the database.
-    - If not authenticated, in-memory session is used (legacy behavior).
+    - User must be authenticated. Messages are persisted to the database.
     """
-    from src.services.conversation_memory import conversation_memory
-
     db_session_id = None
-    legacy_session_id = None
 
-    # Check if user is authenticated and using a database session
-    if current_user and request.session_id:
+    # User is always authenticated now - use database sessions
+    chat_service = ChatService(db)
+    if request.session_id:
         # Validate the session belongs to the user
         try:
-            chat_service = ChatService(db)
             session = chat_service.get_session(
                 uuid_lib.UUID(request.session_id),
                 current_user.id,
@@ -830,29 +827,22 @@ async def agent_chat(
         except Exception as e:
             logger.warning(f"Failed to validate session: {e}")
             # Fall back to creating a new session
-            chat_service = ChatService(db)
             new_session = chat_service.create_session(user_id=current_user.id)
             db_session_id = str(new_session.id)
-    elif current_user:
-        # User authenticated but no session_id - create new database session
-        chat_service = ChatService(db)
+    else:
+        # No session_id provided - create new database session
         new_session = chat_service.create_session(user_id=current_user.id)
         db_session_id = str(new_session.id)
-    else:
-        # Not authenticated - use legacy in-memory session
-        legacy_session_id = request.session_id
-        if not legacy_session_id:
-            legacy_session_id = conversation_memory.create_session()
 
     # Choose real agent or mock based on configuration
     if agent_settings.is_configured:
         logger.info(
-            f"Using real agent for session db={db_session_id} legacy={legacy_session_id} "
+            f"Using real agent for session db={db_session_id} "
             f"with {len(request.attachments or [])} attachments"
         )
         stream_generator = generate_real_agent_stream_with_steps(
             messages=request.messages,
-            session_id=legacy_session_id,
+            session_id=None,  # No legacy in-memory session
             attachments=request.attachments,
             db_session_id=db_session_id,
             db=db,
@@ -862,21 +852,18 @@ async def agent_chat(
         logger.warning("Agent not configured, using mock stream")
         stream_generator = generate_mock_agent_stream_with_steps(request.messages)
 
-    # Determine session ID for response header
-    response_session_id = db_session_id or legacy_session_id or ""
-
     streaming_response = StreamingResponse(
         stream_generator,
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
-            "X-Session-ID": response_session_id,
+            "X-Session-ID": db_session_id,
         },
     )
 
-    # Schedule title generation in background (only for new sessions with authenticated users)
-    if current_user and db_session_id and len(request.messages) == 1:
+    # Schedule title generation in background (only for new sessions)
+    if db_session_id and len(request.messages) == 1:
 
         async def generate_title_background():
             try:

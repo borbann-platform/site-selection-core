@@ -1,9 +1,12 @@
 import json
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+
 from src.config.database import get_db_session
+from src.dependencies.auth import get_current_user_optional
 from src.models.site import (
     AnalysisDetails,
     AnalysisSummary,
@@ -13,6 +16,7 @@ from src.models.site import (
     SiteRequest,
     SiteResponse,
 )
+from src.models.user import User
 from src.services.catchment import catchment_service
 
 router = APIRouter()
@@ -34,7 +38,11 @@ MAGNET_CATEGORIES = [
 
 
 @router.get("/site/{site_id}", response_model=SiteResponse)
-def get_site_details(site_id: str, db: Session = Depends(get_db_session)):
+def get_site_details(
+    site_id: str,
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
+    db: Session = Depends(get_db_session),
+):
     """
     Retrieve details for a specific site.
     Fetches from 'saved_sites' table if UUID, otherwise falls back to mock for demo IDs.
@@ -94,7 +102,11 @@ def get_site_details(site_id: str, db: Session = Depends(get_db_session)):
     response_model=SiteResponse,
     summary="Analyze a geographic site for business potential",
 )
-def analyze_site(payload: SiteRequest, db: Session = Depends(get_db_session)):
+def analyze_site(
+    payload: SiteRequest,
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
+    db: Session = Depends(get_db_session),
+):
     """
     Analyzes a site's potential by counting competitors and traffic-generating
     "magnets" within a specified radius.
@@ -251,7 +263,11 @@ def analyze_site(payload: SiteRequest, db: Session = Depends(get_db_session)):
     response_model=GeoJSONFeatureCollection,
     summary="Get nearby POIs as GeoJSON",
 )
-def get_nearby_pois(payload: NearbyRequest, db: Session = Depends(get_db_session)):
+def get_nearby_pois(
+    payload: NearbyRequest,
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
+    db: Session = Depends(get_db_session),
+):
     """
     Returns a GeoJSON FeatureCollection of POIs within the specified radius
     matching the given categories.

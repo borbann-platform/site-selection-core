@@ -1,5 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { Shell } from "../components/Shell";
+import { createFileRoute } from "@tanstack/react-router";
+import { Shell } from "../../components/Shell";
 import {
   Settings as SettingsIcon,
   Database,
@@ -11,19 +11,18 @@ import {
   Loader2,
   CheckCircle,
   XCircle,
-  LogIn,
   LogOut,
 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
-import { api, type AdminCacheStatusResponse } from "../lib/api";
-import { useAuth } from "../contexts/AuthContext";
+import { api, type AdminCacheStatusResponse } from "../../lib/api";
+import { useAuth } from "../../contexts/AuthContext";
 
-export const Route = createFileRoute("/settings")({
+export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsPage,
 });
 
 function SettingsPage() {
-  const { user, isAuthenticated, isLoading: authLoading, logout } = useAuth();
+  const { user, logout } = useAuth();
   const [cacheStatus, setCacheStatus] =
     useState<AdminCacheStatusResponse | null>(null);
   const [isRefreshingPOIs, setIsRefreshingPOIs] = useState(false);
@@ -105,75 +104,42 @@ function SettingsPage() {
                 Profile & Account
               </h2>
               <div className="bg-card border border-border rounded-2xl overflow-hidden">
-                {authLoading ? (
-                  <div className="p-6 flex items-center justify-center">
-                    <Loader2 size={24} className="animate-spin text-muted-foreground" />
-                  </div>
-                ) : isAuthenticated && user ? (
-                  <>
-                    <div className="p-6 border-b border-border flex items-center justify-between">
-                      <div>
-                        <div className="font-medium">Display Name</div>
-                        <div className="text-sm text-muted-foreground">
-                          How you appear to others
-                        </div>
-                      </div>
-                      <div className="text-muted-foreground">
-                        {user.first_name} {user.last_name}
-                      </div>
-                    </div>
-                    <div className="p-6 border-b border-border flex items-center justify-between">
-                      <div>
-                        <div className="font-medium">Email Address</div>
-                        <div className="text-sm text-muted-foreground">
-                          Used for notifications
-                        </div>
-                      </div>
-                      <div className="text-muted-foreground">{user.email}</div>
-                    </div>
-                    <div className="p-6 flex items-center justify-between">
-                      <div>
-                        <div className="font-medium">Sign Out</div>
-                        <div className="text-sm text-muted-foreground">
-                          End your current session
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={logout}
-                        className="flex items-center gap-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-sm font-medium transition-colors"
-                      >
-                        <LogOut size={16} />
-                        Sign Out
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <div className="p-8 flex flex-col items-center justify-center text-center">
-                    <div className="p-4 bg-muted rounded-full mb-4">
-                      <User size={32} className="text-muted-foreground" />
-                    </div>
-                    <div className="text-lg font-medium mb-2">Not Signed In</div>
-                    <div className="text-sm text-muted-foreground mb-6">
-                      Sign in to access your profile and save your preferences
-                    </div>
-                    <div className="flex gap-3">
-                      <Link
-                        to="/login"
-                        className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-medium transition-colors"
-                      >
-                        <LogIn size={16} />
-                        Sign In
-                      </Link>
-                      <Link
-                        to="/register"
-                        className="px-4 py-2 bg-muted hover:bg-muted/80 text-foreground rounded-lg text-sm font-medium transition-colors"
-                      >
-                        Create Account
-                      </Link>
+                <div className="p-6 border-b border-border flex items-center justify-between">
+                  <div>
+                    <div className="font-medium">Display Name</div>
+                    <div className="text-sm text-muted-foreground">
+                      How you appear to others
                     </div>
                   </div>
-                )}
+                  <div className="text-muted-foreground">
+                    {user?.first_name} {user?.last_name}
+                  </div>
+                </div>
+                <div className="p-6 border-b border-border flex items-center justify-between">
+                  <div>
+                    <div className="font-medium">Email Address</div>
+                    <div className="text-sm text-muted-foreground">
+                      Used for notifications
+                    </div>
+                  </div>
+                  <div className="text-muted-foreground">{user?.email}</div>
+                </div>
+                <div className="p-6 flex items-center justify-between">
+                  <div>
+                    <div className="font-medium">Sign Out</div>
+                    <div className="text-sm text-muted-foreground">
+                      End your current session
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={logout}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    <LogOut size={16} />
+                    Sign Out
+                  </button>
+                </div>
               </div>
             </section>
 

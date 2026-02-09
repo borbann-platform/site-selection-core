@@ -3,12 +3,17 @@ House Prices API endpoints.
 Provides access to appraised house prices from Treasury Department.
 """
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, Query, Response
 from pydantic import BaseModel
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
+
 from src.config.database import get_db_session
+from src.dependencies.auth import get_current_user_optional
 from src.models.realestate import HousePrice
+from src.models.user import User
 
 router = APIRouter(prefix="/house-prices", tags=["House Prices"])
 
@@ -73,6 +78,7 @@ def list_house_prices(
     ),
     limit: int = Query(100, ge=1, le=1000, description="Max results to return"),
     offset: int = Query(0, ge=0, description="Results offset for pagination"),
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
     db: Session = Depends(get_db_session),
 ):
     """
@@ -131,7 +137,10 @@ def list_house_prices(
 
 
 @router.get("/stats", response_model=HousePriceStatsResponse)
-def get_house_price_stats(db: Session = Depends(get_db_session)):
+def get_house_price_stats(
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
+    db: Session = Depends(get_db_session),
+):
     """
     Get aggregated statistics for house prices.
     """
@@ -199,6 +208,7 @@ def get_nearby_house_prices(
     radius_m: int = Query(1000, ge=100, le=10000, description="Radius in meters"),
     building_style: str | None = Query(None, description="Filter by building style"),
     limit: int = Query(50, ge=1, le=200),
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
     db: Session = Depends(get_db_session),
 ):
     """
@@ -284,6 +294,7 @@ def get_house_prices_tile(
     max_price: float | None = Query(None, ge=0, description="Maximum price"),
     min_area: float | None = Query(None, ge=0, description="Minimum building area"),
     max_area: float | None = Query(None, ge=0, description="Maximum building area"),
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
     db: Session = Depends(get_db_session),
 ):
     """
@@ -342,7 +353,10 @@ def get_house_prices_tile(
 
 
 @router.get("/districts")
-def list_districts(db: Session = Depends(get_db_session)):
+def list_districts(
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
+    db: Session = Depends(get_db_session),
+):
     """
     List all districts with house price data.
     """
@@ -356,7 +370,10 @@ def list_districts(db: Session = Depends(get_db_session)):
 
 
 @router.get("/building-styles")
-def list_building_styles(db: Session = Depends(get_db_session)):
+def list_building_styles(
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
+    db: Session = Depends(get_db_session),
+):
     """
     List all building styles.
     """
@@ -377,6 +394,7 @@ def list_building_styles(db: Session = Depends(get_db_session)):
 @router.get("/{property_id}")
 def get_property_by_id(
     property_id: int,
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
     db: Session = Depends(get_db_session),
 ):
     """

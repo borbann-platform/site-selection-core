@@ -10,7 +10,8 @@ AI-powered property valuation platform for Bangkok, Thailand. Provides intellige
 - **Site Analytics** - Analyze locations with spatial intelligence
 - **Interactive Map** - Explore properties and points of interest in Bangkok
 - **Location Intelligence** - Transit scores, walkability, flood risk, and more
-- **User Authentication** - Secure registration and login system
+- **Enterprise Authentication** - Secure multi-tenant authentication with RBAC
+- **Organization & Team Management** - Collaborative workspace with role-based permissions
 - **Multi-Model Support** - Compare predictions from multiple ML models
   - LightGBM baseline with spatial features
   - Graph Neural Network (HGT) for complex relationships
@@ -37,6 +38,11 @@ cd gis-server
 # Install dependencies
 uv sync
 
+# Set up database (first time only)
+# See docs/DATABASE_SETUP.md for detailed instructions
+uv run alembic upgrade head
+uv run python src/scripts/seed_permissions.py
+
 # Run development server
 uv run uvicorn main:app --reload --port 8000
 
@@ -48,6 +54,9 @@ make test
 - Python 3.11+
 - PostgreSQL with PostGIS extension
 - uv package manager
+
+**Documentation:**
+- [Database Setup Guide](docs/DATABASE_SETUP.md) - Database migrations and permissions
 
 ### Frontend
 
@@ -124,6 +133,10 @@ Create `.env` file in `gis-server/`:
 
 ```env
 DATABASE_URL=postgresql://user:password@localhost:5432/dbname
+SECRET_KEY=your-secret-key-for-jwt-signing
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+REFRESH_TOKEN_EXPIRE_DAYS=7
 GOOGLE_MAPS_API_KEY=your_google_maps_api_key
 GOOGLE_API_KEY=your_gemini_api_key  # For AI chat agent
 ```

@@ -1,11 +1,16 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+
 from src.config.database import get_db_session
+from src.dependencies.auth import get_current_user_optional
 from src.models.catchment import (
     CatchmentAnalysisResponse,
     CatchmentRequest,
     CatchmentResponse,
 )
+from src.models.user import User
 from src.services.catchment import catchment_service
 
 router = APIRouter()
@@ -16,7 +21,11 @@ router = APIRouter()
     response_model=CatchmentAnalysisResponse,
     summary="Analyze catchment area (Isochrone + Population)",
 )
-def analyze_catchment(payload: CatchmentRequest, db: Session = Depends(get_db_session)):
+def analyze_catchment(
+    payload: CatchmentRequest,
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
+    db: Session = Depends(get_db_session),
+):
     """
     Calculates the isochrone and the population within it.
     """
@@ -51,7 +60,10 @@ def analyze_catchment(payload: CatchmentRequest, db: Session = Depends(get_db_se
     response_model=CatchmentResponse,
     summary="Calculate travel time isochrone",
 )
-def get_isochrone(payload: CatchmentRequest):
+def get_isochrone(
+    payload: CatchmentRequest,
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
+):
     """
     Calculates the area reachable within a given time and mode.
     """

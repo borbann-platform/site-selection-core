@@ -1,6 +1,6 @@
 """
 Admin endpoints for system maintenance tasks.
-These endpoints should be protected in production.
+These endpoints require system administrator access.
 """
 
 import logging
@@ -12,7 +12,10 @@ from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
+
 from src.config.database import get_db_session
+from src.dependencies.permissions import require_system_admin
+from src.models.user import User
 from src.routes.analytics import _tile_cache, clear_tile_cache
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -35,6 +38,7 @@ class CacheStatusResponse(BaseModel):
 @router.post("/refresh-pois", response_model=RefreshResponse)
 def refresh_poi_materialized_view(
     db: Annotated[Session, Depends(get_db_session)],
+    current_user: Annotated[User, Depends(require_system_admin)] = None,
 ):
     """
     Refresh the mat_all_pois materialized view.
@@ -73,7 +77,9 @@ def refresh_poi_materialized_view(
 
 
 @router.post("/clear-tile-cache", response_model=RefreshResponse)
-def clear_tile_cache_endpoint():
+def clear_tile_cache_endpoint(
+    current_user: Annotated[User, Depends(require_system_admin)] = None,
+):
     """
     Clear the server-side tile cache.
     Useful when you want to force fresh tile generation without refreshing the view.
@@ -90,7 +96,9 @@ def clear_tile_cache_endpoint():
 
 
 @router.get("/cache-status", response_model=CacheStatusResponse)
-def get_cache_status():
+def get_cache_status(
+    current_user: Annotated[User, Depends(require_system_admin)] = None,
+):
     """
     Get current cache status.
     """

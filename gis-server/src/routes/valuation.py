@@ -13,7 +13,7 @@ Also supports saving user-submitted properties for valuation history.
 """
 
 import logging
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -22,7 +22,9 @@ from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
 from src.config.database import get_db_session
+from src.dependencies.auth import get_current_user_optional
 from src.models.realestate import HousePrice, UserProperty
+from src.models.user import User
 from src.services.price_prediction import get_predictor, get_available_predictors
 
 logger = logging.getLogger(__name__)
@@ -327,6 +329,7 @@ def save_user_property(
 @router.post("", response_model=ValuationResponse)
 def get_property_valuation(
     request: PropertyValuationRequest,
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
     db: Session = Depends(get_db_session),
 ):
     """
@@ -472,7 +475,9 @@ def get_property_valuation(
 
 
 @router.get("/models", response_model=dict)
-def get_valuation_models():
+def get_valuation_models(
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
+):
     """Get status of available prediction models."""
     return {
         "models": get_available_predictors(),
@@ -485,6 +490,7 @@ def list_user_properties(
     user_id: str | None = Query(None, description="Filter by user ID"),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
     db: Session = Depends(get_db_session),
 ):
     """List user-submitted properties with their valuations."""
@@ -512,6 +518,7 @@ def list_user_properties(
 @router.get("/user-properties/{property_id}", response_model=dict)
 def get_user_property(
     property_id: UUID,
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
     db: Session = Depends(get_db_session),
 ):
     """Get details of a user-submitted property."""

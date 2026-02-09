@@ -3,6 +3,107 @@ export const API_URL = BASE_URL.endsWith("/api/v1")
   ? BASE_URL
   : `${BASE_URL}/api/v1`;
 
+// ============= Auth Token Utilities =============
+
+const AUTH_TOKENS_KEY = "auth_tokens";
+
+/**
+ * Get the current access token from localStorage.
+ * Reads from the "auth_tokens" JSON object stored by AuthContext.
+ */
+export function getAccessToken(): string | null {
+  const stored = localStorage.getItem(AUTH_TOKENS_KEY);
+  if (!stored) return null;
+  try {
+    const tokens = JSON.parse(stored);
+    return tokens.access_token || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get the current refresh token from localStorage.
+ */
+export function getRefreshToken(): string | null {
+  const stored = localStorage.getItem(AUTH_TOKENS_KEY);
+  if (!stored) return null;
+  try {
+    const tokens = JSON.parse(stored);
+    return tokens.refresh_token || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Clear auth tokens and redirect to login page.
+ */
+export function clearAuthAndRedirect(): void {
+  localStorage.removeItem(AUTH_TOKENS_KEY);
+  // Only redirect if we're in a browser context and not already on login page
+  if (typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
+    window.location.href = "/login";
+  }
+}
+
+/**
+ * Authenticated fetch wrapper that:
+ * 1. Automatically attaches Authorization header with Bearer token
+ * 2. Handles 401 responses by attempting token refresh
+ * 3. Clears tokens and redirects to login if refresh fails
+ */
+export async function authenticatedFetch(
+  url: string,
+  options: RequestInit = {}
+): Promise<Response> {
+  const token = getAccessToken();
+  const headers = new Headers(options.headers);
+  
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+  
+  // Make the initial request
+  let response = await fetch(url, { ...options, headers });
+  
+  // If we get a 401, try to refresh the token
+  if (response.status === 401 && token) {
+    const refreshToken = getRefreshToken();
+    if (refreshToken) {
+      try {
+        // Attempt to refresh the token
+        const refreshResponse = await fetch(`${API_URL}/auth/refresh`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refresh_token: refreshToken }),
+        });
+        
+        if (refreshResponse.ok) {
+          // Store new tokens
+          const newTokens = await refreshResponse.json();
+          localStorage.setItem(AUTH_TOKENS_KEY, JSON.stringify(newTokens));
+          
+          // Retry the original request with new token
+          headers.set("Authorization", `Bearer ${newTokens.access_token}`);
+          response = await fetch(url, { ...options, headers });
+        } else {
+          // Refresh failed - clear tokens and redirect
+          clearAuthAndRedirect();
+        }
+      } catch {
+        // Refresh request failed - clear tokens and redirect
+        clearAuthAndRedirect();
+      }
+    } else {
+      // No refresh token - clear tokens and redirect
+      clearAuthAndRedirect();
+    }
+  }
+  
+  return response;
+}
+
 // Auth Types
 export interface UserRegisterRequest {
   email: string;
@@ -680,9 +781,15 @@ export const api = {
   streamChat: async function* (
     messages: ChatMessage[]
   ): AsyncGenerator<string, void, unknown> {
+    const token = getAccessToken();
+    const headers: HeadersInit = { "Content-Type": "application/json" };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
     const res = await fetch(`${API_URL}/chat`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ messages }),
     });
 
@@ -720,9 +827,15 @@ export const api = {
     messages: ChatMessage[],
     attachments?: Attachment[]
   ): AsyncGenerator<AgentStreamEvent, void, unknown> {
+    const token = getAccessToken();
+    const headers: HeadersInit = { "Content-Type": "application/json" };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
     const res = await fetch(`${API_URL}/chat/agent`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ messages, attachments }),
     });
 

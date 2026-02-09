@@ -9,243 +9,296 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as ValuationRouteImport } from './routes/valuation'
-import { Route as SettingsRouteImport } from './routes/settings'
-import { Route as RegisterRouteImport } from './routes/register'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as DistrictsRouteImport } from './routes/districts'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as ChatIndexRouteImport } from './routes/chat/index'
-import { Route as SiteSiteIdRouteImport } from './routes/site/$siteId'
-import { Route as PropertyPropertyIdRouteImport } from './routes/property/$propertyId'
-import { Route as ChatSessionIdRouteImport } from './routes/chat/$sessionId'
+import { Route as PublicRouteImport } from './routes/_public'
+import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
+import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as PublicRegisterRouteImport } from './routes/_public/register'
+import { Route as PublicLoginRouteImport } from './routes/_public/login'
+import { Route as AuthenticatedValuationRouteImport } from './routes/_authenticated/valuation'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedDistrictsRouteImport } from './routes/_authenticated/districts'
+import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authenticated/chat/index'
+import { Route as AuthenticatedSiteSiteIdRouteImport } from './routes/_authenticated/site/$siteId'
+import { Route as AuthenticatedPropertyPropertyIdRouteImport } from './routes/_authenticated/property/$propertyId'
+import { Route as AuthenticatedChatSessionIdRouteImport } from './routes/_authenticated/chat/$sessionId'
 
-const ValuationRoute = ValuationRouteImport.update({
-  id: '/valuation',
-  path: '/valuation',
+const PublicRoute = PublicRouteImport.update({
+  id: '/_public',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SettingsRoute = SettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
+const AuthenticatedRoute = AuthenticatedRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
-const RegisterRoute = RegisterRouteImport.update({
-  id: '/register',
-  path: '/register',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DistrictsRoute = DistrictsRouteImport.update({
-  id: '/districts',
-  path: '/districts',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const IndexRoute = IndexRouteImport.update({
+const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
-const ChatIndexRoute = ChatIndexRouteImport.update({
+const PublicRegisterRoute = PublicRegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
+  getParentRoute: () => PublicRoute,
+} as any)
+const PublicLoginRoute = PublicLoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => PublicRoute,
+} as any)
+const AuthenticatedValuationRoute = AuthenticatedValuationRouteImport.update({
+  id: '/valuation',
+  path: '/valuation',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedDistrictsRoute = AuthenticatedDistrictsRouteImport.update({
+  id: '/districts',
+  path: '/districts',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedChatIndexRoute = AuthenticatedChatIndexRouteImport.update({
   id: '/chat/',
   path: '/chat/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
-const SiteSiteIdRoute = SiteSiteIdRouteImport.update({
+const AuthenticatedSiteSiteIdRoute = AuthenticatedSiteSiteIdRouteImport.update({
   id: '/site/$siteId',
   path: '/site/$siteId',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
-const PropertyPropertyIdRoute = PropertyPropertyIdRouteImport.update({
-  id: '/property/$propertyId',
-  path: '/property/$propertyId',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ChatSessionIdRoute = ChatSessionIdRouteImport.update({
-  id: '/chat/$sessionId',
-  path: '/chat/$sessionId',
-  getParentRoute: () => rootRouteImport,
-} as any)
+const AuthenticatedPropertyPropertyIdRoute =
+  AuthenticatedPropertyPropertyIdRouteImport.update({
+    id: '/property/$propertyId',
+    path: '/property/$propertyId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedChatSessionIdRoute =
+  AuthenticatedChatSessionIdRouteImport.update({
+    id: '/chat/$sessionId',
+    path: '/chat/$sessionId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/districts': typeof DistrictsRoute
-  '/login': typeof LoginRoute
-  '/register': typeof RegisterRoute
-  '/settings': typeof SettingsRoute
-  '/valuation': typeof ValuationRoute
-  '/chat/$sessionId': typeof ChatSessionIdRoute
-  '/property/$propertyId': typeof PropertyPropertyIdRoute
-  '/site/$siteId': typeof SiteSiteIdRoute
-  '/chat': typeof ChatIndexRoute
+  '/districts': typeof AuthenticatedDistrictsRoute
+  '/settings': typeof AuthenticatedSettingsRoute
+  '/valuation': typeof AuthenticatedValuationRoute
+  '/login': typeof PublicLoginRoute
+  '/register': typeof PublicRegisterRoute
+  '/': typeof AuthenticatedIndexRoute
+  '/chat/$sessionId': typeof AuthenticatedChatSessionIdRoute
+  '/property/$propertyId': typeof AuthenticatedPropertyPropertyIdRoute
+  '/site/$siteId': typeof AuthenticatedSiteSiteIdRoute
+  '/chat': typeof AuthenticatedChatIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/districts': typeof DistrictsRoute
-  '/login': typeof LoginRoute
-  '/register': typeof RegisterRoute
-  '/settings': typeof SettingsRoute
-  '/valuation': typeof ValuationRoute
-  '/chat/$sessionId': typeof ChatSessionIdRoute
-  '/property/$propertyId': typeof PropertyPropertyIdRoute
-  '/site/$siteId': typeof SiteSiteIdRoute
-  '/chat': typeof ChatIndexRoute
+  '/districts': typeof AuthenticatedDistrictsRoute
+  '/settings': typeof AuthenticatedSettingsRoute
+  '/valuation': typeof AuthenticatedValuationRoute
+  '/login': typeof PublicLoginRoute
+  '/register': typeof PublicRegisterRoute
+  '/': typeof AuthenticatedIndexRoute
+  '/chat/$sessionId': typeof AuthenticatedChatSessionIdRoute
+  '/property/$propertyId': typeof AuthenticatedPropertyPropertyIdRoute
+  '/site/$siteId': typeof AuthenticatedSiteSiteIdRoute
+  '/chat': typeof AuthenticatedChatIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/districts': typeof DistrictsRoute
-  '/login': typeof LoginRoute
-  '/register': typeof RegisterRoute
-  '/settings': typeof SettingsRoute
-  '/valuation': typeof ValuationRoute
-  '/chat/$sessionId': typeof ChatSessionIdRoute
-  '/property/$propertyId': typeof PropertyPropertyIdRoute
-  '/site/$siteId': typeof SiteSiteIdRoute
-  '/chat/': typeof ChatIndexRoute
+  '/_authenticated': typeof AuthenticatedRouteWithChildren
+  '/_public': typeof PublicRouteWithChildren
+  '/_authenticated/districts': typeof AuthenticatedDistrictsRoute
+  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/valuation': typeof AuthenticatedValuationRoute
+  '/_public/login': typeof PublicLoginRoute
+  '/_public/register': typeof PublicRegisterRoute
+  '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/chat/$sessionId': typeof AuthenticatedChatSessionIdRoute
+  '/_authenticated/property/$propertyId': typeof AuthenticatedPropertyPropertyIdRoute
+  '/_authenticated/site/$siteId': typeof AuthenticatedSiteSiteIdRoute
+  '/_authenticated/chat/': typeof AuthenticatedChatIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | '/'
     | '/districts'
-    | '/login'
-    | '/register'
     | '/settings'
     | '/valuation'
+    | '/login'
+    | '/register'
+    | '/'
     | '/chat/$sessionId'
     | '/property/$propertyId'
     | '/site/$siteId'
     | '/chat'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/'
     | '/districts'
-    | '/login'
-    | '/register'
     | '/settings'
     | '/valuation'
+    | '/login'
+    | '/register'
+    | '/'
     | '/chat/$sessionId'
     | '/property/$propertyId'
     | '/site/$siteId'
     | '/chat'
   id:
     | '__root__'
-    | '/'
-    | '/districts'
-    | '/login'
-    | '/register'
-    | '/settings'
-    | '/valuation'
-    | '/chat/$sessionId'
-    | '/property/$propertyId'
-    | '/site/$siteId'
-    | '/chat/'
+    | '/_authenticated'
+    | '/_public'
+    | '/_authenticated/districts'
+    | '/_authenticated/settings'
+    | '/_authenticated/valuation'
+    | '/_public/login'
+    | '/_public/register'
+    | '/_authenticated/'
+    | '/_authenticated/chat/$sessionId'
+    | '/_authenticated/property/$propertyId'
+    | '/_authenticated/site/$siteId'
+    | '/_authenticated/chat/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  DistrictsRoute: typeof DistrictsRoute
-  LoginRoute: typeof LoginRoute
-  RegisterRoute: typeof RegisterRoute
-  SettingsRoute: typeof SettingsRoute
-  ValuationRoute: typeof ValuationRoute
-  ChatSessionIdRoute: typeof ChatSessionIdRoute
-  PropertyPropertyIdRoute: typeof PropertyPropertyIdRoute
-  SiteSiteIdRoute: typeof SiteSiteIdRoute
-  ChatIndexRoute: typeof ChatIndexRoute
+  AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
+  PublicRoute: typeof PublicRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/valuation': {
-      id: '/valuation'
-      path: '/valuation'
-      fullPath: '/valuation'
-      preLoaderRoute: typeof ValuationRouteImport
+    '/_public': {
+      id: '/_public'
+      path: ''
+      fullPath: ''
+      preLoaderRoute: typeof PublicRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/settings': {
-      id: '/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof SettingsRouteImport
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: ''
+      preLoaderRoute: typeof AuthenticatedRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/register': {
-      id: '/register'
-      path: '/register'
-      fullPath: '/register'
-      preLoaderRoute: typeof RegisterRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/districts': {
-      id: '/districts'
-      path: '/districts'
-      fullPath: '/districts'
-      preLoaderRoute: typeof DistrictsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/': {
-      id: '/'
+    '/_authenticated/': {
+      id: '/_authenticated/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AuthenticatedIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
-    '/chat/': {
-      id: '/chat/'
+    '/_public/register': {
+      id: '/_public/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof PublicRegisterRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_public/login': {
+      id: '/_public/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof PublicLoginRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_authenticated/valuation': {
+      id: '/_authenticated/valuation'
+      path: '/valuation'
+      fullPath: '/valuation'
+      preLoaderRoute: typeof AuthenticatedValuationRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/districts': {
+      id: '/_authenticated/districts'
+      path: '/districts'
+      fullPath: '/districts'
+      preLoaderRoute: typeof AuthenticatedDistrictsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/chat/': {
+      id: '/_authenticated/chat/'
       path: '/chat'
       fullPath: '/chat'
-      preLoaderRoute: typeof ChatIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AuthenticatedChatIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
-    '/site/$siteId': {
-      id: '/site/$siteId'
+    '/_authenticated/site/$siteId': {
+      id: '/_authenticated/site/$siteId'
       path: '/site/$siteId'
       fullPath: '/site/$siteId'
-      preLoaderRoute: typeof SiteSiteIdRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AuthenticatedSiteSiteIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
-    '/property/$propertyId': {
-      id: '/property/$propertyId'
+    '/_authenticated/property/$propertyId': {
+      id: '/_authenticated/property/$propertyId'
       path: '/property/$propertyId'
       fullPath: '/property/$propertyId'
-      preLoaderRoute: typeof PropertyPropertyIdRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AuthenticatedPropertyPropertyIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
-    '/chat/$sessionId': {
-      id: '/chat/$sessionId'
+    '/_authenticated/chat/$sessionId': {
+      id: '/_authenticated/chat/$sessionId'
       path: '/chat/$sessionId'
       fullPath: '/chat/$sessionId'
-      preLoaderRoute: typeof ChatSessionIdRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AuthenticatedChatSessionIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
   }
 }
 
+interface AuthenticatedRouteChildren {
+  AuthenticatedDistrictsRoute: typeof AuthenticatedDistrictsRoute
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedValuationRoute: typeof AuthenticatedValuationRoute
+  AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedChatSessionIdRoute: typeof AuthenticatedChatSessionIdRoute
+  AuthenticatedPropertyPropertyIdRoute: typeof AuthenticatedPropertyPropertyIdRoute
+  AuthenticatedSiteSiteIdRoute: typeof AuthenticatedSiteSiteIdRoute
+  AuthenticatedChatIndexRoute: typeof AuthenticatedChatIndexRoute
+}
+
+const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedDistrictsRoute: AuthenticatedDistrictsRoute,
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedValuationRoute: AuthenticatedValuationRoute,
+  AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+  AuthenticatedChatSessionIdRoute: AuthenticatedChatSessionIdRoute,
+  AuthenticatedPropertyPropertyIdRoute: AuthenticatedPropertyPropertyIdRoute,
+  AuthenticatedSiteSiteIdRoute: AuthenticatedSiteSiteIdRoute,
+  AuthenticatedChatIndexRoute: AuthenticatedChatIndexRoute,
+}
+
+const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
+  AuthenticatedRouteChildren,
+)
+
+interface PublicRouteChildren {
+  PublicLoginRoute: typeof PublicLoginRoute
+  PublicRegisterRoute: typeof PublicRegisterRoute
+}
+
+const PublicRouteChildren: PublicRouteChildren = {
+  PublicLoginRoute: PublicLoginRoute,
+  PublicRegisterRoute: PublicRegisterRoute,
+}
+
+const PublicRouteWithChildren =
+  PublicRoute._addFileChildren(PublicRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  DistrictsRoute: DistrictsRoute,
-  LoginRoute: LoginRoute,
-  RegisterRoute: RegisterRoute,
-  SettingsRoute: SettingsRoute,
-  ValuationRoute: ValuationRoute,
-  ChatSessionIdRoute: ChatSessionIdRoute,
-  PropertyPropertyIdRoute: PropertyPropertyIdRoute,
-  SiteSiteIdRoute: SiteSiteIdRoute,
-  ChatIndexRoute: ChatIndexRoute,
+  AuthenticatedRoute: AuthenticatedRouteWithChildren,
+  PublicRoute: PublicRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

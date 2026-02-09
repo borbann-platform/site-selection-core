@@ -1,8 +1,13 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+
 from src.config.database import get_db_session
+from src.dependencies.auth import get_current_user_optional
+from src.models.user import User
 from src.services.analytics import analytics_service
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
@@ -66,7 +71,13 @@ class GridResponse(BaseModel):
 
 
 @router.get("/pois/tile/{z}/{x}/{y}", tags=["Maps"])
-def get_pois_tile(z: int, x: int, y: int, db: Session = Depends(get_db_session)):
+def get_pois_tile(
+    z: int,
+    x: int,
+    y: int,
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
+    db: Session = Depends(get_db_session),
+):
     """
     Serves Mapbox Vector Tiles (MVT) for POIs.
     """
@@ -99,7 +110,13 @@ def get_pois_tile(z: int, x: int, y: int, db: Session = Depends(get_db_session))
 
 
 @router.get("/all-pois/tile/{z}/{x}/{y}", tags=["Maps"])
-def get_all_pois_tile(z: int, x: int, y: int, db: Session = Depends(get_db_session)):
+def get_all_pois_tile(
+    z: int,
+    x: int,
+    y: int,
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
+    db: Session = Depends(get_db_session),
+):
     """
     Serves Mapbox Vector Tiles (MVT) for All POIs (Unified View).
     Uses server-side caching for improved performance.
@@ -157,7 +174,13 @@ def get_all_pois_tile(z: int, x: int, y: int, db: Session = Depends(get_db_sessi
 
 
 @router.get("/residential/tile/{z}/{x}/{y}", tags=["Maps"])
-def get_residential_tile(z: int, x: int, y: int, db: Session = Depends(get_db_session)):
+def get_residential_tile(
+    z: int,
+    x: int,
+    y: int,
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
+    db: Session = Depends(get_db_session),
+):
     """
     Serves Mapbox Vector Tiles (MVT) for Residential Supply (Unified View).
     """
@@ -190,7 +213,10 @@ def get_residential_tile(z: int, x: int, y: int, db: Session = Depends(get_db_se
 
 
 @router.get("/grid", response_model=GridResponse)
-def get_analytics_grid(db: Session = Depends(get_db_session)):
+def get_analytics_grid(
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
+    db: Session = Depends(get_db_session),
+):
     """
     Returns a grid of hexagon data points for the heatmap.
     Fetches pre-calculated H3 suitability grid from the database.
@@ -244,6 +270,7 @@ def get_h3_hexagons(
     min_lon: float | None = None,
     max_lon: float | None = None,
     limit: int = 5000,
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
 ):
     """
     Returns H3 hexagon data for overlay visualization.
@@ -327,7 +354,10 @@ def get_h3_hexagons(
 
 
 @router.get("/h3-hexagons/metrics")
-def get_available_metrics(resolution: int = 9):
+def get_available_metrics(
+    resolution: int = 9,
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
+):
     """
     Returns list of available metrics for H3 hexagon overlay.
     """
@@ -392,7 +422,9 @@ def get_available_metrics(resolution: int = 9):
 
 
 @router.get("/flood-risk")
-def get_flood_risk_by_district():
+def get_flood_risk_by_district(
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
+):
     """
     Returns flood risk data aggregated by district.
     """
@@ -423,7 +455,9 @@ def get_flood_risk_by_district():
 
 @router.post("/cannibalization")
 def analyze_cannibalization(
-    request: CannibalizationRequest, db: Session = Depends(get_db_session)
+    request: CannibalizationRequest,
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
+    db: Session = Depends(get_db_session),
 ):
     """
     Analyze the cannibalization impact of a new site on existing sites using the Huff Model.

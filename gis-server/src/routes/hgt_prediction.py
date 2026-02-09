@@ -8,11 +8,16 @@ Provides advanced price prediction using graph neural networks with:
 - Cold-start handling for areas without transaction history
 """
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+
 from src.config.database import get_db_session
+from src.dependencies.auth import get_current_active_user
+from src.models.user import User
 from src.services.hgt_prediction import HAS_TORCH, hgt_prediction_service
 
 router = APIRouter(prefix="/hgt-valuation", tags=["HGT Price Prediction"])
@@ -88,7 +93,9 @@ class ModelStatusResponse(BaseModel):
 
 
 @router.get("/status", response_model=ModelStatusResponse)
-def get_model_status():
+def get_model_status(
+    current_user: Annotated[User, Depends(get_current_active_user)],
+):
     """Check if HGT model is available and loaded."""
     model_loaded = False
     metadata = {}
@@ -114,6 +121,7 @@ def get_model_status():
 @router.post("/predict", response_model=HGTPredictionResponse)
 def predict_price(
     request: HGTPredictionRequest,
+    current_user: Annotated[User, Depends(get_current_active_user)],
     db: Session = Depends(get_db_session),
 ):
     """
@@ -177,6 +185,7 @@ def predict_price(
 @router.get("/{property_id}/predict", response_model=HGTPredictionResponse)
 def predict_property_price(
     property_id: int,
+    current_user: Annotated[User, Depends(get_current_active_user)],
     db: Session = Depends(get_db_session),
 ):
     """

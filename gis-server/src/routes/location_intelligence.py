@@ -1,12 +1,17 @@
 """Location Intelligence API routes."""
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
+
 from src.config.database import get_db_session
+from src.dependencies.auth import get_current_user_optional
 from src.models.location_intelligence import (
     LocationIntelligenceResponse,
     LocationRequest,
 )
+from src.models.user import User
 from src.services.location_intelligence import location_intelligence_service
 
 router = APIRouter()
@@ -29,7 +34,9 @@ router = APIRouter()
     """,
 )
 def analyze_location(
-    payload: LocationRequest, db: Session = Depends(get_db_session)
+    payload: LocationRequest,
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
+    db: Session = Depends(get_db_session),
 ) -> LocationIntelligenceResponse:
     """Analyze location intelligence for a given coordinate."""
     return location_intelligence_service.analyze(
