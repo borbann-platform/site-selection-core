@@ -167,10 +167,18 @@ export interface IsochroneRequest {
   mode: "walk" | "drive";
 }
 
-export interface IsochroneResponse {
-  type: "FeatureCollection";
-  features: any[];
+export interface GeoJsonFeature {
+  type: string;
+  geometry?: unknown;
+  properties?: Record<string, unknown>;
 }
+
+export interface GeoJsonFeatureCollection {
+  type: "FeatureCollection";
+  features: GeoJsonFeature[];
+}
+
+export interface IsochroneResponse extends GeoJsonFeatureCollection {}
 
 export interface NearbyRequest {
   latitude: number;
@@ -179,10 +187,7 @@ export interface NearbyRequest {
   categories: string[];
 }
 
-export interface NearbyResponse {
-  type: "FeatureCollection";
-  features: any[];
-}
+export interface NearbyResponse extends GeoJsonFeatureCollection {}
 
 export interface HexagonData {
   position: number[];

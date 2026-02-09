@@ -1257,11 +1257,13 @@ function PropertyExplorer() {
         onFilterChange={setAiFilters}
         onPropertyClick={(property) => {
           // Pan to property location if lat/lon available
-          if (property.lat && property.lon) {
+          const latitude = property.lat;
+          const longitude = property.lon;
+          if (latitude != null && longitude != null) {
             setViewState((prev) => ({
               ...prev,
-              latitude: property.lat!,
-              longitude: property.lon!,
+              latitude,
+              longitude,
               zoom: 15,
               transitionDuration: 500,
             }));

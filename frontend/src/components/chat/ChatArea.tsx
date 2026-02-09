@@ -22,16 +22,20 @@ export function ChatArea() {
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const messageCount = messages.length;
+  const activeSessionId = currentSessionId;
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
+    if (messageCount === 0) return;
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messageCount]);
 
   // Focus input on session change
   useEffect(() => {
+    if (!activeSessionId) return;
     inputRef.current?.focus();
-  }, [currentSessionId]);
+  }, [activeSessionId]);
 
   const handleSubmit = useCallback(async () => {
     const trimmedInput = input.trim();

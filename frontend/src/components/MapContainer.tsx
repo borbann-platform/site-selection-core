@@ -1,7 +1,7 @@
 // @ts-nocheck
 // TypeScript checks disabled due to complex DeckGL generic types
-import React from "react";
-import Map, { NavigationControl } from "react-map-gl/maplibre";
+import type * as React from "react";
+import MapView, { NavigationControl } from "react-map-gl/maplibre";
 import DeckGL from "@deck.gl/react";
 import { useTheme } from "../contexts/ThemeContext";
 
@@ -62,14 +62,14 @@ export function MapContainer({
         onClick={onClick}
         getTooltip={getTooltip}
       >
-        <Map
+        <MapView
           {...viewState}
           mapStyle={mapStyle}
           reuseMaps
           attributionControl={false}
         >
           <NavigationControl position="bottom-right" />
-        </Map>
+        </MapView>
       </DeckGL>
       {children}
     </div>

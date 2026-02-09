@@ -177,25 +177,21 @@ export const useChatStore = create<ChatStore>()(
     // ============= Session CRUD =============
 
     createSession: async (title?: string) => {
-      try {
-        const session = await chatApi.createSession({ title });
+      const session = await chatApi.createSession({ title });
 
-        // Add to beginning of sessions list
-        const { sessions } = get();
-        const newSessions = [session, ...sessions];
-        set({
-          sessions: newSessions,
-          groupedSessions: groupSessions(newSessions),
-          currentSessionId: session.id,
-          currentSession: session,
-          messages: [],
-          totalSessions: get().totalSessions + 1,
-        });
+      // Add to beginning of sessions list
+      const { sessions } = get();
+      const newSessions = [session, ...sessions];
+      set({
+        sessions: newSessions,
+        groupedSessions: groupSessions(newSessions),
+        currentSessionId: session.id,
+        currentSession: session,
+        messages: [],
+        totalSessions: get().totalSessions + 1,
+      });
 
-        return session;
-      } catch (error) {
-        throw error;
-      }
+      return session;
     },
 
     selectSession: async (sessionId: string) => {
@@ -232,50 +228,42 @@ export const useChatStore = create<ChatStore>()(
     },
 
     renameSession: async (sessionId: string, title: string) => {
-      try {
-        await chatApi.updateSession(sessionId, { title });
+      await chatApi.updateSession(sessionId, { title });
 
-        // Update in sessions list
-        const { sessions, currentSession } = get();
-        const newSessions = sessions.map((s) =>
-          s.id === sessionId ? { ...s, title } : s
-        );
-        set({
-          sessions: newSessions,
-          groupedSessions: groupSessions(newSessions),
-          currentSession:
-            currentSession?.id === sessionId
-              ? { ...currentSession, title }
-              : currentSession,
-        });
-      } catch (error) {
-        throw error;
-      }
+      // Update in sessions list
+      const { sessions, currentSession } = get();
+      const newSessions = sessions.map((s) =>
+        s.id === sessionId ? { ...s, title } : s
+      );
+      set({
+        sessions: newSessions,
+        groupedSessions: groupSessions(newSessions),
+        currentSession:
+          currentSession?.id === sessionId
+            ? { ...currentSession, title }
+            : currentSession,
+      });
     },
 
     deleteSession: async (sessionId: string) => {
-      try {
-        await chatApi.deleteSession(sessionId);
+      await chatApi.deleteSession(sessionId);
 
-        const { sessions, currentSessionId } = get();
-        const newSessions = sessions.filter((s) => s.id !== sessionId);
+      const { sessions, currentSessionId } = get();
+      const newSessions = sessions.filter((s) => s.id !== sessionId);
 
-        set({
-          sessions: newSessions,
-          groupedSessions: groupSessions(newSessions),
-          totalSessions: get().totalSessions - 1,
-          // Clear current session if it was deleted
-          ...(currentSessionId === sessionId
-            ? {
-                currentSessionId: null,
-                currentSession: null,
-                messages: [],
-              }
-            : {}),
-        });
-      } catch (error) {
-        throw error;
-      }
+      set({
+        sessions: newSessions,
+        groupedSessions: groupSessions(newSessions),
+        totalSessions: get().totalSessions - 1,
+        // Clear current session if it was deleted
+        ...(currentSessionId === sessionId
+          ? {
+              currentSessionId: null,
+              currentSession: null,
+              messages: [],
+            }
+          : {}),
+      });
     },
 
     generateSessionTitle: async (sessionId: string) => {

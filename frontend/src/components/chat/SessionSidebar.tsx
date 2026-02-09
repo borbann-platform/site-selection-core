@@ -2,7 +2,7 @@
  * SessionSidebar - Displays grouped chat sessions with search
  */
 
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Trash2, Pencil, MoreHorizontal, Loader2 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useChatStore } from "../../stores/chatStore";
@@ -30,6 +30,7 @@ export function SessionSidebar({ onSelectSession }: SessionSidebarProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const editInputRef = useRef<HTMLInputElement>(null);
 
   // Filter groups that have sessions
   const activeGroups = useMemo(() => {
@@ -66,6 +67,12 @@ export function SessionSidebar({ onSelectSession }: SessionSidebarProps) {
     setMenuOpenId(null);
     await deleteSession(sessionId);
   };
+
+  useEffect(() => {
+    if (editingId) {
+      editInputRef.current?.focus();
+    }
+  }, [editingId]);
 
   if (sessionsError) {
     return (
@@ -121,6 +128,7 @@ export function SessionSidebar({ onSelectSession }: SessionSidebarProps) {
                     >
                       {editingId === session.id ? (
                         <input
+                          ref={editInputRef}
                           type="text"
                           value={editingTitle}
                           onChange={(e) => setEditingTitle(e.target.value)}
@@ -130,7 +138,6 @@ export function SessionSidebar({ onSelectSession }: SessionSidebarProps) {
                             if (e.key === "Escape") setEditingId(null);
                           }}
                           className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                          autoFocus
                         />
                       ) : (
                         <button

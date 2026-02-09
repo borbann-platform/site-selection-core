@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
@@ -15,6 +15,12 @@ function RegisterPage() {
   const { register } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const formId = useId();
+  const firstNameId = `${formId}-first-name`;
+  const lastNameId = `${formId}-last-name`;
+  const emailId = `${formId}-email`;
+  const passwordId = `${formId}-password`;
+  const confirmPasswordId = `${formId}-confirm-password`;
 
   const [formData, setFormData] = useState({
     email: "",
@@ -95,14 +101,14 @@ function RegisterPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="firstName" className="text-foreground">
-                  First Name
-                </Label>
-                <Input
-                  id="firstName"
-                  name="firstName"
-                  type="text"
-                  value={formData.firstName}
+                  <Label htmlFor={firstNameId} className="text-foreground">
+                    First Name
+                  </Label>
+                  <Input
+                    id={firstNameId}
+                    name="firstName"
+                    type="text"
+                    value={formData.firstName}
                   onChange={handleChange}
                   required
                   className="bg-input border-border text-foreground placeholder:text-muted-foreground"
@@ -110,14 +116,14 @@ function RegisterPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="lastName" className="text-foreground">
-                  Last Name
-                </Label>
-                <Input
-                  id="lastName"
-                  name="lastName"
-                  type="text"
-                  value={formData.lastName}
+                  <Label htmlFor={lastNameId} className="text-foreground">
+                    Last Name
+                  </Label>
+                  <Input
+                    id={lastNameId}
+                    name="lastName"
+                    type="text"
+                    value={formData.lastName}
                   onChange={handleChange}
                   required
                   className="bg-input border-border text-foreground placeholder:text-muted-foreground"
@@ -127,11 +133,11 @@ function RegisterPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-foreground">
+              <Label htmlFor={emailId} className="text-foreground">
                 Email
               </Label>
               <Input
-                id="email"
+                id={emailId}
                 name="email"
                 type="email"
                 value={formData.email}
@@ -143,11 +149,11 @@ function RegisterPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-foreground">
+              <Label htmlFor={passwordId} className="text-foreground">
                 Password
               </Label>
               <Input
-                id="password"
+                id={passwordId}
                 name="password"
                 type="password"
                 value={formData.password}
@@ -163,11 +169,11 @@ function RegisterPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword" className="text-foreground">
+              <Label htmlFor={confirmPasswordId} className="text-foreground">
                 Confirm Password
               </Label>
               <Input
-                id="confirmPassword"
+                id={confirmPasswordId}
                 name="confirmPassword"
                 type="password"
                 value={formData.confirmPassword}
