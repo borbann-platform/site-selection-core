@@ -17,7 +17,15 @@ import unicodedata
 from pathlib import Path
 
 import pandas as pd
-import pyrosm
+try:
+    import pyrosm
+except ImportError as exc:  # pragma: no cover - only hit when ETL extras missing
+    raise SystemExit(
+        "pyrosm is required for this ETL script. Install the extra with:\n"
+        "  uv sync --extra etl\n"
+        "or\n"
+        "  pip install -e '.[etl]'"
+    ) from exc
 from geoalchemy2.shape import from_shape
 from shapely.geometry import Point
 from sqlalchemy.orm import Session
