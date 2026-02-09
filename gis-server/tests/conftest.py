@@ -7,12 +7,53 @@ that can be used across all test files.
 
 import os
 import sys
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+from sqlalchemy import text
 
 # Add the gis-server directory to the path so imports work correctly
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Provide sane defaults for local/CI test runs without overriding user config.
+os.environ.setdefault(
+    "DATABASE_URL", "postgresql://user:password@localhost:5432/gisdb"
+)
+os.environ.setdefault("JWT_SECRET_KEY", "test-secret")
+
+
+def _init_test_db() -> str:
+    """
+    Ensure the test database schema exists and return a test user id.
+    """
+    # Import models to register them with SQLAlchemy metadata.
+    from src import models  # noqa: F401
+    from src.config.database import Base, SessionLocal, engine
+    from src.models.user import User
+    from src.utils.auth import hash_password
+
+    with engine.begin() as conn:
+        conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis"))
+
+    Base.metadata.create_all(bind=engine)
+
+    db = SessionLocal()
+    user = db.query(User).filter(User.email == "test@example.com").first()
+    if not user:
+        user = User(
+            email="test@example.com",
+            password_hash=hash_password("password"),
+            first_name="Test",
+            last_name="User",
+            is_active=True,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    user_id = user.id
+    db.close()
+    return user_id
 
 
 @pytest.fixture(scope="session")
@@ -24,6 +65,27 @@ def app():
     Note: The lifespan context manager may attempt to load resources.
     """
     from main import app
+    from src.config.database import SessionLocal, get_db_session
+    from src.dependencies.auth import get_current_active_user, get_current_user
+
+    user_id = _init_test_db()
+
+    def override_get_db_session():
+        db = SessionLocal()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    def override_get_current_user():
+        return SimpleNamespace(id=user_id, is_active=True)
+
+    def override_get_current_active_user():
+        return SimpleNamespace(id=user_id, is_active=True)
+
+    app.dependency_overrides[get_db_session] = override_get_db_session
+    app.dependency_overrides[get_current_user] = override_get_current_user
+    app.dependency_overrides[get_current_active_user] = override_get_current_active_user
 
     return app
 

@@ -110,16 +110,18 @@ class TestSessionManagement:
 
     def test_create_session(self, client):
         """Test creating a new conversation session."""
-        response = client.post("/api/v1/chat/sessions")
+        response = client.post("/api/v1/chat/sessions", json={})
 
-        assert response.status_code == 200
+        assert response.status_code == 201
         data = response.json()
-        assert "session_id" in data
-        assert len(data["session_id"]) > 0
+        assert "id" in data
+        assert len(data["id"]) > 0
 
     def test_get_session_history_empty(self, client):
-        """Test getting history for a non-existent session."""
-        response = client.get("/api/v1/chat/sessions/nonexistent-session/history")
+        """Test getting history for an empty session."""
+        create_response = client.post("/api/v1/chat/sessions", json={})
+        session_id = create_response.json()["id"]
+        response = client.get(f"/api/v1/chat/sessions/{session_id}")
 
         assert response.status_code == 200
         data = response.json()
@@ -129,16 +131,13 @@ class TestSessionManagement:
     def test_clear_session(self, client):
         """Test clearing a session."""
         # First create a session
-        create_response = client.post("/api/v1/chat/sessions")
-        session_id = create_response.json()["session_id"]
+        create_response = client.post("/api/v1/chat/sessions", json={})
+        session_id = create_response.json()["id"]
 
         # Then clear it
         clear_response = client.delete(f"/api/v1/chat/sessions/{session_id}")
 
-        assert clear_response.status_code == 200
-        data = clear_response.json()
-        assert data["status"] == "cleared"
-        assert data["session_id"] == session_id
+        assert clear_response.status_code == 204
 
 
 class TestLegacyChatEndpoint:

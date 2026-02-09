@@ -30,6 +30,15 @@ borbann/
 
 ## Getting Started
 
+### Quickstart (Full Stack)
+
+```bash
+# From repo root
+make stack-up
+```
+
+This starts PostGIS, the FastAPI backend on `http://localhost:8000`, and the Vite frontend on `http://localhost:3000`.
+
 ### Backend (gis-server)
 
 ```bash
@@ -68,6 +77,15 @@ npm install
 
 # Run development server
 npm run dev
+```
+
+### Useful Root Commands
+
+```bash
+make db-up        # Start PostGIS only
+make stack-up     # Start full stack (db + backend + frontend)
+make test         # Run backend + frontend tests
+make lint         # Run backend + frontend lint
 ```
 
 **Requirements:**
