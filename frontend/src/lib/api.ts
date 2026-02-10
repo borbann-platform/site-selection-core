@@ -1,3 +1,5 @@
+import type { FeatureCollection, Geometry, GeoJsonProperties } from "geojson";
+
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 export const API_URL = BASE_URL.endsWith("/api/v1")
   ? BASE_URL
@@ -167,18 +169,12 @@ export interface IsochroneRequest {
   mode: "walk" | "drive";
 }
 
-export interface GeoJsonFeature {
-  type: string;
-  geometry?: unknown;
-  properties?: Record<string, unknown>;
-}
+export type GeoJsonFeatureCollection = FeatureCollection<
+  Geometry,
+  GeoJsonProperties
+>;
 
-export interface GeoJsonFeatureCollection {
-  type: "FeatureCollection";
-  features: GeoJsonFeature[];
-}
-
-export interface IsochroneResponse extends GeoJsonFeatureCollection {}
+export type IsochroneResponse = GeoJsonFeatureCollection;
 
 export interface NearbyRequest {
   latitude: number;
@@ -187,7 +183,7 @@ export interface NearbyRequest {
   categories: string[];
 }
 
-export interface NearbyResponse extends GeoJsonFeatureCollection {}
+export type NearbyResponse = GeoJsonFeatureCollection;
 
 export interface HexagonData {
   position: number[];

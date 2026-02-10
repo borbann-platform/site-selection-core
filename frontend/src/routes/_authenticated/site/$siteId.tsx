@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import type React from "react";
+import type { Feature, GeoJsonProperties, Point } from "geojson";
 import { useState, useMemo, useEffect } from "react";
 import { MapContainer } from "../../../components/MapContainer";
 import { Shell } from "../../../components/Shell";
@@ -37,22 +39,18 @@ interface ViewState {
   transitionInterpolator?: FlyToInterpolator;
 }
 
-interface GeoPointFeature {
-  geometry: { coordinates: [number, number] };
-  properties?: {
+type GeoPointFeature = Feature<
+  Point,
+  {
     name?: string;
     amenity?: string;
     [key: string]: unknown;
-  };
-}
+  }
+>;
 
-interface GeoJsonPointFeature {
-  type: "Feature";
-  geometry: { type: "Point"; coordinates: [number, number] };
-  properties?: Record<string, unknown>;
-}
+type GeoJsonPointFeature = Feature<Point, GeoJsonProperties>;
 
-type IconType = (props: { size?: number; className?: string }) => JSX.Element;
+type IconType = React.ComponentType<{ size?: number; className?: string }>;
 
 export const Route = createFileRoute("/_authenticated/site/$siteId")({
   component: SiteInspector,
@@ -164,6 +162,8 @@ function SiteInspector() {
   });
 
   const layers = useMemo(() => {
+    const magnetFeatures = (magnets?.features ?? []) as GeoPointFeature[];
+    const competitorFeatures = (competitors?.features ?? []) as GeoPointFeature[];
     return [
       isochrone &&
         new GeoJsonLayer({
@@ -180,8 +180,9 @@ function SiteInspector() {
         magnets &&
         new ScatterplotLayer({
           id: "magnets",
-          data: magnets.features,
-          getPosition: (d: GeoPointFeature) => d.geometry.coordinates,
+          data: magnetFeatures,
+          getPosition: (d: GeoPointFeature) =>
+            d.geometry.coordinates as [number, number],
           getFillColor: [255, 0, 128], // Pink
           getRadius: 30,
           pickable: true,
@@ -194,8 +195,9 @@ function SiteInspector() {
         competitors &&
         new ScatterplotLayer({
           id: "competitors",
-          data: competitors.features,
-          getPosition: (d: GeoPointFeature) => d.geometry.coordinates,
+          data: competitorFeatures,
+          getPosition: (d: GeoPointFeature) =>
+            d.geometry.coordinates as [number, number],
           getFillColor: [50, 200, 50], // Green
           getRadius: 25,
           pickable: true,
@@ -209,7 +211,8 @@ function SiteInspector() {
         data: {
           type: "Feature",
           geometry: { type: "Point", coordinates: [lon, lat] },
-        } satisfies GeoJsonPointFeature,
+          properties: {},
+        } as GeoJsonPointFeature,
         pointRadiusMinPixels: 10,
         getFillColor: [255, 255, 255],
         getLineColor: [0, 0, 0],
