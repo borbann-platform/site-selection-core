@@ -88,7 +88,10 @@ make stack-up-all # Start app stack + MLflow services
 make mlflow-up    # Start MLflow (Postgres backend) on http://localhost:5001
 make test         # Run backend + frontend tests
 make lint         # Run backend + frontend lint
+make dagger-ci    # Run Dagger pilot CI (backend + frontend)
 ```
+
+Dagger pilot details: `docs/DAGGER_PILOT.md`
 
 **Requirements:**
 - Node.js 18+

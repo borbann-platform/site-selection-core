@@ -1,6 +1,7 @@
 .PHONY: help db-up db-down db-reset stack-up stack-down stack-up-all \
   mlflow-up mlflow-down mlflow-logs \
   promote-baseline promote-hgt mlflow-leaderboard \
+  dagger-ci dagger-ci-backend dagger-ci-frontend \
   backend-install backend-dev backend-test backend-lint backend-format \
   frontend-install frontend-dev frontend-test frontend-lint frontend-format \
   test lint format
@@ -21,6 +22,9 @@ help:
 	@echo "  promote-baseline  Promote baseline run (RUN_ID=...) with strict gate"
 	@echo "  promote-hgt       Promote HGT run (RUN_ID=...) with strict gate"
 	@echo "  mlflow-leaderboard Export MLflow leaderboard (METRIC=..., MODE=min|max)"
+	@echo "  dagger-ci         Run Dagger pilot CI (backend + frontend)"
+	@echo "  dagger-ci-backend Run Dagger backend CI function"
+	@echo "  dagger-ci-frontend Run Dagger frontend CI function"
 	@echo "  backend-install   Install backend deps"
 	@echo "  backend-dev       Run backend dev server"
 	@echo "  backend-test      Run backend tests"
@@ -71,6 +75,15 @@ promote-hgt:
 
 mlflow-leaderboard:
 	$(MAKE) -C gis-server mlflow-leaderboard METRIC=$(METRIC) MODE=$(MODE)
+
+dagger-ci:
+	dagger call ci-all --silent
+
+dagger-ci-backend:
+	dagger call ci-backend --silent
+
+dagger-ci-frontend:
+	dagger call ci-frontend --silent
 
 backend-install:
 	cd gis-server && uv sync --extra dev
