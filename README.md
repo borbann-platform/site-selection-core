@@ -92,6 +92,26 @@ make lint         # Run backend + frontend lint
 - Node.js 18+
 - npm or yarn
 
+## Git LFS (Required for Model/Data Files)
+
+This repository stores large model and dataset artifacts with Git LFS.
+
+```bash
+# One-time setup on your machine
+git lfs install
+
+# After cloning or switching branches with large assets
+git lfs pull
+```
+
+When adding new large artifacts, track them first and then commit:
+
+```bash
+git lfs track "gis-server/models/**/*.parquet"
+git add .gitattributes <your-large-file>
+git commit -m "track large artifacts with git lfs"
+```
+
 ## API Documentation
 
 Once the backend is running, visit:
