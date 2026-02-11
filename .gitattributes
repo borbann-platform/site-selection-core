@@ -1,0 +1,8 @@
+gis-server/models/**/*.pt filter=lfs diff=lfs merge=lfs -text
+gis-server/models/**/*.model filter=lfs diff=lfs merge=lfs -text
+gis-server/data/**/*.parquet filter=lfs diff=lfs merge=lfs -text
+gis-server/data/**/*.pbf filter=lfs diff=lfs merge=lfs -text
+gis-server/data/**/*.geojson filter=lfs diff=lfs merge=lfs -text
+gis-server/data/**/*.graphml filter=lfs diff=lfs merge=lfs -text
+gis-server/data/**/*.zip filter=lfs diff=lfs merge=lfs -text
+gis-server/models/**/*.parquet filter=lfs diff=lfs merge=lfs -text

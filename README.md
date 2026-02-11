@@ -30,6 +30,15 @@ borbann/
 
 ## Getting Started
 
+### Quickstart (Full Stack)
+
+```bash
+# From repo root
+make stack-up
+```
+
+This starts PostGIS, the FastAPI backend on `http://localhost:8000`, and the Vite frontend on `http://localhost:3000`.
+
 ### Backend (gis-server)
 
 ```bash
@@ -70,9 +79,38 @@ npm install
 npm run dev
 ```
 
+### Useful Root Commands
+
+```bash
+make db-up        # Start PostGIS only
+make stack-up     # Start full stack (db + backend + frontend)
+make test         # Run backend + frontend tests
+make lint         # Run backend + frontend lint
+```
+
 **Requirements:**
 - Node.js 18+
 - npm or yarn
+
+## Git LFS (Required for Model/Data Files)
+
+This repository stores large model and dataset artifacts with Git LFS.
+
+```bash
+# One-time setup on your machine
+git lfs install
+
+# After cloning or switching branches with large assets
+git lfs pull
+```
+
+When adding new large artifacts, track them first and then commit:
+
+```bash
+git lfs track "gis-server/models/**/*.parquet"
+git add .gitattributes <your-large-file>
+git commit -m "track large artifacts with git lfs"
+```
 
 ## API Documentation
 

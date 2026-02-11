@@ -6,6 +6,8 @@ node_modules
 coverage
 dist
 build
+.vite/
+.opencode/
 
 # Cache directories
 cache/
@@ -31,6 +33,11 @@ htmlcov/
 .venv/
 venv/
 ENV/
+
+# Local data artifacts
+gis-server/data.zip
+gis-server/data-zip.zip
+gis-server/models/baseline/all_models_comparison.json
 
 # Presentation/planning docs (one-time use)
 presentation_structure.md

@@ -29,6 +29,23 @@ export const Route = createFileRoute("/_authenticated/districts")({
 type SortKey = "amphur" | "count" | "avg_price" | "avg_price_per_sqm";
 type SortOrder = "asc" | "desc";
 
+function SortIcon({
+  columnKey,
+  sortKey,
+  sortOrder,
+}: {
+  columnKey: SortKey;
+  sortKey: SortKey;
+  sortOrder: SortOrder;
+}) {
+  if (sortKey !== columnKey) return <ArrowUpDown className="ml-1 h-3 w-3" />;
+  return sortOrder === "asc" ? (
+    <ArrowUp className="ml-1 h-3 w-3" />
+  ) : (
+    <ArrowDown className="ml-1 h-3 w-3" />
+  );
+}
+
 const formatPrice = (price: number): string => {
   if (price >= 1_000_000) return `฿${(price / 1_000_000).toFixed(1)}M`;
   if (price >= 1_000) return `฿${(price / 1_000).toFixed(0)}K`;
@@ -77,15 +94,6 @@ function DistrictsPage() {
       setSortKey(key);
       setSortOrder("desc");
     }
-  };
-
-  const SortIcon = ({ columnKey }: { columnKey: SortKey }) => {
-    if (sortKey !== columnKey) return <ArrowUpDown className="ml-1 h-3 w-3" />;
-    return sortOrder === "asc" ? (
-      <ArrowUp className="ml-1 h-3 w-3" />
-    ) : (
-      <ArrowDown className="ml-1 h-3 w-3" />
-    );
   };
 
   return (
@@ -158,7 +166,11 @@ function DistrictsPage() {
                         onClick={() => handleSort("amphur")}
                       >
                         District
-                        <SortIcon columnKey="amphur" />
+                    <SortIcon
+                      columnKey="amphur"
+                      sortKey={sortKey}
+                      sortOrder={sortOrder}
+                    />
                       </Button>
                     </TableHead>
                     <TableHead className="text-right text-muted-foreground">
@@ -169,7 +181,11 @@ function DistrictsPage() {
                         onClick={() => handleSort("count")}
                       >
                         Properties
-                        <SortIcon columnKey="count" />
+                    <SortIcon
+                      columnKey="count"
+                      sortKey={sortKey}
+                      sortOrder={sortOrder}
+                    />
                       </Button>
                     </TableHead>
                     <TableHead className="text-right text-muted-foreground">
@@ -180,7 +196,11 @@ function DistrictsPage() {
                         onClick={() => handleSort("avg_price")}
                       >
                         Avg Price
-                        <SortIcon columnKey="avg_price" />
+                    <SortIcon
+                      columnKey="avg_price"
+                      sortKey={sortKey}
+                      sortOrder={sortOrder}
+                    />
                       </Button>
                     </TableHead>
                     <TableHead className="text-right text-muted-foreground">
@@ -194,7 +214,11 @@ function DistrictsPage() {
                         onClick={() => handleSort("avg_price_per_sqm")}
                       >
                         Avg ฿/sqm
-                        <SortIcon columnKey="avg_price_per_sqm" />
+                    <SortIcon
+                      columnKey="avg_price_per_sqm"
+                      sortKey={sortKey}
+                      sortOrder={sortOrder}
+                    />
                       </Button>
                     </TableHead>
                   </TableRow>

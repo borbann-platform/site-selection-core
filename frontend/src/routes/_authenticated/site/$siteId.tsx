@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import type React from "react";
+import type { Feature, GeoJsonProperties, Point } from "geojson";
 import { useState, useMemo, useEffect } from "react";
 import { MapContainer } from "../../../components/MapContainer";
 import { Shell } from "../../../components/Shell";
@@ -27,6 +29,29 @@ interface SiteSearch {
   lon: number;
 }
 
+interface ViewState {
+  longitude: number;
+  latitude: number;
+  zoom: number;
+  pitch?: number;
+  bearing?: number;
+  transitionDuration?: number;
+  transitionInterpolator?: FlyToInterpolator;
+}
+
+type GeoPointFeature = Feature<
+  Point,
+  {
+    name?: string;
+    amenity?: string;
+    [key: string]: unknown;
+  }
+>;
+
+type GeoJsonPointFeature = Feature<Point, GeoJsonProperties>;
+
+type IconType = React.ComponentType<{ size?: number; className?: string }>;
+
 export const Route = createFileRoute("/_authenticated/site/$siteId")({
   component: SiteInspector,
   validateSearch: (search: Record<string, unknown>): SiteSearch => {
@@ -52,7 +77,7 @@ function SiteInspector() {
   const { siteId } = Route.useParams();
   const { lat, lon } = Route.useSearch();
 
-  const [viewState, setViewState] = useState<any>({
+  const [viewState, setViewState] = useState<ViewState>({
     longitude: lon,
     latitude: lat,
     zoom: 14,
@@ -62,7 +87,7 @@ function SiteInspector() {
 
   // Sync viewState with URL params
   useEffect(() => {
-    setViewState((prev: any) => {
+    setViewState((prev) => {
       if (
         Math.abs(prev.latitude - lat) < 0.00001 &&
         Math.abs(prev.longitude - lon) < 0.00001
@@ -137,6 +162,8 @@ function SiteInspector() {
   });
 
   const layers = useMemo(() => {
+    const magnetFeatures = (magnets?.features ?? []) as GeoPointFeature[];
+    const competitorFeatures = (competitors?.features ?? []) as GeoPointFeature[];
     return [
       isochrone &&
         new GeoJsonLayer({
@@ -153,8 +180,9 @@ function SiteInspector() {
         magnets &&
         new ScatterplotLayer({
           id: "magnets",
-          data: magnets.features,
-          getPosition: (d: any) => d.geometry.coordinates,
+          data: magnetFeatures,
+          getPosition: (d: GeoPointFeature) =>
+            d.geometry.coordinates as [number, number],
           getFillColor: [255, 0, 128], // Pink
           getRadius: 30,
           pickable: true,
@@ -167,8 +195,9 @@ function SiteInspector() {
         competitors &&
         new ScatterplotLayer({
           id: "competitors",
-          data: competitors.features,
-          getPosition: (d: any) => d.geometry.coordinates,
+          data: competitorFeatures,
+          getPosition: (d: GeoPointFeature) =>
+            d.geometry.coordinates as [number, number],
           getFillColor: [50, 200, 50], // Green
           getRadius: 25,
           pickable: true,
@@ -182,7 +211,8 @@ function SiteInspector() {
         data: {
           type: "Feature",
           geometry: { type: "Point", coordinates: [lon, lat] },
-        } as any,
+          properties: {},
+        } as GeoJsonPointFeature,
         pointRadiusMinPixels: 10,
         getFillColor: [255, 255, 255],
         getLineColor: [0, 0, 0],
@@ -192,7 +222,7 @@ function SiteInspector() {
     ].filter(Boolean);
   }, [isochrone, lat, lon, competitors, magnets, showCompetitors, showMagnets]);
 
-  const getTooltip = ({ object }: any) => {
+  const getTooltip = ({ object }: { object?: GeoPointFeature | null }) => {
     if (!object) return null;
     if (object.properties?.name) {
       return {
@@ -449,7 +479,21 @@ function SiteInspector() {
   );
 }
 
-function DemographicRow({ label, count, total, icon: Icon, color, bg }: any) {
+function DemographicRow({
+  label,
+  count,
+  total,
+  icon: Icon,
+  color,
+  bg,
+}: {
+  label: string;
+  count: number;
+  total: number;
+  icon: IconType;
+  color: string;
+  bg: string;
+}) {
   const percentage = Math.round((count / total) * 100);
   return (
     <div>

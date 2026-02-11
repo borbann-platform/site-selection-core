@@ -12,9 +12,25 @@ jobs:
     defaults:
       run:
         working-directory: gis-server
+    services:
+      db:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: gisdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U user -d gisdb"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          lfs: true
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -31,10 +47,15 @@ jobs:
 
       - name: Run unit tests
         run: uv run pytest tests/unit -v --tb=short
+        env:
+          DATABASE_URL: postgresql://user:password@localhost:5432/gisdb
+          JWT_SECRET_KEY: test-secret
 
       - name: Run integration tests
         run: uv run pytest tests/integration -v --tb=short
-        continue-on-error: true  # Integration tests may need DB
+        env:
+          DATABASE_URL: postgresql://user:password@localhost:5432/gisdb
+          JWT_SECRET_KEY: test-secret
 
   lint:
     runs-on: ubuntu-latest
@@ -44,6 +65,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          lfs: true
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -65,3 +88,33 @@ jobs:
       - name: Run ruff format check
         run: uv run ruff format --check src/ tests/
         continue-on-error: true
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Run tests
+        run: npm run test
+
+      - name: Run build
+        run: npm run build

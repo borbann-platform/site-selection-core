@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Brain,
   Loader2,
@@ -29,7 +29,8 @@ export function ThinkingProcess({
   startTime,
 }: ThinkingProcessProps) {
   const [stepIndex, setStepIndex] = useState(0);
-  const [logs, setLogs] = useState<string[]>([]);
+  const logIdRef = useRef(0);
+  const [logs, setLogs] = useState<Array<{ id: number; text: string }>>([]);
   const [elapsed, setElapsed] = useState(0);
 
   // Cycle through fake "process steps" to show activity
@@ -37,7 +38,11 @@ export function ThinkingProcess({
     const interval = setInterval(() => {
       setStepIndex((prev) => (prev + 1) % PROCESS_STEPS.length);
       setLogs((prev) => {
-        const newLog = PROCESS_STEPS[stepIndex % PROCESS_STEPS.length].text;
+        logIdRef.current += 1;
+        const newLog = {
+          id: logIdRef.current,
+          text: PROCESS_STEPS[stepIndex % PROCESS_STEPS.length].text,
+        };
         return [...prev.slice(-2), newLog]; // Keep last 3 logs
       });
     }, 2000);
@@ -97,10 +102,10 @@ export function ThinkingProcess({
 
       {/* Mini Terminal Log */}
       <div className="mt-1 space-y-0.5 font-mono text-[10px] text-purple-600/50 dark:text-purple-300/50 pl-1 border-l-2 border-purple-500/10">
-        {logs.map((log, i) => (
-          <div key={i} className="truncate animate-in slide-in-from-left-2 fade-in duration-300">
+        {logs.map((log) => (
+          <div key={log.id} className="truncate animate-in slide-in-from-left-2 fade-in duration-300">
             <span className="opacity-50 mr-2">{">"}</span>
-            {log}
+            {log.text}
           </div>
         ))}
         <div className="truncate opacity-50">

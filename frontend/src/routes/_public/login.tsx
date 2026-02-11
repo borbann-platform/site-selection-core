@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
@@ -15,6 +15,9 @@ function LoginPage() {
   const { login } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const formId = useId();
+  const emailId = `${formId}-email`;
+  const passwordId = `${formId}-password`;
 
   const [formData, setFormData] = useState({
     email: "",
@@ -63,11 +66,11 @@ function LoginPage() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-foreground">
+              <Label htmlFor={emailId} className="text-foreground">
                 Email
               </Label>
               <Input
-                id="email"
+                id={emailId}
                 name="email"
                 type="email"
                 value={formData.email}
@@ -79,11 +82,11 @@ function LoginPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-foreground">
+              <Label htmlFor={passwordId} className="text-foreground">
                 Password
               </Label>
               <Input
-                id="password"
+                id={passwordId}
                 name="password"
                 type="password"
                 value={formData.password}

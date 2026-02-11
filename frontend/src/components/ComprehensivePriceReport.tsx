@@ -110,8 +110,9 @@ function generateMockExtendedData(
     .filter((p) => p.id !== property.id && p.total_price && p.total_price > 0)
     .slice(0, 4)
     .map((p) => {
+      const totalPrice = p.total_price ?? 0;
       const priceDiff = property.total_price
-        ? ((p.total_price! - property.total_price) / property.total_price) * 100
+        ? ((totalPrice - property.total_price) / property.total_price) * 100
         : 0;
       
       // Calculate similarity based on building area and style
@@ -131,7 +132,7 @@ function generateMockExtendedData(
 
       return {
         id: p.id,
-        price: p.total_price!,
+        price: totalPrice,
         building_style_desc: p.building_style_desc,
         building_area: p.building_area,
         distance_m: p.distance_m,
