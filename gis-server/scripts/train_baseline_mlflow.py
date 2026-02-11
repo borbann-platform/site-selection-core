@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -28,10 +29,12 @@ from src.config.mlflow_config import (
     get_experiment_name,
 )
 from src.utils.mlflow_utils import (
+    build_standard_run_context,
     log_artifact_safe,
     log_metrics_safe,
     log_model_safe,
     log_params_safe,
+    log_standard_run_context,
     mlflow_run,
     set_tag_safe,
 )
@@ -96,6 +99,24 @@ def main():
         default=MLFLOW_TRACKING_URI,
         help="MLflow tracking URI",
     )
+    parser.add_argument(
+        "--dataset-version",
+        type=str,
+        default=os.getenv("DATASET_VERSION", "unknown"),
+        help="Dataset version identifier for experiment lineage",
+    )
+    parser.add_argument(
+        "--split-seed",
+        type=int,
+        default=42,
+        help="Split seed identifier (for metadata tracking)",
+    )
+    parser.add_argument(
+        "--feature-set",
+        type=str,
+        default=None,
+        help="Feature set name override",
+    )
     args = parser.parse_args()
 
     output_dir = Path(args.output)
@@ -104,10 +125,24 @@ def main():
     # Determine experiment name
     experiment_name = args.experiment or get_experiment_name("baseline")
 
+    feature_set = args.feature_set or (
+        "baseline_spatial_hex2vec" if args.use_hex2vec else "baseline_spatial_core"
+    )
+    model_variant = "compare_all" if args.compare_all else "lightgbm"
+    run_context = build_standard_run_context(
+        model_family="baseline",
+        model_variant=model_variant,
+        feature_set=feature_set,
+        target="log_price",
+        split_seed=args.split_seed,
+        dataset_version=args.dataset_version,
+    )
+
     # Prepare run tags
     tags = DEFAULT_TAGS.copy()
     tags["model_type"] = "lightgbm"
     tags["use_hex2vec"] = str(args.use_hex2vec)
+    tags.update(run_context)
 
     logger.info("=== Spatial Baseline Model Training (with MLflow) ===")
     logger.info(f"Experiment: {experiment_name}")
@@ -121,12 +156,17 @@ def main():
         tracking_uri=args.tracking_uri,
         tags=tags,
     ):
+        log_standard_run_context(run_context)
+
         # Log parameters
         log_params_safe(
             {
                 "cv_folds": args.cv_folds,
                 "use_hex2vec": args.use_hex2vec,
                 "holdout_only": args.holdout_only,
+                "feature_set": feature_set,
+                "dataset_version": args.dataset_version,
+                "split_seed": args.split_seed,
                 **DEFAULT_PARAMS,
             }
         )
@@ -207,12 +247,22 @@ def main():
             all_metrics["mean_baseline"] = mean_metrics
 
             # Log mean baseline to MLflow
+            mean_context = build_standard_run_context(
+                model_family="baseline",
+                model_variant="mean_baseline",
+                feature_set=feature_set,
+                target="log_price",
+                split_seed=args.split_seed,
+                dataset_version=args.dataset_version,
+            )
             with mlflow_run(
                 experiment_name=experiment_name,
                 run_name=f"{args.run_name or 'baseline'}_mean",
                 tracking_uri=args.tracking_uri,
-                tags={**tags, "model_type": "mean_baseline"},
+                tags={**tags, "model_type": "mean_baseline", **mean_context},
+                nested=True,
             ):
+                log_standard_run_context(mean_context)
                 log_params_safe({"model": "mean_baseline", "cv_folds": args.cv_folds})
                 log_metrics_safe(
                     {
@@ -228,12 +278,22 @@ def main():
             all_metrics["linear"] = linear_metrics
 
             # Log linear to MLflow
+            linear_context = build_standard_run_context(
+                model_family="baseline",
+                model_variant="ridge_regression",
+                feature_set=feature_set,
+                target="log_price",
+                split_seed=args.split_seed,
+                dataset_version=args.dataset_version,
+            )
             with mlflow_run(
                 experiment_name=experiment_name,
                 run_name=f"{args.run_name or 'baseline'}_linear",
                 tracking_uri=args.tracking_uri,
-                tags={**tags, "model_type": "ridge_regression"},
+                tags={**tags, "model_type": "ridge_regression", **linear_context},
+                nested=True,
             ):
+                log_standard_run_context(linear_context)
                 log_params_safe(
                     {"model": "ridge", "alpha": 1.0, "cv_folds": args.cv_folds}
                 )
@@ -255,12 +315,22 @@ def main():
             all_metrics["random_forest"] = rf_metrics
 
             # Log RF to MLflow
+            rf_context = build_standard_run_context(
+                model_family="baseline",
+                model_variant="random_forest",
+                feature_set=feature_set,
+                target="log_price",
+                split_seed=args.split_seed,
+                dataset_version=args.dataset_version,
+            )
             with mlflow_run(
                 experiment_name=experiment_name,
                 run_name=f"{args.run_name or 'baseline'}_random_forest",
                 tracking_uri=args.tracking_uri,
-                tags={**tags, "model_type": "random_forest"},
+                tags={**tags, "model_type": "random_forest", **rf_context},
+                nested=True,
             ):
+                log_standard_run_context(rf_context)
                 log_params_safe(
                     {
                         "model": "random_forest",
@@ -290,12 +360,22 @@ def main():
             all_metrics["lightgbm"] = lgb_metrics
 
             # Log LightGBM to MLflow
+            lgb_context = build_standard_run_context(
+                model_family="baseline",
+                model_variant="lightgbm",
+                feature_set=feature_set,
+                target="log_price",
+                split_seed=args.split_seed,
+                dataset_version=args.dataset_version,
+            )
             with mlflow_run(
                 experiment_name=experiment_name,
                 run_name=f"{args.run_name or 'baseline'}_lightgbm",
                 tracking_uri=args.tracking_uri,
-                tags={**tags, "model_type": "lightgbm"},
+                tags={**tags, "model_type": "lightgbm", **lgb_context},
+                nested=True,
             ):
+                log_standard_run_context(lgb_context)
                 log_params_safe(
                     {
                         "model": "lightgbm",

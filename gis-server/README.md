@@ -38,11 +38,20 @@ A FastAPI backend for real estate information, price prediction AI, and property
 
 4.  **Train ML Models** (Optional but recommended)
     ```bash
+    # Start MLflow services (Postgres backend + local artifact volume)
+    make mlflow-up
+
     # Train baseline LightGBM model for price prediction
     make train-baseline
     
     # Or train all baseline models (LightGBM, RF, Linear)
     make train-baseline-all
+
+    # Train HGT model
+    make train-hgt
+
+    # View experiment tracking UI
+    make mlflow-ui
     ```
 
 5.  **Run Server**
@@ -150,6 +159,28 @@ The `/valuation` endpoint provides ML-powered property price predictions.
 - **Feature Explanations**: Top factors affecting the price
 - **Comparable Properties**: Similar properties within 2km
 - **Market Insights**: District averages and trends
+
+## MLOps Workflow (Manual + Strict Gate)
+
+1. Train a model with MLflow tracking (`make train-baseline`, `make train-hgt`).
+   - Each run logs standard metadata for comparison:
+     `model_family`, `model_variant`, `feature_set`, `dataset_version`, `split_seed`,
+     `git_sha`, `git_branch`, `train_timestamp_utc`.
+2. Get run IDs from MLflow UI at `http://localhost:5001`.
+3. Promote only if strict metric gates pass:
+
+```bash
+# Baseline gate (cv_mape_mean, cv_r2_mean)
+make promote-baseline RUN_ID=<mlflow_run_id>
+
+# HGT gate (test_mape, test_r2, cold_mape)
+make promote-hgt RUN_ID=<mlflow_run_id>
+
+# Export leaderboard report across experiments
+make mlflow-leaderboard METRIC=test_mape MODE=min
+```
+
+Thresholds are configured in `config/mlops_thresholds.json`.
 
 ## Project Structure
 

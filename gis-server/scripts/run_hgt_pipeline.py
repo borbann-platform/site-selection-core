@@ -21,6 +21,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from src.config.mlflow_config import MLFLOW_TRACKING_URI
+
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
@@ -106,6 +108,12 @@ def main():
         type=int,
         default=9,
         help="H3 resolution (7-11)",
+    )
+    parser.add_argument(
+        "--tracking-uri",
+        type=str,
+        default=MLFLOW_TRACKING_URI,
+        help="MLflow tracking URI for training steps",
     )
     args = parser.parse_args()
 
@@ -201,7 +209,7 @@ def main():
         [
             sys.executable,
             "-m",
-            "scripts.train_hgt",
+            "scripts.train_hgt_mlflow",
             "--graph",
             str(data_dir / "hetero_graph.pt"),
             "--output",
@@ -210,6 +218,8 @@ def main():
             str(args.epochs),
             "--device",
             args.device,
+            "--tracking-uri",
+            args.tracking_uri,
             *pretrained_arg,
         ],
     )

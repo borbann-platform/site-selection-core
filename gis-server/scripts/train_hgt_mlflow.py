@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -31,10 +32,12 @@ from src.config.mlflow_config import (
     get_experiment_name,
 )
 from src.utils.mlflow_utils import (
+    build_standard_run_context,
     log_artifact_safe,
     log_metrics_safe,
     log_model_safe,
     log_params_safe,
+    log_standard_run_context,
     mlflow_run,
     set_tag_safe,
 )
@@ -128,19 +131,46 @@ def main():
         default=MLFLOW_TRACKING_URI,
         help="MLflow tracking URI",
     )
+    parser.add_argument(
+        "--dataset-version",
+        type=str,
+        default=os.getenv("DATASET_VERSION", "unknown"),
+        help="Dataset version identifier for experiment lineage",
+    )
+    parser.add_argument(
+        "--split-seed",
+        type=int,
+        default=42,
+        help="Split seed identifier (for metadata tracking)",
+    )
+    parser.add_argument(
+        "--feature-set",
+        type=str,
+        default="hgt_hetero_graph",
+        help="Feature set name for run metadata",
+    )
     args = parser.parse_args()
 
     graph_path = Path(args.graph)
-    pretrained_dir = Path(args.pretrained)
     output_dir = Path(args.output)
 
     # Determine experiment name
     experiment_name = args.experiment or get_experiment_name("hgt")
 
+    run_context = build_standard_run_context(
+        model_family="hgt",
+        model_variant="hgt_valuator",
+        feature_set=args.feature_set,
+        target="log_price",
+        split_seed=args.split_seed,
+        dataset_version=args.dataset_version,
+    )
+
     # Prepare run tags
     tags = DEFAULT_TAGS.copy()
     tags["model_type"] = "hgt"
     tags["device"] = args.device
+    tags.update(run_context)
 
     logger.info("=== HGT Valuator Training (with MLflow) ===")
     logger.info(f"Experiment: {experiment_name}")
@@ -154,6 +184,8 @@ def main():
         tracking_uri=args.tracking_uri,
         tags=tags,
     ):
+        log_standard_run_context(run_context)
+
         # Log hyperparameters
         log_params_safe(
             {
@@ -168,6 +200,9 @@ def main():
                 "train_ratio": TRAIN_RATIO,
                 "val_ratio": VAL_RATIO,
                 "device": args.device,
+                "feature_set": args.feature_set,
+                "dataset_version": args.dataset_version,
+                "split_seed": args.split_seed,
             }
         )
 

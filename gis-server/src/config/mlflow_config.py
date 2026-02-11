@@ -8,15 +8,14 @@ Uses local filesystem storage by default.
 from __future__ import annotations
 
 import os
-from pathlib import Path
 
 # MLflow tracking URI
-# Default: local filesystem (./mlruns in project root)
+# Default: local MLflow server from docker-compose (http://localhost:5001)
 # Can be overridden with MLFLOW_TRACKING_URI environment variable
-MLFLOW_TRACKING_URI = os.getenv(
-    "MLFLOW_TRACKING_URI",
-    str(Path(__file__).parent.parent.parent / "mlruns"),
-)
+MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5001")
+
+# Optional registry URI override. If unset, it follows tracking URI.
+MLFLOW_REGISTRY_URI = os.getenv("MLFLOW_REGISTRY_URI", MLFLOW_TRACKING_URI)
 
 # Default experiment names
 EXPERIMENTS = {
