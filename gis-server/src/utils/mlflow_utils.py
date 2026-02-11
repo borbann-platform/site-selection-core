@@ -17,7 +17,10 @@ Usage:
 from __future__ import annotations
 
 import logging
+import os
+import subprocess
 from contextlib import contextmanager
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -41,12 +44,88 @@ def is_mlflow_enabled() -> bool:
     return HAS_MLFLOW
 
 
+def _git_output(args: list[str]) -> str | None:
+    """Get git command output, returning None when unavailable."""
+    result = subprocess.run(
+        ["git", *args],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip()
+
+
+def build_standard_run_context(
+    *,
+    model_family: str,
+    model_variant: str,
+    feature_set: str,
+    target: str,
+    split_seed: int | None = None,
+    dataset_version: str | None = None,
+    extra: dict[str, Any] | None = None,
+) -> dict[str, str]:
+    """
+    Build a consistent metadata contract for MLflow runs.
+
+    This keeps multi-model experiments queryable and comparable.
+    """
+    git_sha = _git_output(["rev-parse", "HEAD"]) or "unknown"
+    git_branch = _git_output(["rev-parse", "--abbrev-ref", "HEAD"]) or "unknown"
+    git_dirty = "false"
+    dirty_check = subprocess.run(
+        ["git", "diff", "--quiet"],
+        capture_output=True,
+        check=False,
+    )
+    if dirty_check.returncode == 1:
+        git_dirty = "true"
+
+    context: dict[str, str] = {
+        "tracking_schema_version": "1",
+        "model_family": model_family,
+        "model_variant": model_variant,
+        "feature_set": feature_set,
+        "target": target,
+        "dataset_version": dataset_version or os.getenv("DATASET_VERSION", "unknown"),
+        "split_seed": str(split_seed) if split_seed is not None else "unknown",
+        "git_sha": git_sha,
+        "git_branch": git_branch,
+        "git_dirty": git_dirty,
+        "train_timestamp_utc": datetime.now(UTC).replace(microsecond=0).isoformat(),
+    }
+    if extra:
+        for key, value in extra.items():
+            context[key] = str(value)
+    return context
+
+
+def log_standard_run_context(context: dict[str, str]) -> None:
+    """Log standardized run context as tags and selected params."""
+    for key, value in context.items():
+        set_tag_safe(key, value)
+
+    # Keep frequently-filtered metadata in params too.
+    param_subset = {
+        "meta_model_family": context.get("model_family"),
+        "meta_model_variant": context.get("model_variant"),
+        "meta_feature_set": context.get("feature_set"),
+        "meta_target": context.get("target"),
+        "meta_dataset_version": context.get("dataset_version"),
+        "meta_split_seed": context.get("split_seed"),
+    }
+    log_params_safe({k: v for k, v in param_subset.items() if v is not None})
+
+
 @contextmanager
 def mlflow_run(
     experiment_name: str = "default",
     run_name: str | None = None,
     tracking_uri: str | None = None,
     tags: dict[str, str] | None = None,
+    nested: bool = False,
 ):
     """
     Context manager for MLflow run with graceful degradation.
@@ -82,7 +161,7 @@ def mlflow_run(
         mlflow.set_experiment(experiment_name)
 
         # Start run
-        with mlflow.start_run(run_name=run_name, tags=tags) as run:
+        with mlflow.start_run(run_name=run_name, tags=tags, nested=nested) as run:
             logger.info(
                 f"Started MLflow run: {run.info.run_id} (experiment: {experiment_name})"
             )

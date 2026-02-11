@@ -1,4 +1,6 @@
-.PHONY: test test-unit test-integration test-cov lint format install sync
+.PHONY: test test-unit test-integration test-cov lint format install sync \
+	mlflow-up mlflow-down mlflow-logs mlflow-ui \
+	promote-baseline promote-hgt mlflow-leaderboard
 
 # Default target
 all: test
@@ -46,9 +48,19 @@ clean:
 	find . -type d -name .ruff_cache -exec rm -rf {} + 2>/dev/null || true
 	rm -rf htmlcov/ .coverage 2>/dev/null || true
 
-# MLflow UI (for local development)
+# MLflow services (Postgres backend + local artifact volume)
+mlflow-up:
+	docker compose up -d --build mlflow-db mlflow
+
+mlflow-down:
+	docker compose stop mlflow mlflow-db
+
+mlflow-logs:
+	docker compose logs -f mlflow
+
+# MLflow UI URL helper
 mlflow-ui:
-	uv run mlflow ui --backend-store-uri ./mlruns
+	@echo "MLflow UI: http://localhost:5001"
 
 # Train baseline model with MLflow tracking
 train-baseline:
@@ -61,3 +73,17 @@ train-baseline-all:
 # Train HGT model with MLflow tracking
 train-hgt:
 	uv run python -m scripts.train_hgt_mlflow --output models/hgt_valuator
+
+# Promote baseline run via strict gate
+promote-baseline:
+	@if [ -z "$(RUN_ID)" ]; then echo "Usage: make promote-baseline RUN_ID=<mlflow_run_id>"; exit 1; fi
+	uv run python -m scripts.promote_model --run-id $(RUN_ID) --model-family baseline
+
+# Promote HGT run via strict gate
+promote-hgt:
+	@if [ -z "$(RUN_ID)" ]; then echo "Usage: make promote-hgt RUN_ID=<mlflow_run_id>"; exit 1; fi
+	uv run python -m scripts.promote_model --run-id $(RUN_ID) --model-family hgt
+
+# Export MLflow leaderboard for experiment comparison
+mlflow-leaderboard:
+	uv run python -m scripts.export_experiment_leaderboard --all-experiments --metric $(or $(METRIC),cv_mape_mean) --mode $(or $(MODE),min)

@@ -83,7 +83,9 @@ npm run dev
 
 ```bash
 make db-up        # Start PostGIS only
-make stack-up     # Start full stack (db + backend + frontend)
+make stack-up     # Start app stack (db + backend + frontend)
+make stack-up-all # Start app stack + MLflow services
+make mlflow-up    # Start MLflow (Postgres backend) on http://localhost:5001
 make test         # Run backend + frontend tests
 make lint         # Run backend + frontend lint
 ```
@@ -131,8 +133,16 @@ make train-baseline-all
 # Train graph neural network
 make train-hgt
 
-# View experiment tracking
+# Start MLflow server/UI
+make mlflow-up
 make mlflow-ui
+
+# Promote a run with strict auto-gate checks
+make promote-baseline RUN_ID=<mlflow_run_id>
+make promote-hgt RUN_ID=<mlflow_run_id>
+
+# Export cross-experiment leaderboard (defaults: METRIC=cv_mape_mean MODE=min)
+make mlflow-leaderboard METRIC=test_mape MODE=min
 ```
 
 ### Model Architecture
@@ -177,6 +187,9 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 REFRESH_TOKEN_EXPIRE_DAYS=7
 GOOGLE_MAPS_API_KEY=your_google_maps_api_key
 GOOGLE_API_KEY=your_gemini_api_key  # For AI chat agent
+MLFLOW_TRACKING_URI=http://localhost:5001
+MLFLOW_REGISTRY_URI=http://localhost:5001
+DATASET_VERSION=local-dev
 ```
 
 ## Testing
