@@ -2,12 +2,11 @@
 // TypeScript checks disabled due to complex DeckGL generic types
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
+import { useState, useMemo, lazy, Suspense } from "react";
 import { MapContainer } from "@/components/MapContainer";
 import { api } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LocationIntelligencePanel } from "@/components/LocationIntelligence";
-import { ComprehensivePriceReport } from "@/components/ComprehensivePriceReport";
 import { ScatterplotLayer } from "@deck.gl/layers";
 import {
   Home,
@@ -21,6 +20,13 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/error-state";
+import { ContentLoader } from "@/components/ui/loading";
+
+const ComprehensivePriceReport = lazy(() =>
+  import("@/components/ComprehensivePriceReport").then((m) => ({
+    default: m.ComprehensivePriceReport,
+  }))
+);
 
 export const Route = createFileRoute("/_authenticated/property/$propertyId")({
   component: PropertyDetailPage,
@@ -330,10 +336,12 @@ function PropertyDetailPage() {
 
               {/* Price Explanation */}
               <div className="mt-6">
-                <ComprehensivePriceReport
-                  propertyId={id}
-                  property={property}
-                />
+                <Suspense fallback={<ContentLoader lines={15} />}>
+                  <ComprehensivePriceReport
+                    propertyId={id}
+                    property={property}
+                  />
+                </Suspense>
               </div>
             </div>
           ) : null}

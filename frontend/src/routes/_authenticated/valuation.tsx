@@ -4,15 +4,22 @@
  */
 
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useCallback } from "react";
+import { useState, useCallback, lazy, Suspense } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { PropertyUploadForm } from "@/components/PropertyUploadForm";
 import { LocationPicker } from "@/components/LocationPicker";
-import { ValuationReport } from "@/components/ValuationReport";
 import { api, type PropertyUploadRequest, type ValuationResponse } from "@/lib/api";
 import { Sparkles, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/error-state";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { ContentLoader } from "@/components/ui/loading";
+
+const ValuationReport = lazy(() =>
+  import("@/components/ValuationReport").then((m) => ({
+    default: m.ValuationReport,
+  }))
+);
 
 export const Route = createFileRoute("/_authenticated/valuation")({
   component: ValuationPage,
@@ -106,20 +113,11 @@ function ValuationPage() {
               </Link>
             </div>
 
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand to-brand/80 flex items-center justify-center">
-                <Sparkles size={24} className="text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">
-                  AI Property Valuation
-                </h1>
-                <p className="text-muted-foreground">
-                  Get an instant estimate of your property's value using our AI
-                  model
-                </p>
-              </div>
-            </div>
+            <PageHeader
+              icon={Sparkles}
+              title="AI Property Valuation"
+              subtitle="Get an instant estimate of your property's value using our AI model"
+            />
           </div>
 
           {/* Content */}
@@ -133,13 +131,15 @@ function ValuationPage() {
           )}
 
           {pageState === "report" && valuationResult && submittedData && (
-            <ValuationReport
-              valuation={valuationResult}
-              propertyData={submittedData}
-              locationIntelligence={locationIntelligence}
-              onBack={handleBackToForm}
-              onNewValuation={handleNewValuation}
-            />
+            <Suspense fallback={<ContentLoader lines={15} />}>
+              <ValuationReport
+                valuation={valuationResult}
+                propertyData={submittedData}
+                locationIntelligence={locationIntelligence}
+                onBack={handleBackToForm}
+                onNewValuation={handleNewValuation}
+              />
+            </Suspense>
           )}
 
           {/* Error State */}

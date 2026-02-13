@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { Logo } from "@/components/ui/logo";
 import {
   Sidebar,
   SidebarContent,
@@ -66,13 +67,7 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
               <Link to="/">
-                <div className="flex items-center justify-center size-8 rounded-lg bg-brand text-brand-foreground font-bold text-sm">
-                  B
-                </div>
-                <div className="flex flex-col gap-0.5 leading-none">
-                  <span className="font-semibold">Borbann</span>
-                  <span className="text-xs text-muted-foreground">Site Selection</span>
-                </div>
+                <Logo size="sm" showText />
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

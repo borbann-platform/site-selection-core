@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useRef } from "react";
 import {
   PathLayer,
   IconLayer,
@@ -55,6 +55,15 @@ export function useMapLayers({
   bboxCorners,
   h3Metric,
 }: UseMapLayersParams) {
+  // Keep a ref for the current viewState so layers can read the latest zoom
+  // without triggering a rebuild on every pan/zoom frame.
+  const viewStateRef = useRef(viewState);
+  viewStateRef.current = viewState;
+
+  // Derived zoom tier – only changes when crossing the threshold,
+  // so useMemo below won't re-run on every fractional zoom change.
+  const zoomTier = viewState.zoom < 13 ? "low" : "high";
+
   // Generate icon atlas for POIs
   const iconAtlasData = useMemo(() => generateIconAtlas(), []);
   const iconAtlas = useMemo(
@@ -69,7 +78,7 @@ export function useMapLayers({
     const layerList = [];
 
     // Primary: House Prices Layer (always shown when data available)
-    if (housePrices && viewState.zoom < 13) {
+    if (housePrices && zoomTier === "low") {
       layerList.push(
         new IconLayer({
           id: "house-prices-icon",
@@ -105,7 +114,7 @@ export function useMapLayers({
     }
 
     // MVT tiles for high zoom
-    if (viewState.zoom >= 13) {
+    if (zoomTier === "high") {
       const mvtParams = new URLSearchParams();
       if (propertyFilters.district)
         mvtParams.set("amphur", propertyFilters.district);
@@ -396,7 +405,7 @@ export function useMapLayers({
     transitLines,
     h3Data,
     overlays,
-    viewState.zoom,
+    zoomTier,
     propertyFilters,
     iconAtlas,
     chatAttachments,

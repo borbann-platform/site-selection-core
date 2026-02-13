@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsPage,
@@ -84,17 +85,12 @@ function SettingsPage() {
   return (
     <div className="h-full w-full bg-background text-foreground overflow-y-auto custom-scrollbar">
         <div className="max-w-4xl mx-auto py-12 px-6">
-          <div className="flex items-center gap-4 mb-8">
-            <div className="p-3 bg-muted rounded-xl">
-              <SettingsIcon size={32} className="text-brand" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold">Settings</h1>
-              <p className="text-muted-foreground">
-                Manage your preferences and account
-              </p>
-            </div>
-          </div>
+          <PageHeader
+            icon={SettingsIcon}
+            title="Settings"
+            subtitle="Manage your preferences and account"
+            className="mb-8"
+          />
 
           <div className="grid gap-8">
             {/* Profile & Account */}

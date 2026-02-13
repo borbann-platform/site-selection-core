@@ -179,12 +179,17 @@ export function usePropertyExplorer(districtFromUrl?: string) {
     enabled: overlays.transitRail,
   });
 
+  // Derive the H3 resolution from the current zoom level so that the query
+  // key only changes when we actually need a different resolution (not on
+  // every fractional zoom change).
+  const h3Resolution = viewState.zoom < 12 ? 7 : viewState.zoom < 14 ? 9 : 11;
+
   const { data: h3Data } = useQuery({
-    queryKey: ["h3Hexagons", h3Metric, viewState.zoom],
+    queryKey: ["h3Hexagons", h3Metric, h3Resolution],
     queryFn: () =>
       api.getH3Hexagons({
         metric: h3Metric,
-        resolution: viewState.zoom < 12 ? 7 : viewState.zoom < 14 ? 9 : 11,
+        resolution: h3Resolution,
       }),
     enabled: overlays.h3Hexagons,
     staleTime: 1000 * 60 * 5,

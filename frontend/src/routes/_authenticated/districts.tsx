@@ -18,11 +18,14 @@ import {
   TrendingUp,
   Home,
   Search,
+  BarChart3,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ErrorState } from "@/components/ui/error-state";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { StatCard } from "@/components/ui/stat-card";
 
 export const Route = createFileRoute("/_authenticated/districts")({
   component: DistrictsPage,
@@ -111,37 +114,33 @@ function DistrictsPage() {
     <div className="flex h-full flex-col overflow-hidden bg-background text-foreground">
         {/* Header */}
         <div className="border-b border-border bg-background px-6 py-4">
-          <div className="flex items-center gap-3">
-            <Building2 className="h-6 w-6 text-brand" />
-            <div>
-              <h1 className="text-xl font-semibold">District Analytics</h1>
-              <p className="text-sm text-muted-foreground">
-                Property market statistics by Bangkok district
-              </p>
-            </div>
-          </div>
+          <PageHeader
+            icon={Building2}
+            title="District Analytics"
+            subtitle="Property market statistics by Bangkok district"
+          />
 
           {/* Summary Stats */}
           {stats && (
-            <div className="mt-4 flex gap-6">
-              <div className="flex items-center gap-2">
-                <Home className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">
-                  <span className="font-medium text-foreground">
-                    {stats.total_count.toLocaleString()}
-                  </span>{" "}
-                  properties
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">
-                  <span className="font-medium text-foreground">
-                    {stats.by_district.length}
-                  </span>{" "}
-                  districts
-                </span>
-              </div>
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <StatCard
+                icon={Home}
+                label="Total Properties"
+                value={stats.total_count.toLocaleString()}
+              />
+              <StatCard
+                icon={BarChart3}
+                label="Avg Price"
+                value={formatPrice(
+                  stats.by_district.reduce((sum, d) => sum + d.avg_price, 0) /
+                    stats.by_district.length
+                )}
+              />
+              <StatCard
+                icon={TrendingUp}
+                label="Total Districts"
+                value={stats.by_district.length}
+              />
             </div>
           )}
         </div>
