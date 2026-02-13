@@ -100,7 +100,7 @@ function DistrictsPage() {
         {/* Header */}
         <div className="border-b border-border bg-background px-6 py-4">
           <div className="flex items-center gap-3">
-            <Building2 className="h-6 w-6 text-emerald-400" />
+            <Building2 className="h-6 w-6 text-brand" />
             <div>
               <h1 className="text-xl font-semibold">District Analytics</h1>
               <p className="text-sm text-muted-foreground">
@@ -231,7 +231,7 @@ function DistrictsPage() {
                         <Link
                           to="/"
                           search={{ district: district.amphur }}
-                          className="font-medium text-emerald-400 hover:text-emerald-300 hover:underline"
+                          className="font-medium text-brand hover:text-brand hover:underline"
                         >
                           {district.amphur}
                         </Link>

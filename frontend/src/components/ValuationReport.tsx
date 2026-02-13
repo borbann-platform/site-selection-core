@@ -4,6 +4,7 @@
  */
 
 import { useState, useRef, useCallback } from "react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
   TrendingUp,
@@ -53,25 +54,25 @@ function formatPrice(price: number): string {
 function ConfidenceBadge({ level }: { level: "high" | "medium" | "low" }) {
   const config = {
     high: {
-      bg: "bg-emerald-500/20",
-      text: "text-emerald-400",
-      border: "border-emerald-500/30",
+      bg: "bg-brand/10",
+      text: "text-brand",
+      border: "border-brand/20",
       icon: CheckCircle2,
       label: "High Confidence",
       description: "Strong data support for this valuation",
     },
     medium: {
-      bg: "bg-amber-500/20",
-      text: "text-amber-400",
-      border: "border-amber-500/30",
+      bg: "bg-warning/20",
+      text: "text-warning",
+      border: "border-warning/30",
       icon: Info,
       label: "Medium Confidence",
       description: "Moderate data support; consider additional verification",
     },
     low: {
-      bg: "bg-rose-500/20",
-      text: "text-rose-400",
-      border: "border-rose-500/30",
+      bg: "bg-destructive/10",
+      text: "text-destructive",
+      border: "border-destructive/30",
       icon: AlertTriangle,
       label: "Low Confidence",
       description: "Limited data; valuation is an estimate only",
@@ -85,7 +86,7 @@ function ConfidenceBadge({ level }: { level: "high" | "medium" | "low" }) {
         <Icon size={18} className={text} />
         <span className={cn("font-semibold", text)}>{label}</span>
       </div>
-      <p className="text-xs text-white/60">{description}</p>
+      <p className="text-xs text-muted-foreground">{description}</p>
     </div>
   );
 }
@@ -106,11 +107,11 @@ function FactorBar({
   return (
     <div className="mb-3">
       <div className="flex justify-between text-sm mb-1">
-        <span className="text-white/80">{factor.display_name}</span>
+        <span className="text-muted-foreground">{factor.display_name}</span>
         <span
           className={cn(
             "font-mono",
-            isPositive ? "text-emerald-400" : "text-rose-400"
+            isPositive ? "text-success" : "text-destructive"
           )}
         >
           {isPositive ? "+" : ""}
@@ -118,17 +119,17 @@ function FactorBar({
         </span>
       </div>
       <div className="flex items-center gap-2">
-        <div className="flex-1 h-5 bg-white/5 rounded relative overflow-hidden">
+        <div className="flex-1 h-5 bg-muted/50 rounded relative overflow-hidden">
           <div
             className={cn(
               "absolute h-full rounded transition-all",
-              isPositive ? "bg-emerald-500/70" : "bg-rose-500/70"
+              isPositive ? "bg-success/70" : "bg-destructive/70"
             )}
             style={{ width: `${widthPercent}%` }}
           />
         </div>
       </div>
-      <p className="text-xs text-white/50 mt-1">{factor.description}</p>
+      <p className="text-xs text-muted-foreground mt-1">{factor.description}</p>
     </div>
   );
 }
@@ -139,23 +140,23 @@ function ComparableCard({
   comp: ValuationResponse["comparable_properties"][0];
 }) {
   return (
-    <div className="bg-white/5 rounded-lg p-3 border border-white/10">
+    <div className="bg-muted/50 rounded-lg p-3 border border-border">
       <div className="flex items-start justify-between mb-2">
         <div>
-          <p className="text-sm font-medium text-white">
+          <p className="text-sm font-medium text-foreground">
             {comp.building_style_desc}
           </p>
-          <p className="text-xs text-white/50">{Math.round(comp.distance_m)}m away</p>
+          <p className="text-xs text-muted-foreground">{Math.round(comp.distance_m)}m away</p>
         </div>
-        <p className="text-sm font-semibold text-emerald-400">
+        <p className="text-sm font-semibold text-brand">
           {formatPrice(comp.price)}
         </p>
       </div>
       <div className="flex items-center justify-between text-xs">
-        <span className="text-white/50">{comp.building_area} sqm</span>
+        <span className="text-muted-foreground">{comp.building_area} sqm</span>
         <div className="flex items-center gap-1">
-          <span className="text-white/50">Similarity:</span>
-          <span className="text-emerald-400 font-medium">
+          <span className="text-muted-foreground">Similarity:</span>
+          <span className="text-brand font-medium">
             {comp.similarity_score}%
           </span>
         </div>
@@ -184,16 +185,16 @@ function SectionHeader({
       disabled={!expandable}
       className={cn(
         "flex items-center gap-2 w-full text-left",
-        expandable && "cursor-pointer hover:text-white transition-colors"
+        expandable && "cursor-pointer hover:text-foreground transition-colors"
       )}
     >
-      <Icon size={16} className="text-emerald-400" />
-      <span className="font-semibold text-white text-sm flex-1">{title}</span>
+      <Icon size={16} className="text-brand" />
+      <span className="font-semibold text-foreground text-sm flex-1">{title}</span>
       {expandable &&
         (expanded ? (
-          <ChevronUp size={14} className="text-white/50" />
+          <ChevronUp size={14} className="text-muted-foreground" />
         ) : (
-          <ChevronDown size={14} className="text-white/50" />
+          <ChevronDown size={14} className="text-muted-foreground" />
         ))}
     </button>
   );
@@ -333,7 +334,7 @@ export function ValuationReport({
       console.error("PDF generation failed:", error);
       // More helpful error message
       const errorMsg = error instanceof Error ? error.message : "Unknown error";
-      alert(`Failed to generate PDF: ${errorMsg}. Try refreshing the page.`);
+      toast.error(`Failed to generate PDF: ${errorMsg}. Try refreshing the page.`);
     } finally {
       setIsDownloading(false);
     }
@@ -374,7 +375,7 @@ export function ValuationReport({
       setTimeout(() => setShareState("idle"), 2000);
     } catch (error) {
       console.error("Clipboard copy failed:", error);
-      alert("Failed to copy to clipboard.");
+      toast.error("Failed to copy to clipboard.");
     }
   }, [valuation, propertyData]);
 
@@ -385,7 +386,7 @@ export function ValuationReport({
         <Button
           variant="ghost"
           onClick={onBack}
-          className="text-white/70 hover:text-white hover:bg-white/10"
+          className="text-muted-foreground hover:text-foreground hover:bg-muted"
         >
           <ArrowLeft size={16} className="mr-2" />
           Back to Form
@@ -393,7 +394,7 @@ export function ValuationReport({
         <div className="flex gap-2">
           <Button
             variant="outline"
-            className="border-white/20 bg-white/5 text-white hover:bg-white/10"
+            className="border-border bg-muted/50 text-foreground hover:bg-muted"
             onClick={handleDownloadPDF}
             disabled={isDownloading}
           >
@@ -406,12 +407,12 @@ export function ValuationReport({
           </Button>
           <Button
             variant="outline"
-            className="border-white/20 bg-white/5 text-white hover:bg-white/10"
+            className="border-border bg-muted/50 text-foreground hover:bg-muted"
             onClick={handleShare}
           >
             {shareState === "copied" ? (
               <>
-                <Check size={14} className="mr-2 text-emerald-400" />
+                <Check size={14} className="mr-2 text-brand" />
                 Copied!
               </>
             ) : (
@@ -425,10 +426,10 @@ export function ValuationReport({
       </div>
 
       {/* Main Valuation Card */}
-      <div className="bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 border border-emerald-500/30 rounded-2xl p-6">
+      <div className="bg-gradient-to-br from-brand/20 to-brand/5 border border-brand/30 rounded-2xl p-6">
         <div className="flex items-center gap-2 mb-4">
-          <Sparkles size={20} className="text-emerald-400" />
-          <h2 className="text-lg font-semibold text-white">
+          <Sparkles size={20} className="text-brand" />
+          <h2 className="text-lg font-semibold text-foreground">
             AI Property Valuation
           </h2>
         </div>
@@ -436,11 +437,11 @@ export function ValuationReport({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Estimated Price */}
           <div>
-            <p className="text-sm text-white/60 mb-1">Estimated Value</p>
-            <p className="text-4xl font-bold text-emerald-400">
+            <p className="text-sm text-muted-foreground mb-1">Estimated Value</p>
+            <p className="text-4xl font-bold text-brand">
               {formatPrice(valuation.estimated_price)}
             </p>
-            <p className="text-sm text-white/50 mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               Range: {formatPrice(valuation.price_range.min)} -{" "}
               {formatPrice(valuation.price_range.max)}
             </p>
@@ -448,12 +449,12 @@ export function ValuationReport({
 
           {/* Price per sqm */}
           <div className="flex flex-col justify-center">
-            <div className="bg-black/30 rounded-lg p-4">
+            <div className="bg-card rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
-                <DollarSign size={16} className="text-white/50" />
-                <span className="text-sm text-white/70">Price per sqm</span>
+                <DollarSign size={16} className="text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Price per sqm</span>
               </div>
-              <p className="text-2xl font-bold text-white">
+              <p className="text-2xl font-bold text-foreground">
                 ฿{valuation.price_per_sqm.toLocaleString()}
               </p>
             </div>
@@ -466,29 +467,29 @@ export function ValuationReport({
             className={cn(
               "mt-4 p-4 rounded-lg border",
               askingPriceDiff <= 0
-                ? "bg-emerald-500/10 border-emerald-500/30"
+                ? "bg-success/10 border-success/30"
                 : askingPriceDiff <= 10
-                  ? "bg-amber-500/10 border-amber-500/30"
-                  : "bg-rose-500/10 border-rose-500/30"
+                  ? "bg-warning/10 border-warning/30"
+                  : "bg-destructive/10 border-destructive/30"
             )}
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-white/70">Your Asking Price</p>
-                <p className="text-xl font-bold text-white">
+                <p className="text-sm text-muted-foreground">Your Asking Price</p>
+                <p className="text-xl font-bold text-foreground">
                   {formatPrice(propertyData.asking_price)}
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-sm text-white/70">vs. Our Estimate</p>
+                <p className="text-sm text-muted-foreground">vs. Our Estimate</p>
                 <p
                   className={cn(
                     "text-xl font-bold",
                     askingPriceDiff <= 0
-                      ? "text-emerald-400"
+                      ? "text-success"
                       : askingPriceDiff <= 10
-                        ? "text-amber-400"
-                        : "text-rose-400"
+                        ? "text-warning"
+                        : "text-destructive"
                   )}
                 >
                   {askingPriceDiff > 0 ? "+" : ""}
@@ -496,7 +497,7 @@ export function ValuationReport({
                 </p>
               </div>
             </div>
-            <p className="text-xs text-white/50 mt-2">
+            <p className="text-xs text-muted-foreground mt-2">
               {askingPriceDiff <= 0
                 ? "Your asking price is at or below our estimate - good value for buyers!"
                 : askingPriceDiff <= 10
@@ -511,7 +512,7 @@ export function ValuationReport({
       <ConfidenceBadge level={valuation.confidence} />
 
       {/* Property Summary */}
-      <div className="bg-black/40 border border-white/10 rounded-lg p-6">
+      <div className="bg-card border border-border rounded-lg p-6">
         <SectionHeader icon={Building2} title="Property Summary" />
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
           <SummaryItem
@@ -550,7 +551,7 @@ export function ValuationReport({
       </div>
 
       {/* Price Factors */}
-      <div className="bg-black/40 border border-white/10 rounded-lg p-6">
+      <div className="bg-card border border-border rounded-lg p-6">
         <SectionHeader
           icon={Scale}
           title="How We Calculated This"
@@ -563,13 +564,13 @@ export function ValuationReport({
             {valuation.factors.map((factor) => (
               <FactorBar key={factor.name} factor={factor} maxImpact={maxImpact} />
             ))}
-            <div className="flex gap-4 text-xs text-white/40 mt-3 pt-3 border-t border-white/10">
+            <div className="flex gap-4 text-xs text-muted-foreground mt-3 pt-3 border-t border-border">
               <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded bg-emerald-500/70" />
+                <div className="w-3 h-3 rounded bg-success/70" />
                 <span>Increases value</span>
               </div>
               <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded bg-rose-500/70" />
+                <div className="w-3 h-3 rounded bg-destructive/70" />
                 <span>Decreases value</span>
               </div>
             </div>
@@ -579,7 +580,7 @@ export function ValuationReport({
 
       {/* Comparable Properties */}
       {valuation.comparable_properties.length > 0 && (
-        <div className="bg-black/40 border border-white/10 rounded-lg p-6">
+        <div className="bg-card border border-border rounded-lg p-6">
           <SectionHeader
             icon={Home}
             title={`Similar Properties (${valuation.comparable_properties.length})`}
@@ -598,7 +599,7 @@ export function ValuationReport({
       )}
 
       {/* Market Insights */}
-      <div className="bg-black/40 border border-white/10 rounded-lg p-6">
+      <div className="bg-card border border-border rounded-lg p-6">
         <SectionHeader
           icon={TrendingUp}
           title="Market Insights"
@@ -608,44 +609,44 @@ export function ValuationReport({
         />
         {showInsights && (
           <div className="mt-4 grid grid-cols-3 gap-4">
-            <div className="bg-white/5 rounded-lg p-4 text-center">
+            <div className="bg-muted/50 rounded-lg p-4 text-center">
               <BarChart3
                 size={20}
-                className="text-emerald-400 mx-auto mb-2"
+                className="text-brand mx-auto mb-2"
               />
-              <p className="text-xs text-white/50 mb-1">District Avg.</p>
-              <p className="text-lg font-bold text-white">
+              <p className="text-xs text-muted-foreground mb-1">District Avg.</p>
+              <p className="text-lg font-bold text-foreground">
                 {formatPrice(valuation.market_insights.district_avg_price)}
               </p>
             </div>
-            <div className="bg-white/5 rounded-lg p-4 text-center">
+            <div className="bg-muted/50 rounded-lg p-4 text-center">
               {valuation.market_insights.district_price_trend >= 0 ? (
                 <TrendingUp
                   size={20}
-                  className="text-emerald-400 mx-auto mb-2"
+                  className="text-success mx-auto mb-2"
                 />
               ) : (
                 <TrendingDown
                   size={20}
-                  className="text-rose-400 mx-auto mb-2"
+                  className="text-destructive mx-auto mb-2"
                 />
               )}
-              <p className="text-xs text-white/50 mb-1">Price Trend</p>
+              <p className="text-xs text-muted-foreground mb-1">Price Trend</p>
               <p
                 className={cn(
                   "text-lg font-bold",
                   valuation.market_insights.district_price_trend >= 0
-                    ? "text-emerald-400"
-                    : "text-rose-400"
+                    ? "text-success"
+                    : "text-destructive"
                 )}
               >
                 +{valuation.market_insights.district_price_trend.toFixed(1)}%
               </p>
             </div>
-            <div className="bg-white/5 rounded-lg p-4 text-center">
-              <Calendar size={20} className="text-white/50 mx-auto mb-2" />
-              <p className="text-xs text-white/50 mb-1">Avg. Days Listed</p>
-              <p className="text-lg font-bold text-white">
+            <div className="bg-muted/50 rounded-lg p-4 text-center">
+              <Calendar size={20} className="text-muted-foreground mx-auto mb-2" />
+              <p className="text-xs text-muted-foreground mb-1">Avg. Days Listed</p>
+              <p className="text-lg font-bold text-foreground">
                 {valuation.market_insights.days_on_market_avg}
               </p>
             </div>
@@ -655,7 +656,7 @@ export function ValuationReport({
 
       {/* Location Intelligence */}
       {locationIntelligence && (
-        <div className="bg-black/40 border border-white/10 rounded-lg p-6">
+        <div className="bg-card border border-border rounded-lg p-6">
           <LocationIntelligencePanel
             data={locationIntelligence}
             isLoading={false}
@@ -664,35 +665,35 @@ export function ValuationReport({
       )}
 
       {/* Call to Actions */}
-      <div className="bg-gradient-to-r from-emerald-500/10 to-blue-500/10 border border-white/10 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-white mb-4">
+      <div className="bg-gradient-to-r from-brand/10 to-blue-500/10 border border-border rounded-lg p-6">
+        <h3 className="text-lg font-semibold text-foreground mb-4">
           What's Next?
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-black/40 rounded-lg p-4 border border-white/10">
-            <h4 className="font-medium text-white mb-2">
+          <div className="bg-card rounded-lg p-4 border border-border">
+            <h4 className="font-medium text-foreground mb-2">
               Get Professional Appraisal
             </h4>
-            <p className="text-sm text-white/60 mb-3">
+            <p className="text-sm text-muted-foreground mb-3">
               Connect with certified appraisers for an official valuation
               report.
             </p>
             <Button
               variant="outline"
-              className="w-full border-white/20 bg-white/5 text-white hover:bg-white/10"
-              onClick={() => alert("Coming soon!")}
+              className="w-full border-border bg-muted/50 text-foreground hover:bg-muted"
+              onClick={() => toast.info("Coming soon!")}
             >
               Request Appraisal
             </Button>
           </div>
-          <div className="bg-black/40 rounded-lg p-4 border border-white/10">
-            <h4 className="font-medium text-white mb-2">List Your Property</h4>
-            <p className="text-sm text-white/60 mb-3">
+          <div className="bg-card rounded-lg p-4 border border-border">
+            <h4 className="font-medium text-foreground mb-2">List Your Property</h4>
+            <p className="text-sm text-muted-foreground mb-3">
               Ready to sell? List your property on our platform.
             </p>
             <Button
-              className="w-full bg-emerald-500 hover:bg-emerald-600 text-black"
-              onClick={() => alert("Coming soon!")}
+              className="w-full bg-brand hover:bg-brand/90 text-black"
+              onClick={() => toast.info("Coming soon!")}
             >
               List Property
             </Button>
@@ -705,7 +706,7 @@ export function ValuationReport({
         <Button
           variant="outline"
           onClick={onNewValuation}
-          className="border-white/20 bg-white/5 text-white hover:bg-white/10"
+          className="border-border bg-muted/50 text-foreground hover:bg-muted"
         >
           <Sparkles size={14} className="mr-2" />
           Get Another Valuation
@@ -725,12 +726,12 @@ function SummaryItem({
   value: string;
 }) {
   return (
-    <div className="bg-white/5 rounded-lg p-3">
+    <div className="bg-muted/50 rounded-lg p-3">
       <div className="flex items-center gap-2 mb-1">
-        <Icon size={12} className="text-white/50" />
-        <span className="text-xs text-white/50">{label}</span>
+        <Icon size={12} className="text-muted-foreground" />
+        <span className="text-xs text-muted-foreground">{label}</span>
       </div>
-      <p className="text-sm font-medium text-white">{value}</p>
+      <p className="text-sm font-medium text-foreground">{value}</p>
     </div>
   );
 }

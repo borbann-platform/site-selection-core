@@ -86,7 +86,7 @@ export function MarketStats({ filters }: MarketStatsProps) {
       {/* Summary Stats */}
       <div className="grid grid-cols-3 gap-2">
         <div className="bg-muted/50 rounded-lg p-3 text-center">
-          <Home className="w-4 h-4 mx-auto mb-1 text-emerald-500 dark:text-emerald-400" />
+          <Home className="w-4 h-4 mx-auto mb-1 text-brand" />
           <div className="text-lg font-bold text-foreground">
             {totalCount.toLocaleString()}
           </div>

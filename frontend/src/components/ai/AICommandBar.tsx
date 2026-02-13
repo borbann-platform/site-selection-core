@@ -83,8 +83,8 @@ export function AICommandBar({
       >
         {/* Selection Mode Indicator */}
         {selectionMode !== "none" && (
-          <div className="px-4 py-2 bg-emerald-500/10 border-b border-emerald-500/30 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs text-emerald-300">
+          <div className="px-4 py-2 bg-brand/10 border-b border-brand/30 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs text-brand">
               {selectionMode === "location" ? (
                 <>
                   <MapPin size={14} className="animate-pulse" />
@@ -124,7 +124,7 @@ export function AICommandBar({
               className={cn(
                 "p-2 rounded-lg transition-colors",
                 selectionMode === "location"
-                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                  ? "bg-brand/20 text-brand border border-brand/30"
                   : "bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground disabled:opacity-30"
               )}
               title="Pick point location"
@@ -138,7 +138,7 @@ export function AICommandBar({
               className={cn(
                 "p-2 rounded-lg transition-colors",
                 selectionMode === "bbox"
-                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                  ? "bg-brand/20 text-brand border border-brand/30"
                   : "bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground disabled:opacity-30"
               )}
               title="Draw area on map"
@@ -166,7 +166,7 @@ export function AICommandBar({
           <button
             type="submit"
             disabled={!input.trim() || isRunning || selectionMode !== "none"}
-            className="p-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            className="p-2 rounded-lg bg-brand hover:bg-brand/90 text-brand-foreground transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             title="Send message"
           >
             <Send size={18} />

@@ -272,7 +272,7 @@ function SiteInspector() {
               Site Inspector
             </div>
             <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
-              <MapPin className="text-emerald-400" />
+              <MapPin className="text-brand" />
               Site #{siteId === "new" ? "Draft" : siteId}
             </h2>
             <p className="text-muted-foreground text-sm mt-1">
@@ -292,13 +292,13 @@ function SiteInspector() {
 
       {/* Location Warning */}
       {analysis?.location_warning && (
-        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+        <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
           <div>
-            <h4 className="text-red-400 font-medium text-sm">
+            <h4 className="text-destructive font-medium text-sm">
               Accessibility Issue
             </h4>
-            <p className="text-red-400/80 text-xs mt-1">
+            <p className="text-destructive/80 text-xs mt-1">
               {analysis.location_warning}
             </p>
           </div>
@@ -434,7 +434,7 @@ function SiteInspector() {
             <h3 className="text-lg font-semibold text-foreground">
               Potential Score
             </h3>
-            <div className="text-3xl font-bold text-emerald-400">
+            <div className="text-3xl font-bold text-brand">
               {analysis?.site_score}/100
             </div>
           </div>
@@ -467,7 +467,7 @@ function SiteInspector() {
           </div>
 
           <div className="mt-4 text-sm text-muted-foreground bg-muted p-3 rounded border border-border">
-            <span className="text-emerald-400 font-bold">Why?</span> Boosted by
+            <span className="text-brand font-bold">Why?</span> Boosted by
             high student traffic, penalized by{" "}
             {analysis?.summary.competitors_count} nearby rivals.
           </div>
@@ -572,17 +572,17 @@ function RiskItem({
     <div className="flex items-center justify-between p-3 bg-muted/50 rounded border border-border">
       <span className="text-foreground/80 text-sm">{label}</span>
       {status === "safe" && (
-        <div className="flex items-center gap-1 text-emerald-400 text-xs font-bold">
+        <div className="flex items-center gap-1 text-success text-xs font-bold">
           <CheckCircle size={14} /> LOW RISK
         </div>
       )}
       {status === "warning" && (
-        <div className="flex items-center gap-1 text-yellow-400 text-xs font-bold">
+        <div className="flex items-center gap-1 text-warning text-xs font-bold">
           <AlertTriangle size={14} /> MEDIUM
         </div>
       )}
       {status === "danger" && (
-        <div className="flex items-center gap-1 text-red-400 text-xs font-bold">
+        <div className="flex items-center gap-1 text-destructive text-xs font-bold">
           <AlertTriangle size={14} /> HIGH RISK
         </div>
       )}

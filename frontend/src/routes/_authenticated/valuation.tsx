@@ -106,7 +106,7 @@ function ValuationPage() {
             </div>
 
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand to-brand/80 flex items-center justify-center">
                 <Sparkles size={24} className="text-white" />
               </div>
               <div>

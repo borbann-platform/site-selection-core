@@ -84,7 +84,7 @@ function SettingsPage() {
         <div className="max-w-4xl mx-auto py-12 px-6">
           <div className="flex items-center gap-4 mb-8">
             <div className="p-3 bg-muted rounded-xl">
-              <SettingsIcon size={32} className="text-emerald-400" />
+              <SettingsIcon size={32} className="text-brand" />
             </div>
             <div>
               <h1 className="text-3xl font-bold">Settings</h1>
@@ -200,7 +200,7 @@ function SettingsPage() {
                       Email me when large reports are done
                     </div>
                   </div>
-                  <div className="w-10 h-6 bg-emerald-500 rounded-full relative cursor-pointer">
+                  <div className="w-10 h-6 bg-brand rounded-full relative cursor-pointer">
                     <div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full shadow-sm" />
                   </div>
                 </div>
@@ -243,7 +243,7 @@ function SettingsPage() {
                 <div
                   className={`flex items-center gap-2 p-3 rounded-lg ${
                     lastAction.type === "success"
-                      ? "bg-emerald-500/20 text-emerald-400"
+                      ? "bg-brand/20 text-brand"
                       : "bg-red-500/20 text-red-400"
                   }`}
                 >
@@ -266,7 +266,7 @@ function SettingsPage() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-lg font-mono text-emerald-400">
+                    <div className="text-lg font-mono text-brand">
                       {cacheStatus?.tile_cache_size ?? "—"}
                     </div>
                     <div className="text-xs text-muted-foreground">tiles cached</div>

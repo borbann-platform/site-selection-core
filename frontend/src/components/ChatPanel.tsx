@@ -134,13 +134,13 @@ export function ChatPanel({
   return (
     <div className={cn("flex flex-col h-full", className)}>
       {/* Header */}
-      <div className="flex items-center gap-2 p-3 border-b border-white/10">
-        <div className="w-8 h-8 bg-emerald-500/20 rounded-lg flex items-center justify-center">
-          <Bot size={18} className="text-emerald-400" />
+      <div className="flex items-center gap-2 p-3 border-b border-border">
+        <div className="w-8 h-8 bg-brand/20 rounded-lg flex items-center justify-center">
+          <Bot size={18} className="text-brand" />
         </div>
         <div>
-          <h3 className="text-sm font-medium text-white">AI Assistant</h3>
-          <p className="text-[10px] text-white/50">Real Estate Expert</p>
+          <h3 className="text-sm font-medium text-foreground">AI Assistant</h3>
+          <p className="text-[10px] text-muted-foreground">Real Estate Expert</p>
         </div>
       </div>
 
@@ -157,25 +157,25 @@ export function ChatPanel({
             <div
               className={cn(
                 "w-6 h-6 rounded-full flex items-center justify-center shrink-0",
-                message.role === "user" ? "bg-blue-500/20" : "bg-emerald-500/20"
+                message.role === "user" ? "bg-ai-accent/20" : "bg-brand/20"
               )}
             >
               {message.role === "user" ? (
                 <User size={12} className="text-blue-400" />
               ) : (
-                <Bot size={12} className="text-emerald-400" />
+                <Bot size={12} className="text-brand" />
               )}
             </div>
             <div
               className={cn(
                 "max-w-[85%] rounded-xl px-3 py-2 text-sm",
                 message.role === "user"
-                  ? "bg-blue-500/20 text-white"
-                  : "bg-white/5 text-white/90"
+                  ? "bg-ai-accent/20 text-foreground"
+                  : "bg-muted/50 text-foreground/90"
               )}
             >
               {message.content || (
-                <span className="flex items-center gap-1 text-white/50">
+                <span className="flex items-center gap-1 text-muted-foreground">
                   <Loader2 size={12} className="animate-spin" />
                   Thinking...
                 </span>
@@ -187,20 +187,20 @@ export function ChatPanel({
       </div>
 
       {/* Input */}
-      <form onSubmit={handleSubmit} className="p-3 border-t border-white/10">
+      <form onSubmit={handleSubmit} className="p-3 border-t border-border">
         {/* Attachments */}
         {attachments.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-2">
             {attachments.map((att) => (
               <div
                 key={att.id}
-                className="flex items-center gap-1 bg-white/10 rounded-full px-2 py-1 text-xs text-white/80"
+                className="flex items-center gap-1 bg-muted/50 rounded-full px-2 py-1 text-xs text-foreground/80"
               >
                 <span className="truncate max-w-36">{att.label}</span>
                 <button
                   type="button"
                   onClick={() => onRemoveAttachment?.(att.id)}
-                  className="hover:text-white"
+                  className="hover:text-foreground"
                 >
                   <X size={12} />
                 </button>
@@ -213,7 +213,7 @@ export function ChatPanel({
           <button
             type="button"
             onClick={onPickLocation}
-            className="p-2 bg-white/5 hover:bg-white/10 rounded-lg text-white/70 transition-colors"
+            className="p-2 bg-muted/50 hover:bg-muted rounded-lg text-muted-foreground transition-colors"
             title="Pick location on map"
           >
             <MapPin size={18} />
@@ -225,17 +225,17 @@ export function ChatPanel({
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask about prices, areas, predictions..."
             disabled={isStreaming}
-            className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-emerald-500/50 disabled:opacity-50"
+            className="flex-1 bg-muted/50 border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-brand/50 disabled:opacity-50"
           />
           <button
             type="submit"
             disabled={
               (!input.trim() && attachments.length === 0) || isStreaming
             }
-            className="p-2 bg-emerald-500 hover:bg-emerald-600 disabled:bg-white/10 disabled:text-white/30 rounded-lg text-black transition-colors"
+            className="p-2 bg-brand hover:bg-brand/90 disabled:bg-muted disabled:text-muted-foreground rounded-lg text-brand-foreground transition-colors"
           >
             {isStreaming ? (
-              <Loader2 size={18} className="animate-spin text-white/50" />
+              <Loader2 size={18} className="animate-spin text-muted-foreground" />
             ) : (
               <Send size={18} />
             )}

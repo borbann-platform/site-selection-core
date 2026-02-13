@@ -754,7 +754,7 @@ function PropertyExplorer() {
             <div>District:</div><div class="text-right font-medium">${data.amphur || "N/A"}</div>
             <div>Sub-district:</div><div class="text-right font-medium">${data.tumbon || "N/A"}</div>
             <div>Area:</div><div class="text-right font-medium">${data.building_area ? `${data.building_area} sqm` : "N/A"}</div>
-            <div>Price/sqm:</div><div class="text-right font-medium text-emerald-400">${pricePerSqm}</div>
+            <div>Price/sqm:</div><div class="text-right font-medium text-brand">${pricePerSqm}</div>
             <div>Floors:</div><div class="text-right font-medium">${data.no_of_floor || "N/A"}</div>
             <div>Age:</div><div class="text-right font-medium">${data.building_age ? `${data.building_age} yrs` : "N/A"}</div>
           </div>
@@ -1072,7 +1072,7 @@ function PropertyExplorer() {
               <LayerToggle
                 label="Transit Lines (BTS/MRT)"
                 active={overlays.transitRail}
-                color="bg-emerald-500"
+                color="bg-brand"
                 icon={<Train className="w-4 h-4" />}
                 onClick={() =>
                   setOverlays((o) => ({ ...o, transitRail: !o.transitRail }))
@@ -1208,8 +1208,8 @@ function PropertyExplorer() {
                 className={cn(
                   "absolute top-24 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full font-bold shadow-2xl backdrop-blur-md border-2 animate-bounce-slight transition-colors",
                   selectionMode === "location"
-                    ? "bg-emerald-600 border-emerald-400 text-white shadow-emerald-500/30"
-                    : "bg-cyan-600 border-cyan-400 text-white shadow-cyan-500/30"
+                    ? "bg-brand border-brand/70 text-brand-foreground shadow-brand/30"
+                    : "bg-ai-accent border-ai-accent/70 text-ai-accent-foreground shadow-ai-accent/30"
                 )}
               >
                 <div className="flex items-center gap-2">

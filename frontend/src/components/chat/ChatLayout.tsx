@@ -86,7 +86,7 @@ export function ChatLayout({ sessionId }: ChatLayoutProps) {
         {/* Sidebar Header */}
         <div className="flex items-center justify-between p-3 border-b border-border">
           <div className="flex items-center gap-2">
-            <MessageSquare className="w-5 h-5 text-emerald-500" />
+            <MessageSquare className="w-5 h-5 text-brand" />
             <span className="font-semibold text-sm">Chats</span>
           </div>
           <div className="flex items-center gap-1">

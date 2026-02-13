@@ -68,8 +68,8 @@ export function ChatArea() {
   if (!currentSessionId) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-        <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mb-4">
-          <Sparkles className="w-8 h-8 text-emerald-500" />
+        <div className="w-16 h-16 rounded-full bg-brand/10 flex items-center justify-center mb-4">
+          <Sparkles className="w-8 h-8 text-brand" />
         </div>
         <h2 className="text-xl font-semibold mb-2">Welcome to Bangkok Real Estate AI</h2>
         <p className="text-muted-foreground max-w-md mb-6">
@@ -127,7 +127,7 @@ export function ChatArea() {
       {/* Input Area */}
       <div className="border-t border-border p-4">
         <div className="max-w-3xl mx-auto">
-          <div className="relative flex items-end bg-muted rounded-2xl border border-border focus-within:ring-2 focus-within:ring-emerald-500/50">
+          <div className="relative flex items-end bg-muted rounded-2xl border border-border focus-within:ring-2 focus-within:ring-brand/50">
             <textarea
               ref={inputRef}
               value={input}
@@ -146,7 +146,7 @@ export function ChatArea() {
               className={cn(
                 "p-2 m-1.5 rounded-xl transition-colors",
                 input.trim() && !isStreaming
-                  ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                  ? "bg-brand text-brand-foreground hover:bg-brand/90"
                   : "bg-muted-foreground/20 text-muted-foreground cursor-not-allowed"
               )}
             >
@@ -171,10 +171,10 @@ function MessageBubble({ message }: { message: LocalMessage }) {
   if (message.role === "user") {
     return (
       <div className="flex gap-3 justify-end">
-        <div className="max-w-[85%] rounded-2xl px-4 py-2.5 bg-emerald-600 text-white">
+        <div className="max-w-[85%] rounded-2xl px-4 py-2.5 bg-brand text-brand-foreground">
           <p className="text-sm whitespace-pre-wrap">{message.content}</p>
         </div>
-        <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center flex-shrink-0">
+        <div className="w-8 h-8 rounded-full bg-brand flex items-center justify-center flex-shrink-0">
           <User className="w-4 h-4 text-white" />
         </div>
       </div>
@@ -193,8 +193,8 @@ function AssistantMessage({ message }: { message: LocalMessage }) {
 
   return (
     <div className="flex gap-3">
-      <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
-        <Bot className="w-4 h-4 text-emerald-400" />
+      <div className="w-8 h-8 rounded-full bg-brand/20 flex items-center justify-center flex-shrink-0">
+        <Bot className="w-4 h-4 text-brand" />
       </div>
       <div className="flex-1 space-y-2 min-w-0 max-w-[85%]">
         {/* Thinking indicator */}

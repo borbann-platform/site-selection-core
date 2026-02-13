@@ -111,7 +111,7 @@ export function PropertyFilters({ filters, onChange }: PropertyFiltersProps) {
       <div className="space-y-3">
         <div className="flex justify-between items-center">
           <Label className="text-xs text-muted-foreground">Price Range (THB)</Label>
-          <span className="text-xs text-emerald-500 dark:text-emerald-400 font-mono">
+          <span className="text-xs text-brand font-mono">
             {formatPrice(filters.minPrice)} - {formatPrice(filters.maxPrice)}
           </span>
         </div>
@@ -123,7 +123,7 @@ export function PropertyFilters({ filters, onChange }: PropertyFiltersProps) {
           onValueChange={([min, max]) =>
             onChange({ ...filters, minPrice: min, maxPrice: max })
           }
-          className="**:[[role=slider]]:bg-emerald-500"
+          className="**:[[role=slider]]:bg-brand"
         />
         <div className="flex justify-between text-[10px] text-muted-foreground/70">
           <span>500K</span>
@@ -135,7 +135,7 @@ export function PropertyFilters({ filters, onChange }: PropertyFiltersProps) {
       <div className="space-y-3">
         <div className="flex justify-between items-center">
           <Label className="text-xs text-muted-foreground">Building Area (sqm)</Label>
-          <span className="text-xs text-emerald-500 dark:text-emerald-400 font-mono">
+          <span className="text-xs text-brand font-mono">
             {filters.minArea} - {filters.maxArea} sqm
           </span>
         </div>
@@ -147,7 +147,7 @@ export function PropertyFilters({ filters, onChange }: PropertyFiltersProps) {
           onValueChange={([min, max]) =>
             onChange({ ...filters, minArea: min, maxArea: max })
           }
-          className="**:[[role=slider]]:bg-emerald-500"
+          className="**:[[role=slider]]:bg-brand"
         />
         <div className="flex justify-between text-[10px] text-muted-foreground/70">
           <span>20 sqm</span>

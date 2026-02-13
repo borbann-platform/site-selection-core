@@ -18,17 +18,17 @@ interface LocationScoreCardProps {
 }
 
 const getScoreColor = (score: number): string => {
-  if (score >= 80) return "text-emerald-400";
-  if (score >= 60) return "text-yellow-400";
-  if (score >= 40) return "text-orange-400";
-  return "text-rose-400";
+  if (score >= 80) return "text-success";
+  if (score >= 60) return "text-warning";
+  if (score >= 40) return "text-orange-500";
+  return "text-destructive";
 };
 
 const getScoreBg = (score: number): string => {
-  if (score >= 80) return "bg-emerald-400/20";
-  if (score >= 60) return "bg-yellow-400/20";
-  if (score >= 40) return "bg-orange-400/20";
-  return "bg-rose-400/20";
+  if (score >= 80) return "bg-success/20";
+  if (score >= 60) return "bg-warning/20";
+  if (score >= 40) return "bg-orange-500/20";
+  return "bg-destructive/20";
 };
 
 export function LocationScoreCard({
@@ -41,12 +41,12 @@ export function LocationScoreCard({
   const bgClass = getScoreBg(score);
 
   return (
-    <div className="flex flex-col items-center gap-2 rounded-lg border border-white/10 bg-white/5 p-3">
+    <div className="flex flex-col items-center gap-2 rounded-lg border border-border bg-muted/50 p-3">
       <div className={`rounded-full p-2 ${bgClass}`}>{icon}</div>
       <div className={`text-2xl font-bold ${colorClass}`}>{score}</div>
-      <div className="text-xs font-medium text-white/70">{label}</div>
+      <div className="text-xs font-medium text-muted-foreground">{label}</div>
       {description && (
-        <div className="text-center text-xs text-white/50">{description}</div>
+        <div className="text-center text-xs text-muted-foreground">{description}</div>
       )}
     </div>
   );
@@ -59,24 +59,24 @@ interface RiskBadgeProps {
 
 export function RiskBadge({ level, label }: RiskBadgeProps) {
   const config = {
-    low: { bg: "bg-emerald-500/20", text: "text-emerald-400", icon: "✓" },
-    quiet: { bg: "bg-emerald-500/20", text: "text-emerald-400", icon: "✓" },
-    medium: { bg: "bg-yellow-500/20", text: "text-yellow-400", icon: "⚠" },
-    moderate: { bg: "bg-yellow-500/20", text: "text-yellow-400", icon: "~" },
-    high: { bg: "bg-rose-500/20", text: "text-rose-400", icon: "!" },
-    busy: { bg: "bg-orange-500/20", text: "text-orange-400", icon: "!" },
-    unknown: { bg: "bg-white/10", text: "text-white/50", icon: "?" },
+    low: { bg: "bg-success/20", text: "text-success", icon: "✓" },
+    quiet: { bg: "bg-success/20", text: "text-success", icon: "✓" },
+    medium: { bg: "bg-warning/20", text: "text-warning", icon: "⚠" },
+    moderate: { bg: "bg-warning/20", text: "text-warning", icon: "~" },
+    high: { bg: "bg-destructive/20", text: "text-destructive", icon: "!" },
+    busy: { bg: "bg-orange-500/20", text: "text-orange-500", icon: "!" },
+    unknown: { bg: "bg-muted", text: "text-muted-foreground", icon: "?" },
   };
 
   const { bg, text, icon } = config[level] || config.unknown;
 
   return (
     <div
-      className={`flex items-center gap-2 rounded-lg border border-white/10 ${bg} px-3 py-2`}
+      className={`flex items-center gap-2 rounded-lg border border-border ${bg} px-3 py-2`}
     >
       <span className={`text-sm ${text}`}>{icon}</span>
       <div className="flex flex-col">
-        <span className="text-xs text-white/50">{label}</span>
+        <span className="text-xs text-muted-foreground">{label}</span>
         <span className={`text-sm font-medium capitalize ${text}`}>
           {level}
         </span>
@@ -97,12 +97,12 @@ export function LocationIntelligencePanel({
   if (isLoading) {
     return (
       <div className="space-y-4 p-4">
-        <div className="h-6 w-48 animate-pulse rounded bg-white/10" />
+        <div className="h-6 w-48 animate-pulse rounded bg-muted" />
         <div className="grid grid-cols-3 gap-3">
           {[1, 2, 3].map((n) => (
             <div
               key={`score-skeleton-${n}`}
-              className="h-24 animate-pulse rounded-lg bg-white/10"
+              className="h-24 animate-pulse rounded-lg bg-muted"
             />
           ))}
         </div>
@@ -115,11 +115,11 @@ export function LocationIntelligencePanel({
       {/* Header with composite score */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <MapPin className="h-5 w-5 text-emerald-400" />
-          <h2 className="font-semibold text-white">Location Intelligence</h2>
+          <MapPin className="h-5 w-5 text-brand" />
+          <h2 className="font-semibold text-foreground">Location Intelligence</h2>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-sm text-white/50">Overall</span>
+          <span className="text-sm text-muted-foreground">Overall</span>
           <span
             className={`text-xl font-bold ${getScoreColor(data.composite_score)}`}
           >
@@ -164,14 +164,14 @@ export function LocationIntelligencePanel({
       </div>
 
       {/* Details */}
-      <div className="space-y-2 rounded-lg border border-white/10 bg-white/5 p-3">
-        <h3 className="text-sm font-medium text-white/70">Details</h3>
+      <div className="space-y-2 rounded-lg border border-border bg-muted/50 p-3">
+        <h3 className="text-sm font-medium text-muted-foreground">Details</h3>
 
         {/* Transit details */}
         {data.transit.nearest_rail && (
           <div className="flex items-center gap-2 text-sm">
-            <Train className="h-3 w-3 text-white/40" />
-            <span className="text-white/70">
+            <Train className="h-3 w-3 text-muted-foreground" />
+            <span className="text-muted-foreground">
               {data.transit.nearest_rail.name} -{" "}
               {Math.round(data.transit.nearest_rail.distance_m)}m
             </span>
@@ -180,8 +180,8 @@ export function LocationIntelligencePanel({
 
         {data.transit.bus_stops_500m > 0 && (
           <div className="flex items-center gap-2 text-sm">
-            <Bus className="h-3 w-3 text-white/40" />
-            <span className="text-white/70">
+            <Bus className="h-3 w-3 text-muted-foreground" />
+            <span className="text-muted-foreground">
               {data.transit.bus_stops_500m} bus stops within 500m
             </span>
           </div>
@@ -190,8 +190,8 @@ export function LocationIntelligencePanel({
         {/* Schools details */}
         {data.schools.total_within_2km > 0 && (
           <div className="flex items-center gap-2 text-sm">
-            <GraduationCap className="h-3 w-3 text-white/40" />
-            <span className="text-white/70">
+            <GraduationCap className="h-3 w-3 text-muted-foreground" />
+            <span className="text-muted-foreground">
               {data.schools.total_within_2km} schools within 2km
             </span>
           </div>
@@ -200,8 +200,8 @@ export function LocationIntelligencePanel({
         {/* Walkability summary */}
         {data.walkability.total_amenities > 0 && (
           <div className="flex items-center gap-2 text-sm">
-            <Footprints className="h-3 w-3 text-white/40" />
-            <span className="text-white/70">
+            <Footprints className="h-3 w-3 text-muted-foreground" />
+            <span className="text-muted-foreground">
               {data.walkability.total_amenities} amenities nearby
             </span>
           </div>
@@ -210,8 +210,8 @@ export function LocationIntelligencePanel({
         {/* Flood warning */}
         {data.flood_risk.district_warnings.length > 0 && (
           <div className="flex items-start gap-2 text-sm">
-            <Droplets className="mt-0.5 h-3 w-3 text-yellow-400" />
-            <span className="text-yellow-400/80">
+            <Droplets className="mt-0.5 h-3 w-3 text-warning" />
+            <span className="text-warning">
               {data.flood_risk.district_warnings.length} flood warning zones in
               district
             </span>
@@ -221,8 +221,8 @@ export function LocationIntelligencePanel({
         {/* Noise info */}
         {data.noise.nearest_major_road_m && (
           <div className="flex items-center gap-2 text-sm">
-            <Volume2 className="h-3 w-3 text-white/40" />
-            <span className="text-white/70">
+            <Volume2 className="h-3 w-3 text-muted-foreground" />
+            <span className="text-muted-foreground">
               Major road {Math.round(data.noise.nearest_major_road_m)}m away
             </span>
           </div>

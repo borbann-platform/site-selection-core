@@ -105,7 +105,7 @@ function PropertyDetailPage() {
       id: "current-property",
       data: [property],
       getPosition: (d) => [d.lon, d.lat],
-      // Emerald accent
+      // Brand accent (emerald)
       getFillColor: [16, 185, 129, 255],
       getRadius: 40,
       radiusMinPixels: 10,
@@ -185,8 +185,8 @@ function PropertyDetailPage() {
               {/* Header */}
               <div className="mb-6">
                 <div className="flex items-start gap-3">
-                  <div className="rounded-lg bg-emerald-500/15 p-2">
-                    <Home className="h-5 w-5 text-emerald-400" />
+                  <div className="rounded-lg bg-brand/15 p-2">
+                    <Home className="h-5 w-5 text-brand" />
                   </div>
                   <div>
                     <h1 className="text-lg font-semibold">
@@ -196,7 +196,7 @@ function PropertyDetailPage() {
                   </div>
                 </div>
                 <div className="mt-4">
-                  <p className="text-2xl font-bold text-emerald-400">
+                  <p className="text-2xl font-bold text-brand">
                     {formatPrice(property.total_price)}
                   </p>
                   {property.building_area && property.total_price && (
@@ -293,7 +293,7 @@ function PropertyDetailPage() {
                                 {Math.round(nearby.distance_m)}m away
                               </p>
                             </div>
-                            <p className="text-sm font-semibold text-emerald-300">
+                            <p className="text-sm font-semibold text-brand">
                               {formatPrice(nearby.total_price)}
                             </p>
                           </div>
