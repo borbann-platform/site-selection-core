@@ -38,7 +38,7 @@ export function OverlayControls({
   setOverlays,
 }: OverlayControlsProps) {
   return (
-    <div className="absolute top-6 right-4 z-40 flex items-center gap-1 bg-card/90 backdrop-blur-md border border-border rounded-full px-2 py-1 shadow-lg">
+    <div className="flex items-center gap-1">
       <ToggleButton
         active={overlays.transitRail}
         onClick={() =>

@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Target, SlidersHorizontal } from "lucide-react";
+import { useState } from "react";
+import { Target, SlidersHorizontal, Home, MapPin, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MapContainer } from "@/components/MapContainer";
 import { AICommandBar, AIExpandedPanel } from "@/components/ai";
@@ -10,7 +11,7 @@ import { usePropertyExplorer } from "@/hooks/usePropertyExplorer";
 import { useMapLayers } from "@/hooks/useMapLayers";
 import { ExplorerPanel } from "@/components/explorer/ExplorerPanel";
 import { OverlayControls } from "@/components/explorer/OverlayControls";
-import { PropertyCount } from "@/components/explorer/PropertyCount";
+import { FloatingPanel } from "@/components/ui/floating-panel";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 export const Route = createFileRoute("/_authenticated/")({
@@ -42,6 +43,20 @@ function PropertyExplorer() {
     h3Metric: explorer.h3Metric,
   });
 
+  // Track which floating panels are visible
+  const [panels, setPanels] = useState({
+    explorer: true,
+    overlays: true,
+    priceLegend: true,
+    mapLegend: true,
+  });
+
+  const togglePanel = (key: keyof typeof panels) =>
+    setPanels((p) => ({ ...p, [key]: !p[key] }));
+
+  // Count hidden panels for the restore bar
+  const hiddenPanels = Object.entries(panels).filter(([, v]) => !v);
+
   return (
     <>
       <div className="w-full h-full bg-background relative overflow-hidden">
@@ -55,19 +70,28 @@ function PropertyExplorer() {
           selectionMode={explorer.selectionMode}
         />
 
-        {/* Floating Panel -- desktop only */}
-        <div className="absolute left-4 top-4 bottom-4 w-80 z-40 bg-card/95 backdrop-blur-xl border border-border rounded-2xl shadow-xl overflow-auto hidden md:block p-4">
-          <ExplorerPanel
-            propertyFilters={explorer.propertyFilters}
-            setPropertyFilters={explorer.setPropertyFilters}
-            openSections={explorer.openSections}
-            setOpenSections={explorer.setOpenSections}
-            overlays={explorer.overlays}
-            setOverlays={explorer.setOverlays}
-            h3Metric={explorer.h3Metric}
-            setH3Metric={explorer.setH3Metric}
-          />
-        </div>
+        {/* Floating Explorer Panel -- desktop only */}
+        {panels.explorer && (
+          <FloatingPanel
+            title="Property Explorer"
+            icon={<Home className="h-3.5 w-3.5 text-brand" />}
+            defaultPosition={{ top: 16, left: 16 }}
+            className="hidden md:block w-80 max-h-[calc(100vh-120px)]"
+            contentClassName="p-4"
+            onClose={() => togglePanel("explorer")}
+          >
+            <ExplorerPanel
+              propertyFilters={explorer.propertyFilters}
+              setPropertyFilters={explorer.setPropertyFilters}
+              openSections={explorer.openSections}
+              setOpenSections={explorer.setOpenSections}
+              overlays={explorer.overlays}
+              setOverlays={explorer.setOverlays}
+              h3Metric={explorer.h3Metric}
+              setH3Metric={explorer.setH3Metric}
+            />
+          </FloatingPanel>
+        )}
 
         {/* Mobile filter sheet */}
         <div className="md:hidden absolute bottom-20 left-4 z-40">
@@ -78,7 +102,10 @@ function PropertyExplorer() {
                 Filters
               </button>
             </SheetTrigger>
-            <SheetContent side="bottom" className="h-[80vh] overflow-auto rounded-t-2xl">
+            <SheetContent
+              side="bottom"
+              className="h-[80vh] overflow-auto rounded-t-2xl"
+            >
               <ExplorerPanel
                 propertyFilters={explorer.propertyFilters}
                 setPropertyFilters={explorer.setPropertyFilters}
@@ -93,26 +120,91 @@ function PropertyExplorer() {
           </Sheet>
         </div>
 
-        {/* Floating Overlay Controls -- top-right */}
-        <OverlayControls
-          overlays={explorer.overlays}
-          setOverlays={explorer.setOverlays}
-        />
+        {/* Floating Overlay Controls */}
+        {panels.overlays && (
+          <FloatingPanel
+            title="Layers"
+            icon={<Layers className="h-3.5 w-3.5 text-muted-foreground" />}
+            defaultPosition={{ top: 16, right: 16 }}
+            collapsible={false}
+            className="hidden md:block"
+            contentClassName="px-2 py-1"
+            onClose={() => togglePanel("overlays")}
+          >
+            <OverlayControls
+              overlays={explorer.overlays}
+              setOverlays={explorer.setOverlays}
+            />
+          </FloatingPanel>
+        )}
 
         {/* Property Count Badge */}
-        <PropertyCount
-          totalCount={explorer.housePrices?.count || 0}
-          shownCount={explorer.housePrices?.items?.length || 0}
-        />
+        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-40 bg-card/90 backdrop-blur-md border border-border rounded-full px-4 py-2 shadow-lg">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Home className="w-3 h-3" />
+            <span>
+              {explorer.housePrices?.count || 0} properties |{" "}
+              {explorer.housePrices?.items?.length || 0} shown
+            </span>
+          </div>
+        </div>
 
-        {/* Price Legend */}
-        <PriceLegend
-          minPrice={explorer.propertyFilters.minPrice}
-          maxPrice={explorer.propertyFilters.maxPrice}
-        />
+        {/* Floating Price Legend */}
+        {panels.priceLegend && (
+          <FloatingPanel
+            title="Price Legend"
+            defaultPosition={{ bottom: 24, right: 24 }}
+            draggable
+            collapsible
+            closable
+            className="min-w-40"
+            contentClassName="p-3"
+            onClose={() => togglePanel("priceLegend")}
+          >
+            <PriceLegendContent
+              minPrice={explorer.propertyFilters.minPrice}
+              maxPrice={explorer.propertyFilters.maxPrice}
+            />
+          </FloatingPanel>
+        )}
 
-        {/* Map Legend */}
-        <MapLegend showHouses={true} showPOIs={explorer.overlays.pois} />
+        {/* Floating Map Legend */}
+        {panels.mapLegend && (
+          <FloatingPanel
+            title="Map Legend"
+            icon={<MapPin className="h-3.5 w-3.5 text-muted-foreground" />}
+            defaultPosition={{ bottom: 24, left: 16 }}
+            className="hidden md:block"
+            contentClassName="p-3"
+            onClose={() => togglePanel("mapLegend")}
+          >
+            <MapLegendContent
+              showHouses={true}
+              showPOIs={explorer.overlays.pois}
+            />
+          </FloatingPanel>
+        )}
+
+        {/* Restore hidden panels bar */}
+        {hiddenPanels.length > 0 && (
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 hidden md:flex items-center gap-1 bg-card/95 backdrop-blur-xl border border-border rounded-full px-2 py-1.5 shadow-lg">
+            <span className="text-[10px] text-muted-foreground px-1">Show:</span>
+            {hiddenPanels.map(([key]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => togglePanel(key as keyof typeof panels)}
+                className="px-2.5 py-1 text-[10px] font-medium text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted rounded-full transition-colors capitalize"
+              >
+                {key === "priceLegend"
+                  ? "Price"
+                  : key === "mapLegend"
+                    ? "Legend"
+                    : key}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Property Popup */}
         <PropertyPopup
@@ -198,5 +290,101 @@ function PropertyExplorer() {
         }}
       />
     </>
+  );
+}
+
+/* ------------------------------------------------
+   Inline content components (extracted from wrappers)
+   ------------------------------------------------ */
+
+function PriceLegendContent({
+  minPrice,
+  maxPrice,
+}: {
+  minPrice: number;
+  maxPrice: number;
+}) {
+  const fmt = (v: number) =>
+    v >= 1_000_000
+      ? `${(v / 1_000_000).toFixed(1)}M`
+      : `${(v / 1_000).toFixed(0)}K`;
+
+  return (
+    <div>
+      <div className="text-[10px] text-muted-foreground mb-2 font-medium">
+        Price (THB)
+      </div>
+      <div
+        className="h-3 rounded-full mb-1"
+        style={{
+          background:
+            "linear-gradient(to right, rgb(50, 200, 50), rgb(255, 200, 50), rgb(255, 50, 50))",
+        }}
+      />
+      <div className="flex justify-between text-[10px] text-muted-foreground">
+        <span>{fmt(minPrice)}</span>
+        <span>{fmt(maxPrice)}</span>
+      </div>
+    </div>
+  );
+}
+
+function MapLegendContent({
+  showHouses,
+  showPOIs,
+}: {
+  showHouses: boolean;
+  showPOIs: boolean;
+}) {
+  if (!showHouses && !showPOIs) return null;
+
+  const POI_TYPES = [
+    { color: "#8B5CF6", label: "School" },
+    { color: "#EAB308", label: "Transit" },
+    { color: "#22C55E", label: "Bus Stop" },
+    { color: "#1E3A8A", label: "Police" },
+    { color: "#9333EA", label: "Museum" },
+    { color: "#06B6D4", label: "Water" },
+    { color: "#F97316", label: "Gas" },
+    { color: "#EF4444", label: "Traffic" },
+    { color: "#EC4899", label: "Tourism" },
+  ];
+
+  return (
+    <div className="space-y-3">
+      {showHouses && (
+        <div className="space-y-1.5">
+          <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+            Property Prices
+          </div>
+          <div className="h-2 rounded-full bg-gradient-to-r from-green-500 via-yellow-500 to-red-500" />
+          <div className="flex justify-between text-[9px] text-muted-foreground">
+            <span>Low</span>
+            <span>High</span>
+          </div>
+        </div>
+      )}
+      {showPOIs && (
+        <div className="space-y-1.5">
+          <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+            Points of Interest
+          </div>
+          <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+            {POI_TYPES.map(({ color, label }) => (
+              <div
+                key={label}
+                className="flex items-center gap-1.5 text-[10px] text-foreground/80"
+              >
+                <div
+                  className="w-2.5 h-2.5 rounded-full"
+                  style={{ backgroundColor: color }}
+                />
+                <span className="truncate">{label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
