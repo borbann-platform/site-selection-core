@@ -21,7 +21,7 @@ function ToggleButton({ active, onClick, icon, label }: ToggleButtonProps) {
       onClick={onClick}
       title={label}
       className={cn(
-        "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
+        "flex items-center gap-1.5 px-2.5 py-1.5 min-h-[44px] min-w-[44px] justify-center rounded-lg text-xs font-medium transition-all",
         active
           ? "bg-foreground/10 text-foreground border border-border"
           : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"

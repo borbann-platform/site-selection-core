@@ -122,7 +122,7 @@ function DistrictsPage() {
 
           {/* Summary Stats */}
           {stats && (
-            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="mt-4 flex gap-4 overflow-x-auto pb-2 sm:grid sm:grid-cols-3 sm:overflow-x-visible sm:pb-0">
               <StatCard
                 icon={Home}
                 label="Total Properties"
@@ -172,8 +172,8 @@ function DistrictsPage() {
                 className="pl-9 max-w-sm"
               />
             </div>
-            <div className="rounded-lg border border-border bg-card">
-              <Table>
+            <div className="rounded-lg border border-border bg-card overflow-x-auto">
+              <Table className="min-w-[600px]">
                 <TableHeader>
                   <TableRow className="border-border">
                     <TableHead className="w-50 text-muted-foreground">

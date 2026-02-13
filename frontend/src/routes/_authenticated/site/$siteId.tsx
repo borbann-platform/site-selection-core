@@ -19,9 +19,11 @@ import {
   Eye,
   EyeOff,
   Download,
+  SlidersHorizontal,
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { Skeleton } from "../../../components/ui/skeleton";
+import { Sheet, SheetContent, SheetTrigger } from "../../../components/ui/sheet";
 
 interface SiteSearch {
   lat: number;
@@ -428,23 +430,38 @@ function SiteInspector() {
           getTooltip={getTooltip}
         />
 
-        {/* Floating Left Panel */}
+        {/* Floating Left Panel -- desktop only */}
         <div className="absolute left-4 top-4 bottom-4 w-80 z-40 bg-card/95 backdrop-blur-xl border border-border rounded-2xl shadow-xl overflow-auto p-6 hidden md:block">
           {PanelContent}
         </div>
 
+        {/* Mobile panel sheet */}
+        <div className="md:hidden absolute bottom-20 left-4 z-40">
+          <Sheet>
+            <SheetTrigger asChild>
+              <button className="flex items-center gap-2 bg-card/95 backdrop-blur-xl border border-border rounded-full px-4 py-2.5 shadow-lg text-sm font-medium text-foreground">
+                <SlidersHorizontal className="h-4 w-4" />
+                Site Details
+              </button>
+            </SheetTrigger>
+            <SheetContent side="bottom" className="h-[80vh] overflow-auto rounded-t-2xl">
+              {PanelContent}
+            </SheetContent>
+          </Sheet>
+        </div>
+
         {/* Floating Score Card (Always Visible) */}
-        <div className="absolute top-6 right-6 w-64 bg-card/90 backdrop-blur-xl border border-border rounded-2xl p-6 shadow-2xl z-50">
-          <div className="flex justify-between items-start mb-4">
-            <h3 className="text-lg font-semibold text-foreground">
+        <div className="absolute top-4 right-4 w-48 md:w-64 bg-card/90 backdrop-blur-xl border border-border rounded-2xl p-4 md:p-6 shadow-2xl z-50">
+          <div className="flex justify-between items-start mb-2 md:mb-4">
+            <h3 className="text-sm md:text-lg font-semibold text-foreground">
               Potential Score
             </h3>
-            <div className="text-3xl font-bold text-brand">
+            <div className="text-xl md:text-3xl font-bold text-brand">
               {analysis?.site_score}/100
             </div>
           </div>
 
-          <div className="h-32 w-full relative">
+          <div className="h-24 md:h-32 w-full relative">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -471,7 +488,7 @@ function SiteInspector() {
             </div>
           </div>
 
-          <div className="mt-4 text-sm text-muted-foreground bg-muted p-3 rounded border border-border">
+          <div className="mt-2 md:mt-4 text-xs md:text-sm text-muted-foreground bg-muted p-2 md:p-3 rounded border border-border">
             <span className="text-brand font-bold">Why?</span> Boosted by
             high student traffic, penalized by{" "}
             {analysis?.summary.competitors_count} nearby rivals.

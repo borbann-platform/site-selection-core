@@ -239,7 +239,7 @@ export function ExplorerPanel({
                 <select
                   value={h3Metric}
                   onChange={(e) => setH3Metric(e.target.value)}
-                  className="w-full px-2 py-1 text-xs bg-muted rounded text-foreground border border-border mt-1"
+                  className="w-full px-2 py-2 min-h-[44px] text-xs bg-muted rounded text-foreground border border-border mt-1"
                 >
                   <optgroup label="POI Counts">
                     <option value="poi_total">Total POIs</option>

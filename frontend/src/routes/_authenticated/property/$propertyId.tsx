@@ -158,9 +158,9 @@ function PropertyDetailPage() {
   }
 
   return (
-    <div className="flex h-full bg-background text-foreground">
+    <div className="flex h-full flex-col md:flex-row bg-background text-foreground">
         {/* Left Panel - Property Details */}
-        <div className="w-100 shrink-0 overflow-auto border-r border-border bg-background">
+        <div className="w-full md:w-100 md:shrink-0 overflow-auto border-b md:border-b-0 md:border-r border-border bg-background">
           {/* Back button */}
           <div className="border-b border-border p-4">
             <Link to="/" search={{ district: undefined }}>
@@ -348,7 +348,7 @@ function PropertyDetailPage() {
         </div>
 
         {/* Right Panel - Map */}
-        <div className="relative flex-1">
+        <div className="relative flex-1 h-64 md:h-auto">
           {initialViewState ? (
             <MapContainer
               viewState={viewState || initialViewState}

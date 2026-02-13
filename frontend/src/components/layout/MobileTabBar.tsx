@@ -26,7 +26,7 @@ export function MobileTabBar() {
   const location = useLocation();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/95 backdrop-blur-sm md:hidden safe-area-bottom">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/95 backdrop-blur-sm md:hidden pb-[env(safe-area-inset-bottom)]">
       <div className="flex items-center justify-around h-16 px-2">
         {TAB_ITEMS.map((item) => {
           const isActive =
@@ -39,7 +39,7 @@ export function MobileTabBar() {
               key={item.to}
               to={item.to}
               className={cn(
-                "flex flex-col items-center justify-center gap-1 flex-1 py-2 transition-colors relative",
+                "flex flex-col items-center justify-center gap-1 flex-1 min-h-[44px] min-w-[44px] py-2 transition-colors relative",
                 isActive
                   ? "text-brand"
                   : "text-muted-foreground"

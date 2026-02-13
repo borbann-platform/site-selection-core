@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Target } from "lucide-react";
+import { Target, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MapContainer } from "@/components/MapContainer";
 import { AICommandBar, AIExpandedPanel } from "@/components/ai";
@@ -11,6 +11,7 @@ import { useMapLayers } from "@/hooks/useMapLayers";
 import { ExplorerPanel } from "@/components/explorer/ExplorerPanel";
 import { OverlayControls } from "@/components/explorer/OverlayControls";
 import { PropertyCount } from "@/components/explorer/PropertyCount";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 export const Route = createFileRoute("/_authenticated/")({
   component: PropertyExplorer,
@@ -66,6 +67,30 @@ function PropertyExplorer() {
             h3Metric={explorer.h3Metric}
             setH3Metric={explorer.setH3Metric}
           />
+        </div>
+
+        {/* Mobile filter sheet */}
+        <div className="md:hidden absolute bottom-20 left-4 z-40">
+          <Sheet>
+            <SheetTrigger asChild>
+              <button className="flex items-center gap-2 bg-card/95 backdrop-blur-xl border border-border rounded-full px-4 py-2.5 shadow-lg text-sm font-medium text-foreground">
+                <SlidersHorizontal className="h-4 w-4" />
+                Filters
+              </button>
+            </SheetTrigger>
+            <SheetContent side="bottom" className="h-[80vh] overflow-auto rounded-t-2xl">
+              <ExplorerPanel
+                propertyFilters={explorer.propertyFilters}
+                setPropertyFilters={explorer.setPropertyFilters}
+                openSections={explorer.openSections}
+                setOpenSections={explorer.setOpenSections}
+                overlays={explorer.overlays}
+                setOverlays={explorer.setOverlays}
+                h3Metric={explorer.h3Metric}
+                setH3Metric={explorer.setH3Metric}
+              />
+            </SheetContent>
+          </Sheet>
         </div>
 
         {/* Floating Overlay Controls -- top-right */}
