@@ -26,8 +26,8 @@ export function AppShell({ children, hideTopBar = false }: AppShellProps) {
         {/* Top bar with breadcrumb */}
         {!hideTopBar && <TopBar />}
 
-        {/* Main content area */}
-        <main className="flex-1 overflow-auto">
+        {/* Main content area - pb-16 accounts for MobileTabBar height on mobile */}
+        <main className="flex-1 overflow-auto pb-16 md:pb-0">
           {children}
         </main>
       </SidebarInset>

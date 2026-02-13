@@ -75,7 +75,7 @@ export function ChatLayout({ sessionId }: ChatLayoutProps) {
   }, [handleNewSession, searchOpen, setSearchOpen, toggleSidebar]);
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex h-full bg-background">
       {/* Sidebar */}
       <div
         className={cn(
