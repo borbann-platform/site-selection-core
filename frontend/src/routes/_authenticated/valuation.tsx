@@ -12,6 +12,7 @@ import { ValuationReport } from "@/components/ValuationReport";
 import { api, type PropertyUploadRequest, type ValuationResponse } from "@/lib/api";
 import { Sparkles, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ErrorState } from "@/components/ui/error-state";
 
 export const Route = createFileRoute("/_authenticated/valuation")({
   component: ValuationPage,
@@ -143,13 +144,14 @@ function ValuationPage() {
 
           {/* Error State */}
           {valuationMutation.isError && (
-            <div className="max-w-2xl mx-auto mt-6 p-4 bg-rose-500/10 border border-rose-500/30 rounded-lg">
-              <p className="text-rose-400 text-sm">
-                Failed to get valuation. Please try again.
-              </p>
-              <p className="text-muted-foreground text-xs mt-1">
-                {(valuationMutation.error as Error)?.message}
-              </p>
+            <div className="max-w-2xl mx-auto mt-6">
+              <ErrorState
+                compact
+                message={`Failed to get valuation. ${(valuationMutation.error as Error)?.message || "Please try again."}`}
+                onRetry={() => {
+                  if (submittedData) valuationMutation.mutate(submittedData);
+                }}
+              />
             </div>
           )}
         </div>

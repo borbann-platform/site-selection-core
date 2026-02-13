@@ -225,9 +225,9 @@ function SiteInspector() {
     if (!object) return null;
     if (object.properties?.name) {
       return {
-        html: `<div class="p-2 bg-black/80 text-white rounded text-xs">
+        html: `<div class="p-2 bg-card/90 text-foreground rounded text-xs backdrop-blur">
           <div class="font-bold">${object.properties.name}</div>
-          <div class="text-white/60">${object.properties.amenity}</div>
+          <div class="text-muted-foreground">${object.properties.amenity}</div>
         </div>`,
       };
     }
@@ -342,8 +342,8 @@ function SiteInspector() {
                 )}
                 total={analysis?.summary.total_population || 1}
                 icon={User}
-                color="text-blue-400"
-                bg="bg-blue-400"
+                color="text-brand"
+                bg="bg-brand"
               />
               <DemographicRow
                 label="Workers"
@@ -352,8 +352,8 @@ function SiteInspector() {
                 )}
                 total={analysis?.summary.total_population || 1}
                 icon={Briefcase}
-                color="text-purple-400"
-                bg="bg-purple-400"
+                color="text-ai-accent"
+                bg="bg-ai-accent"
               />
               <DemographicRow
                 label="Students"
@@ -362,8 +362,8 @@ function SiteInspector() {
                 )}
                 total={analysis?.summary.total_population || 1}
                 icon={GraduationCap}
-                color="text-yellow-400"
-                bg="bg-yellow-400"
+                color="text-warning"
+                bg="bg-warning"
               />
             </>
           )}
@@ -428,6 +428,11 @@ function SiteInspector() {
           getTooltip={getTooltip}
         />
 
+        {/* Floating Left Panel */}
+        <div className="absolute left-4 top-4 bottom-4 w-80 z-40 bg-card/95 backdrop-blur-xl border border-border rounded-2xl shadow-xl overflow-auto p-6 hidden md:block">
+          {PanelContent}
+        </div>
+
         {/* Floating Score Card (Always Visible) */}
         <div className="absolute top-6 right-6 w-64 bg-card/90 backdrop-blur-xl border border-border rounded-2xl p-6 shadow-2xl z-50">
           <div className="flex justify-between items-start mb-4">
@@ -456,8 +461,8 @@ function SiteInspector() {
                   paddingAngle={0}
                   dataKey="value"
                 >
-                  <Cell fill="#34d399" />
-                  <Cell fill="#333" />
+                  <Cell fill="oklch(0.7 0.17 162)" />
+                  <Cell fill="oklch(0.3 0 0)" />
                 </Pie>
               </PieChart>
             </ResponsiveContainer>

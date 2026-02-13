@@ -8,13 +8,21 @@ import {
   RefreshCw,
   Trash2,
   Loader2,
-  CheckCircle,
-  XCircle,
   LogOut,
 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { api, type AdminCacheStatusResponse } from "../../lib/api";
 import { useAuth } from "../../contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsPage,
@@ -26,10 +34,8 @@ function SettingsPage() {
     useState<AdminCacheStatusResponse | null>(null);
   const [isRefreshingPOIs, setIsRefreshingPOIs] = useState(false);
   const [isClearingCache, setIsClearingCache] = useState(false);
-  const [lastAction, setLastAction] = useState<{
-    type: "success" | "error";
-    message: string;
-  } | null>(null);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [isochroneMode, setIsochroneMode] = useState<"walk" | "drive">("walk");
 
   // Fetch cache status on mount and after actions
   const fetchCacheStatus = useCallback(async () => {
@@ -47,16 +53,14 @@ function SettingsPage() {
 
   const handleRefreshPOIs = async () => {
     setIsRefreshingPOIs(true);
-    setLastAction(null);
     try {
       const result = await api.refreshPOIs();
-      setLastAction({ type: "success", message: result.message });
+      toast.success(result.message);
       fetchCacheStatus();
     } catch (e) {
-      setLastAction({
-        type: "error",
-        message: e instanceof Error ? e.message : "Failed to refresh POI data",
-      });
+      toast.error(
+        e instanceof Error ? e.message : "Failed to refresh POI data"
+      );
     } finally {
       setIsRefreshingPOIs(false);
     }
@@ -64,16 +68,14 @@ function SettingsPage() {
 
   const handleClearCache = async () => {
     setIsClearingCache(true);
-    setLastAction(null);
     try {
       const result = await api.clearTileCache();
-      setLastAction({ type: "success", message: result.message });
+      toast.success(result.message);
       fetchCacheStatus();
     } catch (e) {
-      setLastAction({
-        type: "error",
-        message: e instanceof Error ? e.message : "Failed to clear cache",
-      });
+      toast.error(
+        e instanceof Error ? e.message : "Failed to clear cache"
+      );
     } finally {
       setIsClearingCache(false);
     }
@@ -98,7 +100,7 @@ function SettingsPage() {
             {/* Profile & Account */}
             <section className="space-y-4">
               <h2 className="text-xl font-semibold flex items-center gap-2">
-                <User size={20} className="text-blue-400" />
+                <User size={20} className="text-brand" />
                 Profile & Account
               </h2>
               <div className="bg-card border border-border rounded-2xl overflow-hidden">
@@ -129,14 +131,14 @@ function SettingsPage() {
                       End your current session
                     </div>
                   </div>
-                  <button
-                    type="button"
+                  <Button
+                    variant="destructive"
+                    size="sm"
                     onClick={logout}
-                    className="flex items-center gap-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-sm font-medium transition-colors"
                   >
                     <LogOut size={16} />
                     Sign Out
-                  </button>
+                  </Button>
                 </div>
               </div>
             </section>
@@ -144,7 +146,7 @@ function SettingsPage() {
             {/* Data Preferences */}
             <section className="space-y-4">
               <h2 className="text-xl font-semibold flex items-center gap-2">
-                <Database size={20} className="text-purple-400" />
+                <Database size={20} className="text-ai-accent" />
                 Data & Analysis
               </h2>
               <div className="bg-card border border-border rounded-2xl overflow-hidden">
@@ -155,11 +157,16 @@ function SettingsPage() {
                       Base radius for site analysis
                     </div>
                   </div>
-                  <select className="bg-input border border-border rounded px-3 py-1 text-sm">
-                    <option>1 km</option>
-                    <option>2 km</option>
-                    <option>5 km</option>
-                  </select>
+                  <Select defaultValue="1">
+                    <SelectTrigger size="sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1 km</SelectItem>
+                      <SelectItem value="2">2 km</SelectItem>
+                      <SelectItem value="5">5 km</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="p-6 flex items-center justify-between">
                   <div>
@@ -168,19 +175,21 @@ function SettingsPage() {
                       Default travel mode for catchments
                     </div>
                   </div>
-                  <div className="flex bg-input rounded-lg p-1 border border-border">
-                    <button
-                      type="button"
-                      className="px-3 py-1 rounded bg-muted text-xs font-bold"
+                  <div className="flex gap-1">
+                    <Button
+                      variant={isochroneMode === "walk" ? "secondary" : "ghost"}
+                      size="sm"
+                      onClick={() => setIsochroneMode("walk")}
                     >
                       Walk
-                    </button>
-                    <button
-                      type="button"
-                      className="px-3 py-1 rounded text-muted-foreground text-xs font-bold hover:text-foreground"
+                    </Button>
+                    <Button
+                      variant={isochroneMode === "drive" ? "secondary" : "ghost"}
+                      size="sm"
+                      onClick={() => setIsochroneMode("drive")}
                     >
                       Drive
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -189,7 +198,7 @@ function SettingsPage() {
             {/* Notifications */}
             <section className="space-y-4">
               <h2 className="text-xl font-semibold flex items-center gap-2">
-                <Bell size={20} className="text-yellow-400" />
+                <Bell size={20} className="text-warning" />
                 Notifications
               </h2>
               <div className="bg-card border border-border rounded-2xl overflow-hidden">
@@ -200,9 +209,10 @@ function SettingsPage() {
                       Email me when large reports are done
                     </div>
                   </div>
-                  <div className="w-10 h-6 bg-brand rounded-full relative cursor-pointer">
-                    <div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full shadow-sm" />
-                  </div>
+                  <Switch
+                    checked={notificationsEnabled}
+                    onCheckedChange={setNotificationsEnabled}
+                  />
                 </div>
               </div>
             </section>
@@ -210,7 +220,7 @@ function SettingsPage() {
             {/* Security */}
             <section className="space-y-4">
               <h2 className="text-xl font-semibold flex items-center gap-2">
-                <Shield size={20} className="text-red-400" />
+                <Shield size={20} className="text-destructive" />
                 Security
               </h2>
               <div className="bg-card border border-border rounded-2xl overflow-hidden">
@@ -234,27 +244,9 @@ function SettingsPage() {
             {/* Data Management (Admin) */}
             <section className="space-y-4">
               <h2 className="text-xl font-semibold flex items-center gap-2">
-                <RefreshCw size={20} className="text-cyan-400" />
+                <RefreshCw size={20} className="text-brand" />
                 Data Management
               </h2>
-
-              {/* Status message */}
-              {lastAction && (
-                <div
-                  className={`flex items-center gap-2 p-3 rounded-lg ${
-                    lastAction.type === "success"
-                      ? "bg-brand/20 text-brand"
-                      : "bg-red-500/20 text-red-400"
-                  }`}
-                >
-                  {lastAction.type === "success" ? (
-                    <CheckCircle size={16} />
-                  ) : (
-                    <XCircle size={16} />
-                  )}
-                  <span className="text-sm">{lastAction.message}</span>
-                </div>
-              )}
 
               <div className="bg-card border border-border rounded-2xl overflow-hidden">
                 {/* Cache Status */}
@@ -281,11 +273,11 @@ function SettingsPage() {
                       Update materialized view from source tables
                     </div>
                   </div>
-                  <button
-                    type="button"
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={handleRefreshPOIs}
                     disabled={isRefreshingPOIs}
-                    className="flex items-center gap-2 px-4 py-2 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     {isRefreshingPOIs ? (
                       <Loader2 size={16} className="animate-spin" />
@@ -293,7 +285,7 @@ function SettingsPage() {
                       <RefreshCw size={16} />
                     )}
                     {isRefreshingPOIs ? "Refreshing..." : "Refresh POIs"}
-                  </button>
+                  </Button>
                 </div>
 
                 {/* Clear Tile Cache */}
@@ -304,11 +296,12 @@ function SettingsPage() {
                       Force fresh tile generation on next load
                     </div>
                   </div>
-                  <button
-                    type="button"
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={handleClearCache}
                     disabled={isClearingCache}
-                    className="flex items-center gap-2 px-4 py-2 bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="text-destructive"
                   >
                     {isClearingCache ? (
                       <Loader2 size={16} className="animate-spin" />
@@ -316,7 +309,7 @@ function SettingsPage() {
                       <Trash2 size={16} />
                     )}
                     {isClearingCache ? "Clearing..." : "Clear Cache"}
-                  </button>
+                  </Button>
                 </div>
               </div>
             </section>

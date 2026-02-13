@@ -17,9 +17,12 @@ import {
   Building2,
   TrendingUp,
   Home,
+  Search,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ErrorState } from "@/components/ui/error-state";
 
 export const Route = createFileRoute("/_authenticated/districts")({
   component: DistrictsPage,
@@ -59,6 +62,7 @@ const formatPricePerSqm = (price: number | null): string => {
 function DistrictsPage() {
   const [sortKey, setSortKey] = useState<SortKey>("count");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const {
     data: stats,
@@ -85,6 +89,14 @@ function DistrictsPage() {
         : (bVal as number) - (aVal as number);
     });
   }, [stats?.by_district, sortKey, sortOrder]);
+
+  const filteredDistricts = useMemo(() => {
+    if (!searchQuery.trim()) return sortedDistricts;
+    const query = searchQuery.trim().toLowerCase();
+    return sortedDistricts.filter((d) =>
+      d.amphur.toLowerCase().includes(query)
+    );
+  }, [sortedDistricts, searchQuery]);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -146,12 +158,21 @@ function DistrictsPage() {
               ))}
             </div>
           ) : isError ? (
-            <div className="flex h-full items-center justify-center">
-              <p className="text-rose-400">
-                Failed to load district statistics
-              </p>
-            </div>
+            <ErrorState
+              title="Failed to load"
+              message="Failed to load district statistics"
+            />
           ) : (
+            <>
+            <div className="mb-4 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search districts..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 max-w-sm"
+              />
+            </div>
             <div className="rounded-lg border border-border bg-card">
               <Table>
                 <TableHeader>
@@ -222,7 +243,7 @@ function DistrictsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedDistricts.map((district) => (
+                  {filteredDistricts.map((district) => (
                     <TableRow
                       key={district.amphur}
                       className="cursor-pointer border-border hover:bg-muted/50"
@@ -254,6 +275,7 @@ function DistrictsPage() {
                 </TableBody>
               </Table>
             </div>
+            </>
           )}
         </div>
     </div>

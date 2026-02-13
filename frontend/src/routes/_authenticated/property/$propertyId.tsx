@@ -20,6 +20,7 @@ import {
   Navigation,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ErrorState } from "@/components/ui/error-state";
 
 export const Route = createFileRoute("/_authenticated/property/$propertyId")({
   component: PropertyDetailPage,
@@ -132,19 +133,20 @@ function PropertyDetailPage() {
 
   if (isPropertyError) {
     return (
-      <div className="flex h-full items-center justify-center bg-background text-foreground">
-        <div className="text-center">
-          <p className="mb-4 text-rose-400">Property not found</p>
-          <Link to="/" search={{ district: undefined }}>
-            <Button
-              variant="outline"
-              className="border-border bg-muted text-foreground hover:bg-muted/80"
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Explorer
-            </Button>
-          </Link>
-        </div>
+      <div className="flex h-full flex-col items-center justify-center bg-background text-foreground">
+        <ErrorState
+          title="Property not found"
+          message="The property you are looking for could not be loaded."
+        />
+        <Link to="/" search={{ district: undefined }} className="mt-2">
+          <Button
+            variant="outline"
+            className="border-border bg-muted text-foreground hover:bg-muted/80"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Explorer
+          </Button>
+        </Link>
       </div>
     );
   }

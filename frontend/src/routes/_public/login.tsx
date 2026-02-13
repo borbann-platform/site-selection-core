@@ -47,73 +47,100 @@ function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <Card className="w-full max-w-md bg-card border-border">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold text-foreground">
-            Welcome Back
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Sign in to your account
+    <div className="min-h-screen bg-background flex flex-col md:flex-row">
+      {/* Brand panel - top band on mobile, left half on desktop */}
+      <div className="bg-gradient-to-br from-brand to-brand/80 md:w-1/2 flex flex-col items-center justify-center relative overflow-hidden px-8 py-12 md:py-0">
+        {/* Decorative grid pattern */}
+        <div
+          className="absolute inset-0 opacity-10"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle, white 1px, transparent 1px)",
+            backgroundSize: "24px 24px",
+          }}
+        />
+        <div className="relative z-10 text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-white/20 backdrop-blur-sm text-white text-3xl md:text-4xl font-bold mb-4 md:mb-6">
+            B
+          </div>
+          <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">
+            Borbann
+          </h1>
+          <p className="text-white/80 text-sm md:text-base">
+            AI-Powered Real Estate Intelligence
           </p>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-md text-red-400 text-sm">
-                {error}
-              </div>
-            )}
+        </div>
+      </div>
 
-            <div className="space-y-2">
-              <Label htmlFor={emailId} className="text-foreground">
-                Email
-              </Label>
-              <Input
-                id={emailId}
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleChange}
-                required
-                className="bg-input border-border text-foreground placeholder:text-muted-foreground"
-                placeholder="john@example.com"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor={passwordId} className="text-foreground">
-                Password
-              </Label>
-              <Input
-                id={passwordId}
-                name="password"
-                type="password"
-                value={formData.password}
-                onChange={handleChange}
-                required
-                className="bg-input border-border text-foreground placeholder:text-muted-foreground"
-                placeholder="Enter your password"
-              />
-            </div>
-
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={isLoading}
-            >
-              {isLoading ? "Signing in..." : "Sign In"}
-            </Button>
-
-            <p className="text-center text-sm text-muted-foreground">
-              Don't have an account?{" "}
-              <Link to="/register" className="text-amber-400 hover:underline">
-                Sign up
-              </Link>
+      {/* Form panel */}
+      <div className="md:w-1/2 flex items-center justify-center p-6 md:p-12">
+        <Card className="w-full max-w-sm bg-card border-border">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl font-bold text-foreground">
+              Welcome Back
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Sign in to your account
             </p>
-          </form>
-        </CardContent>
-      </Card>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md text-destructive text-sm">
+                  {error}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor={emailId} className="text-foreground">
+                  Email
+                </Label>
+                <Input
+                  id={emailId}
+                  name="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  required
+                  className="bg-input border-border text-foreground placeholder:text-muted-foreground"
+                  placeholder="john@example.com"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor={passwordId} className="text-foreground">
+                  Password
+                </Label>
+                <Input
+                  id={passwordId}
+                  name="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  required
+                  className="bg-input border-border text-foreground placeholder:text-muted-foreground"
+                  placeholder="Enter your password"
+                />
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={isLoading}
+              >
+                {isLoading ? "Signing in..." : "Sign In"}
+              </Button>
+
+              <p className="text-center text-sm text-muted-foreground">
+                Don't have an account?{" "}
+                <Link to="/register" className="text-brand hover:text-brand/80 hover:underline">
+                  Sign up
+                </Link>
+              </p>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
