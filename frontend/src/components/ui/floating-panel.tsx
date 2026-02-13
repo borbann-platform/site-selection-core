@@ -3,7 +3,13 @@
  * Provides a consistent wrapper for any floating UI on the map.
  */
 
-import { useState, useRef, useCallback, useEffect, type ReactNode } from "react";
+import {
+  useState,
+  useRef,
+  useCallback,
+  useEffect,
+  type ReactNode,
+} from "react";
 import { GripHorizontal, Minus, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -15,7 +21,12 @@ interface FloatingPanelProps {
   /** Icon shown next to the title */
   icon?: ReactNode;
   /** Initial CSS position (top, left, right, bottom) */
-  defaultPosition?: { top?: number; left?: number; right?: number; bottom?: number };
+  defaultPosition?: {
+    top?: number;
+    left?: number;
+    right?: number;
+    bottom?: number;
+  };
   /** If true, panel starts collapsed */
   defaultCollapsed?: boolean;
   /** If true, panel starts hidden */
@@ -32,6 +43,8 @@ interface FloatingPanelProps {
   className?: string;
   /** Additional className for the content area */
   contentClassName?: string;
+  /** Max height of the panel (CSS value). Needed for scroll to work. */
+  maxHeight?: string;
   /** Z-index (default 40) */
   zIndex?: number;
 }
@@ -49,11 +62,14 @@ export function FloatingPanel({
   draggable = true,
   className,
   contentClassName,
+  maxHeight,
   zIndex = 40,
 }: FloatingPanelProps) {
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
   const [isHidden, setIsHidden] = useState(defaultHidden);
-  const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
+  const [position, setPosition] = useState<{ x: number; y: number } | null>(
+    null,
+  );
   const [isDragging, setIsDragging] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const dragOffset = useRef({ x: 0, y: 0 });
@@ -79,7 +95,7 @@ export function FloatingPanel({
       setIsDragging(true);
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
     },
-    [draggable]
+    [draggable],
   );
 
   const handlePointerMove = useCallback(
@@ -99,7 +115,7 @@ export function FloatingPanel({
         y: Math.max(0, Math.min(newY, maxY)),
       });
     },
-    [isDragging]
+    [isDragging],
   );
 
   const handlePointerUp = useCallback(() => {
@@ -114,25 +130,36 @@ export function FloatingPanel({
   if (isHidden) return null;
 
   // Determine positioning style
-  const positionStyle: React.CSSProperties = position
-    ? { position: "fixed", left: position.x, top: position.y, zIndex }
-    : {
-        position: "absolute",
-        zIndex,
-        ...(defaultPosition.top !== undefined && { top: defaultPosition.top }),
-        ...(defaultPosition.left !== undefined && { left: defaultPosition.left }),
-        ...(defaultPosition.right !== undefined && { right: defaultPosition.right }),
-        ...(defaultPosition.bottom !== undefined && { bottom: defaultPosition.bottom }),
-      };
+  const positionStyle: React.CSSProperties = {
+    ...(position
+      ? { position: "fixed" as const, left: position.x, top: position.y }
+      : {
+          position: "absolute" as const,
+          ...(defaultPosition.top !== undefined && {
+            top: defaultPosition.top,
+          }),
+          ...(defaultPosition.left !== undefined && {
+            left: defaultPosition.left,
+          }),
+          ...(defaultPosition.right !== undefined && {
+            right: defaultPosition.right,
+          }),
+          ...(defaultPosition.bottom !== undefined && {
+            bottom: defaultPosition.bottom,
+          }),
+        }),
+    zIndex,
+    ...(maxHeight && { maxHeight }),
+  };
 
   return (
     <div
       ref={panelRef}
       style={positionStyle}
       className={cn(
-        "bg-card/95 backdrop-blur-xl border border-border rounded-2xl shadow-xl transition-shadow",
+        "grid grid-rows-[auto_minmax(0,1fr)] overflow-y-scroll bg-card/95 backdrop-blur-xl border border-border rounded-2xl shadow-xl transition-shadow",
         isDragging && "shadow-2xl ring-1 ring-brand/20",
-        className
+        className,
       )}
     >
       {/* Drag handle + controls */}
@@ -141,9 +168,9 @@ export function FloatingPanel({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         className={cn(
-          "flex items-center justify-between gap-2 px-3 py-2 border-b border-border/50 rounded-t-2xl select-none",
+          "flex items-center justify-between gap-2 px-3 py-2 border-b border-border/50 rounded-t-2xl select-none shrink-0",
           draggable && "cursor-grab",
-          isDragging && "cursor-grabbing"
+          isDragging && "cursor-grabbing",
         )}
       >
         <div className="flex items-center gap-2 min-w-0">
@@ -190,8 +217,8 @@ export function FloatingPanel({
       {!isCollapsed && (
         <div
           className={cn(
-            "overflow-auto transition-all duration-200",
-            contentClassName
+            "min-h-0 overflow-y-auto transition-all duration-200",
+            contentClassName,
           )}
         >
           {children}

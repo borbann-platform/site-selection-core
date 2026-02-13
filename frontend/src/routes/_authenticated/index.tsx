@@ -76,7 +76,8 @@ function PropertyExplorer() {
             title="Property Explorer"
             icon={<Home className="h-3.5 w-3.5 text-brand" />}
             defaultPosition={{ top: 16, left: 16 }}
-            className="hidden md:block w-80 max-h-[calc(100vh-120px)]"
+            className="hidden md:block w-80"
+            maxHeight="calc(100vh - 120px)"
             contentClassName="p-4"
             onClose={() => togglePanel("explorer")}
           >
