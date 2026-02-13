@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Shell } from "../../components/Shell";
 import {
   Settings as SettingsIcon,
   Database,
@@ -81,8 +80,7 @@ function SettingsPage() {
   };
 
   return (
-    <Shell>
-      <div className="h-full w-full bg-background text-foreground overflow-y-auto custom-scrollbar">
+    <div className="h-full w-full bg-background text-foreground overflow-y-auto custom-scrollbar">
         <div className="max-w-4xl mx-auto py-12 px-6">
           <div className="flex items-center gap-4 mb-8">
             <div className="p-3 bg-muted rounded-xl">
@@ -324,7 +322,6 @@ function SettingsPage() {
             </section>
           </div>
         </div>
-      </div>
-    </Shell>
+    </div>
   );
 }

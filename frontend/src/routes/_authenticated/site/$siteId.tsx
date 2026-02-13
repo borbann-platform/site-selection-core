@@ -4,7 +4,6 @@ import type React from "react";
 import type { Feature, GeoJsonProperties, Point } from "geojson";
 import { useState, useMemo, useEffect } from "react";
 import { MapContainer } from "../../../components/MapContainer";
-import { Shell } from "../../../components/Shell";
 import { GeoJsonLayer, ScatterplotLayer } from "@deck.gl/layers";
 import { FlyToInterpolator } from "@deck.gl/core";
 import { api } from "../../../lib/api";
@@ -421,8 +420,7 @@ function SiteInspector() {
   );
 
   return (
-    <Shell panelContent={PanelContent}>
-      <div className="w-full h-full bg-background relative overflow-hidden">
+    <div className="w-full h-full bg-background relative overflow-hidden">
         <MapContainer
           viewState={viewState}
           onViewStateChange={(e) => setViewState(e.viewState)}
@@ -474,8 +472,7 @@ function SiteInspector() {
             {analysis?.summary.competitors_count} nearby rivals.
           </div>
         </div>
-      </div>
-    </Shell>
+    </div>
   );
 }
 

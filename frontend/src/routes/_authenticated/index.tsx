@@ -2,7 +2,6 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { MapContainer } from "../../components/MapContainer";
-import { Shell } from "../../components/Shell";
 import {
   AICommandBar,
   AIExpandedPanel,
@@ -1158,8 +1157,7 @@ function PropertyExplorer() {
 
   return (
     <>
-      <Shell panelContent={PanelContent}>
-        <div className="w-full h-full bg-background relative overflow-hidden">
+      <div className="w-full h-full bg-background relative overflow-hidden">
           <MapContainer
             viewState={viewState}
             onViewStateChange={(e) => setViewState(e.viewState)}
@@ -1229,8 +1227,7 @@ function PropertyExplorer() {
               </div>
             </div>
           )}
-        </div>
-      </Shell>
+      </div>
 
       {/* AI Command Bar - Always Visible at Bottom */}
       <AICommandBar

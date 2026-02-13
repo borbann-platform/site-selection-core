@@ -3,7 +3,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
-import { Shell } from "@/components/Shell";
 import { MapContainer } from "@/components/MapContainer";
 import { api } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -106,7 +105,7 @@ function PropertyDetailPage() {
       id: "current-property",
       data: [property],
       getPosition: (d) => [d.lon, d.lat],
-      // Emerald accent (matches Shell)
+      // Emerald accent
       getFillColor: [16, 185, 129, 255],
       getRadius: 40,
       radiusMinPixels: 10,
@@ -133,28 +132,25 @@ function PropertyDetailPage() {
 
   if (isPropertyError) {
     return (
-      <Shell>
-        <div className="flex h-full items-center justify-center bg-background text-foreground">
-          <div className="text-center">
-            <p className="mb-4 text-rose-400">Property not found</p>
-            <Link to="/" search={{ district: undefined }}>
-              <Button
-                variant="outline"
-                className="border-border bg-muted text-foreground hover:bg-muted/80"
-              >
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Explorer
-              </Button>
-            </Link>
-          </div>
+      <div className="flex h-full items-center justify-center bg-background text-foreground">
+        <div className="text-center">
+          <p className="mb-4 text-rose-400">Property not found</p>
+          <Link to="/" search={{ district: undefined }}>
+            <Button
+              variant="outline"
+              className="border-border bg-muted text-foreground hover:bg-muted/80"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Explorer
+            </Button>
+          </Link>
         </div>
-      </Shell>
+      </div>
     );
   }
 
   return (
-    <Shell>
-      <div className="flex h-full bg-background text-foreground">
+    <div className="flex h-full bg-background text-foreground">
         {/* Left Panel - Property Details */}
         <div className="w-100 shrink-0 overflow-auto border-r border-border bg-background">
           {/* Back button */}
@@ -377,8 +373,7 @@ function PropertyDetailPage() {
             </div>
           )}
         </div>
-      </div>
-    </Shell>
+    </div>
   );
 }
 

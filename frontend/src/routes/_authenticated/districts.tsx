@@ -1,6 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Shell } from "@/components/Shell";
 import { api } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -97,8 +96,7 @@ function DistrictsPage() {
   };
 
   return (
-    <Shell>
-      <div className="flex h-full flex-col overflow-hidden bg-background text-foreground">
+    <div className="flex h-full flex-col overflow-hidden bg-background text-foreground">
         {/* Header */}
         <div className="border-b border-border bg-background px-6 py-4">
           <div className="flex items-center gap-3">
@@ -258,7 +256,6 @@ function DistrictsPage() {
             </div>
           )}
         </div>
-      </div>
-    </Shell>
+    </div>
   );
 }
