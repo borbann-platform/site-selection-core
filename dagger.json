@@ -1,0 +1,29 @@
+{
+  "name": "site-select-core",
+  "engineVersion": "v0.19.11",
+  "include": [
+    ".dagger",
+    "Makefile",
+    "README.md",
+    "frontend/biome.json",
+    "frontend/index.html",
+    "frontend/package-lock.json",
+    "frontend/package.json",
+    "frontend/public",
+    "frontend/src",
+    "frontend/tsconfig.app.json",
+    "frontend/tsconfig.json",
+    "frontend/vite.config.ts",
+    "gis-server/main.py",
+    "gis-server/models",
+    "gis-server/pyproject.toml",
+    "gis-server/pytest.ini",
+    "gis-server/src",
+    "gis-server/tests",
+    "gis-server/uv.lock"
+  ],
+  "sdk": {
+    "source": "python"
+  },
+  "source": ".dagger"
+}
