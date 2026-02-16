@@ -7,6 +7,7 @@ import {
   ChevronDown,
   ChevronRight,
   Brain,
+  MessageCircleQuestion,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import type { AgentStep, AgentStepStatus } from "../lib/api";
@@ -29,6 +30,8 @@ function getStatusIcon(status: AgentStepStatus) {
       return <CheckCircle2 size={14} className="text-success" />;
     case "error":
       return <AlertCircle size={14} className="text-red-400" />;
+    case "waiting":
+      return <MessageCircleQuestion size={14} className="text-sky-400" />;
     default:
       return <Loader2 size={14} className="text-muted-foreground" />;
   }
@@ -37,6 +40,9 @@ function getStatusIcon(status: AgentStepStatus) {
 function getStepIcon(type: "tool_call" | "thinking" | "waiting_user") {
   if (type === "thinking") {
     return <Brain size={14} className="text-purple-400" />;
+  }
+  if (type === "waiting_user") {
+    return <MessageCircleQuestion size={14} className="text-sky-400" />;
   }
   return <Wrench size={14} className="text-blue-400" />;
 }

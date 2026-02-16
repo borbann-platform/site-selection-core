@@ -3,6 +3,10 @@
  */
 
 import { API_URL, type ChatMessage, type Attachment, type AgentStreamEvent } from "./api";
+import {
+  getAgentRuntimeConfig,
+  type AgentRuntimeConfig,
+} from "./agentRuntimeConfig";
 
 // ============= Types =============
 
@@ -48,6 +52,27 @@ export interface UpdateSessionRequest {
 export interface GenerateTitleResponse {
   title: string | null;
   success: boolean;
+}
+
+export interface ProviderCatalogResponse {
+  default_provider: "gemini" | "openai_compatible";
+  default_model: string;
+  reasoning_mode: "react" | "cot" | "hybrid";
+  supported_providers: Array<{
+    id: string;
+    label: string;
+    supports_vertex_ai: boolean;
+    supports_multimodal: boolean;
+    supports_function_calling: boolean;
+  }>;
+}
+
+export interface ProviderValidationResponse {
+  valid: boolean;
+  provider: "gemini" | "openai_compatible";
+  model: string;
+  reasoning_mode: "react" | "cot" | "hybrid";
+  missing: string[];
 }
 
 // ============= Helper Functions =============
@@ -169,6 +194,24 @@ export const chatApi = {
     return handleResponse<GenerateTitleResponse>(response);
   },
 
+  getProviderCatalog: async (): Promise<ProviderCatalogResponse> => {
+    const response = await fetch(`${API_URL}/chat/providers`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<ProviderCatalogResponse>(response);
+  },
+
+  validateProviderConfig: async (
+    runtime: AgentRuntimeConfig
+  ): Promise<ProviderValidationResponse> => {
+    const response = await fetch(`${API_URL}/chat/providers/validate`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ runtime }),
+    });
+    return handleResponse<ProviderValidationResponse>(response);
+  },
+
   /**
    * Stream agent chat response with optional session persistence.
    * If a session_id is provided in the request, messages will be persisted.
@@ -178,6 +221,7 @@ export const chatApi = {
     options?: {
       sessionId?: string;
       attachments?: Attachment[];
+      runtimeConfig?: AgentRuntimeConfig;
     }
   ): AsyncGenerator<AgentStreamEvent, void, unknown> {
     const token = getAccessToken();
@@ -188,6 +232,8 @@ export const chatApi = {
       headers.Authorization = `Bearer ${token}`;
     }
 
+    const runtime = options?.runtimeConfig || getAgentRuntimeConfig();
+
     const response = await fetch(`${API_URL}/chat/agent`, {
       method: "POST",
       headers,
@@ -195,6 +241,7 @@ export const chatApi = {
         messages,
         session_id: options?.sessionId,
         attachments: options?.attachments,
+        runtime: runtime || undefined,
       }),
     });
 

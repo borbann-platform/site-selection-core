@@ -3,6 +3,8 @@ import { Link } from "@tanstack/react-router";
 
 interface PropertyData {
   id?: string | number;
+  house_ref?: string;
+  locator?: string;
   total_price?: number;
   building_area?: number;
   amphur?: string;

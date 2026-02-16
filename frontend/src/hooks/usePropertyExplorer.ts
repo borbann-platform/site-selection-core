@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { toast } from "sonner";
 import {
   DEFAULT_FILTERS,
   type Attachment,
@@ -9,6 +10,14 @@ import {
   type FilterValues,
 } from "@/components/ai";
 import type { PropertyFiltersState } from "@/components/PropertyFilters";
+import {
+  buildBBoxAttachment,
+  buildClickGrounding,
+  buildLocationAttachment,
+  buildViewportMetrics,
+  resolveHouseReference,
+  verifyHouseReferencePresence,
+} from "@/lib/uiGrounding";
 
 // ---- Type definitions ----
 
@@ -37,6 +46,8 @@ export interface OpenSections {
 
 export interface SelectedProperty {
   id?: string | number;
+  house_ref?: string;
+  locator?: string;
   total_price?: number;
   building_area?: number;
   amphur?: string;
@@ -278,16 +289,18 @@ export function usePropertyExplorer(districtFromUrl?: string) {
             if (existingIdx >= 0) {
               steps[existingIdx] = {
                 ...steps[existingIdx],
-                status: stepData.status as "running" | "complete" | "error",
+                status: stepData.status as "running" | "complete" | "error" | "waiting",
                 output: stepData.output,
                 endTime: stepData.end_time,
               };
             } else {
               steps.push({
                 id: stepData.id || `step-${Date.now()}`,
-                type: "tool_call",
+                type:
+                  (stepData.type as "tool_call" | "thinking" | "waiting_user") ||
+                  "tool_call",
                 name: stepData.name || "Unknown",
-                status: stepData.status as "running" | "complete" | "error",
+                status: (stepData.status as "running" | "complete" | "error" | "waiting"),
                 input: stepData.input,
                 output: stepData.output,
                 startTime: stepData.start_time || Date.now(),
@@ -355,7 +368,17 @@ export function usePropertyExplorer(districtFromUrl?: string) {
       object?: DeckGLObject;
       x?: number;
       y?: number;
+      viewport?: { width?: number; height?: number };
     }) => {
+      const viewport = buildViewportMetrics(
+        info.viewport?.width,
+        info.viewport?.height
+      );
+      const clickGrounding = buildClickGrounding(
+        { x: info.x || 0, y: info.y || 0 },
+        viewport
+      );
+
       // Close popup if clicking on empty space
       if (!info.object && selectedProperty) {
         setSelectedProperty(null);
@@ -365,12 +388,11 @@ export function usePropertyExplorer(districtFromUrl?: string) {
       // Handle Location Selection Mode
       if (selectionMode === "location" && info.coordinate) {
         const [lon, lat] = info.coordinate;
-        const newAttachment: Attachment = {
-          id: `loc-${Date.now()}`,
-          type: "location",
-          data: { lat, lon },
-          label: `Location (${lat.toFixed(4)}, ${lon.toFixed(4)})`,
-        };
+        const newAttachment = buildLocationAttachment(lat, lon, clickGrounding);
+        if (!newAttachment) {
+          toast.error("Invalid location selection. Please click again.");
+          return;
+        }
         setChatAttachments((prev) => [...prev, newAttachment]);
         setSelectionMode("none");
         return;
@@ -384,25 +406,13 @@ export function usePropertyExplorer(districtFromUrl?: string) {
         if (newCorners.length < 4) {
           setBboxCorners(newCorners);
         } else {
-          const lons = newCorners.map((c) => c[0]);
-          const lats = newCorners.map((c) => c[1]);
-          const minLon = Math.min(...lons);
-          const maxLon = Math.max(...lons);
-          const minLat = Math.min(...lats);
-          const maxLat = Math.max(...lats);
-
-          const newAttachment: Attachment = {
-            id: `bbox-${Date.now()}`,
-            type: "bbox",
-            data: {
-              corners: newCorners,
-              minLon,
-              maxLon,
-              minLat,
-              maxLat,
-            },
-            label: `Area (${((maxLon - minLon) * 111).toFixed(1)}km x ${((maxLat - minLat) * 111).toFixed(1)}km)`,
-          };
+          const newAttachment = buildBBoxAttachment(newCorners, clickGrounding);
+          if (!newAttachment) {
+            toast.error("Invalid area bounds. Please redraw the selection.");
+            setBboxCorners([]);
+            setSelectionMode("none");
+            return;
+          }
           setChatAttachments((prev) => [...prev, newAttachment]);
           setBboxCorners([]);
           setSelectionMode("none");
@@ -419,10 +429,20 @@ export function usePropertyExplorer(districtFromUrl?: string) {
         const coordLat = Number(coords?.[1]);
 
         const rawId = obj.id || props.id;
+        const houseRef = resolveHouseReference(
+          typeof rawId === "string" || typeof rawId === "number" ? rawId : undefined,
+          Number.isFinite(coordLat) ? coordLat : undefined,
+          Number.isFinite(coordLon) ? coordLon : undefined
+        );
         const propertyData: SelectedProperty = {
           id:
             typeof rawId === "string" || typeof rawId === "number"
               ? rawId
+              : undefined,
+          house_ref: houseRef,
+          locator:
+            typeof rawId === "string" || typeof rawId === "number"
+              ? `house:${rawId}`
               : undefined,
           total_price:
             obj.total_price || Number(props.total_price) || undefined,
@@ -441,7 +461,7 @@ export function usePropertyExplorer(districtFromUrl?: string) {
           lon: obj.lon ?? (Number.isFinite(coordLon) ? coordLon : undefined),
         };
 
-        if (propertyData.total_price || propertyData.id) {
+        if (propertyData.total_price || propertyData.id || propertyData.house_ref) {
           setSelectedProperty(propertyData);
           setPopupPosition({
             x: info.x || 0,
@@ -456,12 +476,33 @@ export function usePropertyExplorer(districtFromUrl?: string) {
   const handleAddPropertyToChat = useCallback(
     (property: {
       id?: string | number;
+      house_ref?: string;
+      locator?: string;
       total_price?: number;
       building_style_desc?: string;
       amphur?: string;
       lat?: number;
       lon?: number;
     }) => {
+      const houseRef =
+        property.house_ref ||
+        resolveHouseReference(property.id, property.lat, property.lon);
+      const visibleProperties =
+        housePrices?.items?.map((item) => ({
+          id: item.id,
+          lat: item.lat,
+          lon: item.lon,
+        })) || [];
+
+      if (!verifyHouseReferencePresence(houseRef, visibleProperties)) {
+        toast.error(
+          "Selected property is no longer grounded in the visible results. Please reselect it."
+        );
+        setSelectedProperty(null);
+        setPopupPosition(null);
+        return;
+      }
+
       const price = property.total_price
         ? `฿${(property.total_price / 1_000_000).toFixed(1)}M`
         : "";
@@ -471,14 +512,20 @@ export function usePropertyExplorer(districtFromUrl?: string) {
       const attachment: Attachment = {
         id: `prop-${Date.now()}`,
         type: "property",
-        data: sanitizePropertyData(property as Record<string, unknown>),
+        data: sanitizePropertyData({
+          ...property,
+          house_ref: houseRef,
+          locator:
+            property.locator ||
+            (property.id !== undefined ? `house:${property.id}` : undefined),
+        } as Record<string, unknown>),
         label: `${name}${price ? ` - ${price}` : ""}${district ? ` (${district})` : ""}`,
       };
       setChatAttachments((prev) => [...prev, attachment]);
       setSelectedProperty(null);
       setPopupPosition(null);
     },
-    [sanitizePropertyData]
+    [housePrices?.items, sanitizePropertyData]
   );
 
   const handleKeyDown = useCallback(

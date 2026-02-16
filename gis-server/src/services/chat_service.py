@@ -11,8 +11,8 @@ from typing import Any
 from sqlalchemy import desc, func, or_
 from sqlalchemy.orm import Session, joinedload
 
-from src.config.agent_settings import agent_settings
 from src.models.chat import ChatMessage, ChatSession
+from src.services.model_provider import get_model_provider, resolve_runtime_config
 
 logger = logging.getLogger(__name__)
 
@@ -202,13 +202,15 @@ class ChatService:
             return None
 
         try:
-            from langchain_google_genai import ChatGoogleGenerativeAI
+            resolved = resolve_runtime_config()
+            if not resolved.is_configured:
+                return None
 
-            llm = ChatGoogleGenerativeAI(
-                model=agent_settings.AGENT_MODEL,
-                google_api_key=agent_settings.GOOGLE_API_KEY,
-                temperature=0.3,
-                max_output_tokens=50,
+            provider = get_model_provider(resolved.provider)
+            llm = provider.create_chat_model(
+                resolved,
+                temperature=0.2,
+                max_tokens=80,
             )
 
             prompt = f"""Generate a very short title (3-6 words, max 50 characters) for this chat conversation.

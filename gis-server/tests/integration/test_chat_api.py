@@ -19,8 +19,39 @@ class TestChatStatus:
         assert response.status_code == 200
         data = response.json()
         assert "agent_configured" in data
+        assert "provider" in data
         assert "max_iterations" in data
+        assert "supported_providers" in data
         assert isinstance(data["max_iterations"], int)
+
+    def test_provider_catalog_endpoint(self, client):
+        """Test provider catalog endpoint for BYOK UI wiring."""
+        response = client.get("/api/v1/chat/providers")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "default_provider" in data
+        assert "supported_providers" in data
+        assert isinstance(data["supported_providers"], list)
+
+    def test_provider_validation_endpoint(self, client):
+        """Test runtime provider validation without external API calls."""
+        response = client.post(
+            "/api/v1/chat/providers/validate",
+            json={
+                "runtime": {
+                    "provider": "openai_compatible",
+                    "model": "glm-4.5",
+                    "api_key": "test-key",
+                    "base_url": "https://api.z.ai/api/paas/v4",
+                }
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["provider"] == "openai_compatible"
+        assert data["valid"] is True
 
 
 class TestChatAgentEndpoint:

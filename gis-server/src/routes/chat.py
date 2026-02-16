@@ -22,6 +22,12 @@ from src.config.database import get_db_session
 from src.dependencies.auth import get_current_active_user
 from src.models.user import User
 from src.services.chat_service import ChatService
+from src.services.model_provider import (
+    RuntimeModelConfig,
+    is_runtime_model_configured,
+    list_supported_providers,
+    resolve_runtime_config,
+)
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 logger = logging.getLogger(__name__)
@@ -43,6 +49,19 @@ def sanitize_json_value(obj):
     return obj
 
 
+def is_finite_number(value: Any) -> bool:
+    return isinstance(value, (int, float)) and math.isfinite(value)
+
+
+def _is_valid_lat_lon(lat: Any, lon: Any) -> bool:
+    return (
+        is_finite_number(lat)
+        and is_finite_number(lon)
+        and -90 <= float(lat) <= 90
+        and -180 <= float(lon) <= 180
+    )
+
+
 class ChatMessage(BaseModel):
     role: str  # "user" or "assistant"
     content: str
@@ -61,6 +80,7 @@ class ChatRequest(BaseModel):
     messages: list[ChatMessage]
     session_id: str | None = None  # Optional session for conversation memory
     attachments: list[AttachmentData] | None = None  # Optional spatial attachments
+    runtime: RuntimeModelConfig | None = None  # Optional BYOK runtime model config
 
 
 def build_spatial_context_message(attachments: list[AttachmentData]) -> str:
@@ -80,9 +100,13 @@ def build_spatial_context_message(attachments: list[AttachmentData]) -> str:
         if attachment.type == "location":
             lat = sanitized_data.get("lat")
             lon = sanitized_data.get("lon")
-            if lat and lon:
+            if _is_valid_lat_lon(lat, lon):
                 parts.append(
                     f"- PIN LOCATION: latitude={lat}, longitude={lon} (User has selected this specific point on the map)"
+                )
+            else:
+                parts.append(
+                    "- PIN LOCATION: ignored due to invalid coordinates (validation failed)"
                 )
 
         elif attachment.type == "bbox":
@@ -113,8 +137,15 @@ def build_spatial_context_message(attachments: list[AttachmentData]) -> str:
                 )
                 if corners:
                     parts.append(f"  - Polygon corners (4 points): {corners}")
+                locator = sanitized_data.get("locator")
+                if locator:
+                    parts.append(f"  - Locator: {locator}")
                 parts.append(
                     "  - USE THESE BOUNDS when searching for properties or analyzing this area"
+                )
+            else:
+                parts.append(
+                    "- BOUNDING BOX AREA: ignored due to invalid bounds (validation failed)"
                 )
 
         elif attachment.type == "property":
@@ -123,9 +154,16 @@ def build_spatial_context_message(attachments: list[AttachmentData]) -> str:
 
             if property_id:
                 parts.append(f"- SELECTED PROPERTY: ID={property_id}")
+                house_ref = property_data.get("house_ref")
+                locator = property_data.get("locator")
+                if house_ref:
+                    parts.append(f"  House Reference: {house_ref}")
+                if locator:
+                    parts.append(f"  Locator: {locator}")
                 # Include key property details if available
                 details = []
-                if property_data.get("total_price"):
+                total_price = property_data.get("total_price")
+                if is_finite_number(total_price):
                     details.append(f"Price: ฿{property_data['total_price']:,.0f}")
                 if property_data.get("building_style_desc"):
                     details.append(f"Type: {property_data['building_style_desc']}")
@@ -135,7 +173,9 @@ def build_spatial_context_message(attachments: list[AttachmentData]) -> str:
                     details.append(
                         f"Building Area: {property_data['building_area']} sqm"
                     )
-                if property_data.get("lat") and property_data.get("lon"):
+                if _is_valid_lat_lon(
+                    property_data.get("lat"), property_data.get("lon")
+                ):
                     details.append(
                         f"Location: ({property_data['lat']}, {property_data['lon']})"
                     )
@@ -174,7 +214,7 @@ async def generate_mock_stream(user_message: str):
         response = "Based on your criteria, I'd recommend looking at properties in Lat Phrao or Bang Kapi districts. They offer good value with improving infrastructure and are well-connected to the city center."
 
     # Add warning about mock mode
-    response = "[Mock Mode - Set GOOGLE_API_KEY for full agent]\n\n" + response
+    response = "[Mock Mode - Configure a model provider for full agent]\n\n" + response
 
     words = response.split()
     for i, word in enumerate(words):
@@ -185,7 +225,11 @@ async def generate_mock_stream(user_message: str):
     yield "data: [DONE]\n\n"
 
 
-async def generate_agent_stream(messages: list[ChatMessage], debug: bool = False):
+async def generate_agent_stream(
+    messages: list[ChatMessage],
+    debug: bool = False,
+    runtime_config: RuntimeModelConfig | None = None,
+):
     """Generate streaming response from the LangGraph agent."""
     from src.services.agent_graph import agent_service
 
@@ -193,7 +237,9 @@ async def generate_agent_stream(messages: list[ChatMessage], debug: bool = False
     message_dicts = [{"role": m.role, "content": m.content} for m in messages]
 
     try:
-        async for event in agent_service.astream(message_dicts):
+        async for event in agent_service.astream(
+            message_dicts, runtime_config=runtime_config
+        ):
             event_type = event.get("type", "")
             content = event.get("content", "")
 
@@ -201,11 +247,21 @@ async def generate_agent_stream(messages: list[ChatMessage], debug: bool = False
                 # Stream text tokens
                 yield f"data: {content}\n\n"
 
+            elif event_type == "clarification":
+                clarification = content.get("message", "")
+                yield f"data: {clarification}\n\n"
+
+            elif event_type == "final":
+                yield f"data: {content}\n\n"
+
             elif event_type == "tool_call" and debug:
                 # Include tool call info in debug mode
                 tool_info = content
                 name = tool_info.get("name", "unknown")
                 yield f"data: \n[{name}]\n\n"
+
+            elif event_type == "decomposition" and debug:
+                yield "data: \n[Task decomposition created]\n\n"
 
             elif event_type == "tool_result" and debug:
                 # Include truncated tool result in debug mode
@@ -242,9 +298,15 @@ async def chat(
             user_message = msg.content
             break
 
-    # Use agent if configured, otherwise fall back to mock
-    if agent_settings.is_configured:
-        stream_generator = generate_agent_stream(request.messages, debug=debug)
+    runtime_config = request.runtime
+
+    # Use agent if configured (env or BYOK runtime), otherwise fall back to mock
+    if is_runtime_model_configured(runtime_config):
+        stream_generator = generate_agent_stream(
+            request.messages,
+            debug=debug,
+            runtime_config=runtime_config,
+        )
     else:
         logger.warning("Agent not configured, using mock responses")
         stream_generator = generate_mock_stream(user_message)
@@ -262,13 +324,50 @@ async def chat(
 @router.get("/status")
 async def chat_status():
     """Check if the chat agent is properly configured."""
+    resolved = resolve_runtime_config()
     return {
-        "agent_configured": agent_settings.is_configured,
-        "model": agent_settings.AGENT_MODEL if agent_settings.is_configured else None,
+        "agent_configured": resolved.is_configured,
+        "provider": resolved.provider,
+        "model": resolved.model if resolved.is_configured else None,
         "embedding_model": agent_settings.EMBEDDING_MODEL
-        if agent_settings.is_configured
+        if resolved.is_configured
         else None,
         "max_iterations": agent_settings.AGENT_MAX_ITERATIONS,
+        "reasoning_mode": agent_settings.AGENT_REASONING_MODE,
+        "clarification_loop": agent_settings.AGENT_ENABLE_CLARIFICATION_LOOP,
+        "supported_providers": list_supported_providers(),
+    }
+
+
+@router.get("/providers")
+async def get_supported_model_providers():
+    """Return provider metadata and safe defaults for BYOK UI configuration."""
+    resolved = resolve_runtime_config()
+    return {
+        "default_provider": agent_settings.AGENT_PROVIDER,
+        "default_model": resolved.model,
+        "reasoning_mode": agent_settings.AGENT_REASONING_MODE,
+        "supported_providers": list_supported_providers(),
+    }
+
+
+class ProviderValidationRequest(BaseModel):
+    runtime: RuntimeModelConfig
+
+
+@router.post("/providers/validate")
+async def validate_model_provider_config(request: ProviderValidationRequest):
+    """
+    Validate runtime provider config shape and credential completeness.
+    Does not persist credentials.
+    """
+    resolved = resolve_runtime_config(request.runtime)
+    return {
+        "valid": resolved.is_configured,
+        "provider": resolved.provider,
+        "model": resolved.model,
+        "reasoning_mode": resolved.reasoning_mode,
+        "missing": [] if resolved.is_configured else ["credentials"],
     }
 
 
@@ -277,9 +376,9 @@ async def chat_status():
 
 class AgentStep(BaseModel):
     id: str
-    type: str  # "tool_call"
+    type: str  # "tool_call" | "thinking" | "waiting_user"
     name: str
-    status: str  # "running", "complete", "error"
+    status: str  # "running", "complete", "error", "waiting"
     input: dict | None = None
     output: str | None = None
     start_time: int | None = None
@@ -560,7 +659,7 @@ async def generate_mock_agent_stream_with_steps(messages: list[ChatMessage]):
 
     # Add mock mode warning
     response = (
-        "[Mock Mode - Configure GOOGLE_API_KEY for real agent]\n\n"
+        "[Mock Mode - Configure an agent model provider for real agent]\n\n"
         + generate_mock_response(user_message, tools)
     )
 
@@ -578,6 +677,7 @@ async def generate_real_agent_stream_with_steps(
     db_session_id: str | None = None,
     db: Session | None = None,
     user: User | None = None,
+    runtime_config: RuntimeModelConfig | None = None,
 ):
     """
     Generate streaming response from real LangGraph agent with structured events.
@@ -595,6 +695,7 @@ async def generate_real_agent_stream_with_steps(
         db_session_id: Optional database session ID for persistent storage
         db: Optional database session for persistence
         user: Optional authenticated user
+        runtime_config: Optional runtime model provider config (BYOK)
     """
     from src.services.agent_graph import agent_service
     from src.services.conversation_memory import conversation_memory
@@ -670,9 +771,44 @@ async def generate_real_agent_stream_with_steps(
     collected_tool_calls: list[dict[str, Any]] = []  # Track tool calls for persistence
 
     try:
-        async for event in agent_service.astream(message_dicts):
+        async for event in agent_service.astream(
+            message_dicts, runtime_config=runtime_config
+        ):
             event_type = event.get("type", "")
             content = event.get("content", "")
+
+            if event_type == "decomposition":
+                step_data = {
+                    "id": f"step-decomposition-{int(time.time() * 1000)}",
+                    "type": "thinking",
+                    "name": "Task Decomposition DAG",
+                    "status": "complete",
+                    "output": json.dumps(content, ensure_ascii=False),
+                    "start_time": int(time.time() * 1000),
+                    "end_time": int(time.time() * 1000),
+                }
+                yield f"data: {json.dumps({'event': 'step', 'data': step_data})}\n\n"
+                continue
+
+            if event_type == "clarification":
+                clarification_data = content if isinstance(content, dict) else {}
+                clarification_message = clarification_data.get(
+                    "message",
+                    "I need more detail before executing this request.",
+                )
+                step_data = {
+                    "id": f"step-clarification-{int(time.time() * 1000)}",
+                    "type": "waiting_user",
+                    "name": "Clarification Required",
+                    "status": "waiting",
+                    "output": clarification_message,
+                    "start_time": int(time.time() * 1000),
+                }
+                yield f"data: {json.dumps({'event': 'thinking', 'data': {'thinking': False}})}\n\n"
+                yield f"data: {json.dumps({'event': 'step', 'data': step_data})}\n\n"
+                yield f"data: {json.dumps({'event': 'token', 'data': {'token': clarification_message}})}\n\n"
+                response_content += clarification_message
+                break
 
             if event_type == "tool_call":
                 # A new tool is being called
@@ -738,6 +874,14 @@ async def generate_real_agent_stream_with_steps(
 
                 response_content += content
                 yield f"data: {json.dumps({'event': 'token', 'data': {'token': content}})}\n\n"
+
+            elif event_type == "final":
+                final_text = str(content)
+                if final_text and not has_started_response:
+                    yield f"data: {json.dumps({'event': 'thinking', 'data': {'thinking': False}})}\n\n"
+                    response_content += final_text
+                    yield f"data: {json.dumps({'event': 'token', 'data': {'token': final_text}})}\n\n"
+                    has_started_response = True
 
             elif event_type == "error":
                 # Handle errors
@@ -834,11 +978,14 @@ async def agent_chat(
         new_session = chat_service.create_session(user_id=current_user.id)
         db_session_id = str(new_session.id)
 
-    # Choose real agent or mock based on configuration
-    if agent_settings.is_configured:
+    runtime_config = request.runtime
+
+    # Choose real agent or mock based on configuration (env defaults or BYOK runtime)
+    if is_runtime_model_configured(runtime_config):
         logger.info(
             f"Using real agent for session db={db_session_id} "
-            f"with {len(request.attachments or [])} attachments"
+            f"with {len(request.attachments or [])} attachments "
+            f"provider={resolve_runtime_config(runtime_config).provider}"
         )
         stream_generator = generate_real_agent_stream_with_steps(
             messages=request.messages,
@@ -847,6 +994,7 @@ async def agent_chat(
             db_session_id=db_session_id,
             db=db,
             user=current_user,
+            runtime_config=runtime_config,
         )
     else:
         logger.warning("Agent not configured, using mock stream")

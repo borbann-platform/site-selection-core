@@ -1,4 +1,5 @@
 import type { FeatureCollection, Geometry, GeoJsonProperties } from "geojson";
+import { getAgentRuntimeConfig, type AgentRuntimeConfig } from "./agentRuntimeConfig";
 
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 export const API_URL = BASE_URL.endsWith("/api/v1")
@@ -269,6 +270,7 @@ export interface ChatRequest {
   messages: ChatMessage[];
   session_id?: string;
   attachments?: Attachment[];
+  runtime?: AgentRuntimeConfig;
 }
 
 // Agent Streaming Event Types
@@ -834,10 +836,12 @@ export const api = {
       headers.Authorization = `Bearer ${token}`;
     }
 
+    const runtime = getAgentRuntimeConfig();
+
     const res = await fetch(`${API_URL}/chat/agent`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ messages, attachments }),
+      body: JSON.stringify({ messages, attachments, runtime: runtime || undefined }),
     });
 
     if (!res.ok) throw new Error("Failed to start agent stream");
