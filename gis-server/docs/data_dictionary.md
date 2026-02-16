@@ -155,6 +155,32 @@ This document describes the database schema for the Real Estate Information Plat
     *   Various property attributes (bedrooms, bathrooms, area, etc.)
     *   `geometry`: Point (4326)
 
+### `scraped_listings`
+*   **Source**: `data/scraped/*.jsonl` (Baania/Hipflat house-project spiders)
+*   **Description**: Normalized project-level metadata from scraper JSONL outputs.
+*   **Columns**:
+    *   `id`: BigInteger (PK)
+    *   `source`, `source_listing_id`: Source key (unique together)
+    *   `source_url`, `detail_url`, `source_search_url`: URL lineage
+    *   `title`, `title_th`, `title_en`, `property_type`, `property_types`
+    *   `province*`, `district*`, `subdistrict*`, `status`
+    *   `price_start`, `price_end`
+    *   `latitude`, `longitude`, `geometry` (Point 4326)
+    *   `main_image_url`, `image_count`
+    *   `scraped_at`, `raw_payload`, `created_at`, `updated_at`
+
+### `scraped_listing_images`
+*   **Source**: Derived from `scraped_listings.image_urls`
+*   **Description**: Image URL catalog and object-storage sync metadata.
+*   **Columns**:
+    *   `id`: BigInteger (PK)
+    *   `listing_id`: FK -> `scraped_listings.id`
+    *   `source_url`, `source_host`, `image_role`, `image_order`, `is_primary`
+    *   `storage_bucket`, `object_key`, `object_uri`
+    *   `checksum_sha256`, `mime_type`, `size_bytes`, `width`, `height`
+    *   `fetch_status`, `last_http_status`, `fetch_error`, `fetched_at`
+    *   `created_at`, `updated_at`
+
 ### `house_prices`
 *   **Source**: `bkk_house_price.parquet`
 *   **Description**: Appraised house prices from Treasury Department (กรมธนารักษ์).

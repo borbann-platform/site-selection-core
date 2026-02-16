@@ -112,6 +112,7 @@ This runs the following loaders in sequence:
 | `load_gtfs.py` | bangkok-gtfs/, longdomap-bus-gtfs/ | ~18,000 |
 | `load_population.py` | bangkok-population.csv | ~6,600 |
 | `load_realestate.py` | bania-scrape/, hipflat-scrape/ | ~75,000 |
+| `load_scraped_projects.py` | scraped/*.jsonl (Baania/Hipflat spiders) | Varies |
 | `load_house_prices.py` | bkk_house_price.parquet | Varies |
 
 ### Step 5: Create Materialized Views
@@ -202,6 +203,16 @@ Loads:
 **House prices (Treasury data):**
 ```bash
 uv run python -m scripts.etl.load_house_prices
+```
+
+**Normalized scraped project pipeline (JSONL):**
+```bash
+# Load scraped project metadata + image URL catalog into Postgres
+uv run python -m scripts.etl.load_scraped_projects --include-raw
+
+# Sync pending/failed image URLs to MinIO object storage
+# (requires minio Python client: `uv add minio` once)
+uv run python -m scripts.etl.sync_images_to_minio
 ```
 
 ### Demographics
@@ -374,4 +385,3 @@ First-time extraction from `thailand-260111.osm.pbf` takes ~3-4 minutes.
 - [DATA_CATALOG.md](../data/DATA_CATALOG.md) - Detailed dataset descriptions
 - [data_dictionary.md](data_dictionary.md) - Field definitions
 - [api.md](api.md) - API documentation
-
