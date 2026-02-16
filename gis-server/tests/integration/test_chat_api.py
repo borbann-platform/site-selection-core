@@ -41,9 +41,9 @@ class TestChatStatus:
             json={
                 "runtime": {
                     "provider": "openai_compatible",
-                    "model": "glm-4.5",
+                    "model": "deepseek-chat",
                     "api_key": "test-key",
-                    "base_url": "https://api.z.ai/api/paas/v4",
+                    "base_url": "https://api.deepseek.com/v1",
                 }
             },
         )
@@ -134,6 +134,41 @@ class TestChatAgentEndpoint:
         # Check for expected event types
         event_types = [e.get("event") for e in events]
         assert any(t in event_types for t in ["thinking", "token", "step", "done"])
+
+
+class TestRuntimeConfigStorage:
+    """Tests for encrypted BYOK runtime config persistence endpoints."""
+
+    def test_runtime_config_crud(self, client):
+        save_response = client.put(
+            "/api/v1/chat/runtime-config",
+            json={
+                "runtime": {
+                    "provider": "openai_compatible",
+                    "model": "deepseek-chat",
+                    "api_key": "sk-test-secret",
+                    "base_url": "https://api.deepseek.com/v1",
+                    "reasoning_mode": "hybrid",
+                }
+            },
+        )
+        assert save_response.status_code == 200
+        save_data = save_response.json()
+        assert save_data["source"] == "database"
+        assert save_data["has_api_key"] is True
+        assert "api_key" not in save_data["runtime"]
+
+        get_response = client.get("/api/v1/chat/runtime-config")
+        assert get_response.status_code == 200
+        get_data = get_response.json()
+        assert get_data["source"] == "database"
+        assert get_data["has_api_key"] is True
+        assert get_data["api_key_masked"]
+        assert "api_key" not in get_data["runtime"]
+
+        clear_response = client.delete("/api/v1/chat/runtime-config")
+        assert clear_response.status_code == 200
+        assert clear_response.json()["deleted"] is True
 
 
 class TestSessionManagement:

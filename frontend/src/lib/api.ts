@@ -1,5 +1,5 @@
 import type { FeatureCollection, Geometry, GeoJsonProperties } from "geojson";
-import { getAgentRuntimeConfig, type AgentRuntimeConfig } from "./agentRuntimeConfig";
+import type { AgentRuntimeConfig } from "./agentRuntimeConfig";
 
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 export const API_URL = BASE_URL.endsWith("/api/v1")
@@ -359,19 +359,36 @@ export interface AgentStep {
 
 // Agent stream event from /chat/agent endpoint
 export interface AgentStreamEvent {
-  event: "thinking" | "step" | "token" | "done";
-  data: {
-    thinking?: boolean;
-    id?: string;
-    type?: string;
-    name?: string;
-    status?: string;
-    input?: Record<string, unknown>;
-    output?: string;
-    start_time?: number;
-    end_time?: number;
-    token?: string;
-  } | null;
+  event: "thinking" | "step" | "token" | "error" | "done";
+  data: AgentStreamEventData | null;
+}
+
+export interface AgentRuntimeError {
+  title: string;
+  message: string;
+  statusCode?: number;
+  providerCode?: string;
+  rawMessage?: string;
+  retryable?: boolean;
+}
+
+export interface AgentStreamEventData {
+  thinking?: boolean;
+  id?: string;
+  type?: string;
+  name?: string;
+  status?: string;
+  input?: Record<string, unknown>;
+  output?: string;
+  start_time?: number;
+  end_time?: number;
+  token?: string;
+  title?: string;
+  message?: string;
+  status_code?: number;
+  provider_code?: string;
+  raw_message?: string;
+  retryable?: boolean;
 }
 
 export interface HousePriceItem {
@@ -836,15 +853,18 @@ export const api = {
       headers.Authorization = `Bearer ${token}`;
     }
 
-    const runtime = getAgentRuntimeConfig();
-
     const res = await fetch(`${API_URL}/chat/agent`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ messages, attachments, runtime: runtime || undefined }),
+      body: JSON.stringify({ messages, attachments }),
     });
 
-    if (!res.ok) throw new Error("Failed to start agent stream");
+    if (!res.ok) {
+      const error = await res
+        .json()
+        .catch(() => ({ detail: "Failed to start agent stream" }));
+      throw new Error(error.detail || `HTTP ${res.status}`);
+    }
     if (!res.body) throw new Error("No response body");
 
     const reader = res.body.getReader();

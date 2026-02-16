@@ -12,6 +12,7 @@ from src.config.settings import settings
 # Import all models so Alembic can detect them
 from src.models import (
     User,
+    AgentRuntimeCredential,
     Organization,
     Team,
     OrganizationMember,

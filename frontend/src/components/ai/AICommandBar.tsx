@@ -2,7 +2,7 @@ import { useRef, useEffect } from "react";
 import { MapPin, Square, Send, ChevronUp, ChevronDown, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Local type definitions (decoupled from AgentChatPanel)
+// Local type definitions for command bar interaction.
 export type SelectionMode = "none" | "location" | "bbox";
 
 export type AttachmentType = "location" | "bbox" | "property";

@@ -312,6 +312,20 @@ export function usePropertyExplorer(districtFromUrl?: string) {
             lastMsg.content += event.data.token;
             lastMsg.isStreaming = true;
             lastMsg.isThinking = false;
+            lastMsg.error = undefined;
+          } else if (event.event === "error" && event.data) {
+            lastMsg.error = {
+              title: event.data.title || "Model request failed",
+              message:
+                event.data.message ||
+                "The model provider returned an error. Please check your settings.",
+              statusCode: event.data.status_code,
+              providerCode: event.data.provider_code,
+              rawMessage: event.data.raw_message,
+              retryable: event.data.retryable,
+            };
+            lastMsg.isStreaming = false;
+            lastMsg.isThinking = false;
           } else if (event.event === "done") {
             lastMsg.isStreaming = false;
             lastMsg.isThinking = false;
@@ -328,7 +342,13 @@ export function usePropertyExplorer(districtFromUrl?: string) {
         const lastIdx = updated.length - 1;
         updated[lastIdx] = {
           ...updated[lastIdx],
-          content: "Sorry, I encountered an error. Please try again.",
+          error: {
+            title: "Request failed",
+            message:
+              error instanceof Error
+                ? error.message
+                : "Sorry, I encountered an error. Please try again.",
+          },
           isStreaming: false,
           isThinking: false,
         };

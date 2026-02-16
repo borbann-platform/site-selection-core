@@ -15,18 +15,6 @@ export interface AgentRuntimeConfig {
   max_tokens?: number;
 }
 
-export interface StoredRuntimeConfig {
-  config: AgentRuntimeConfig | null;
-  source: "session" | "local" | null;
-}
-
-const LOCAL_KEY = "agent_runtime_config_v1";
-const SESSION_KEY = "agent_runtime_config_session_v1";
-
-function hasBrowserStorage(): boolean {
-  return typeof window !== "undefined";
-}
-
 function trimOrUndefined(value: string | undefined): string | undefined {
   if (value === undefined) {
     return undefined;
@@ -51,71 +39,6 @@ export function sanitizeAgentRuntimeConfig(
     temperature: config.temperature,
     max_tokens: config.max_tokens,
   };
-}
-
-export function loadAgentRuntimeConfig(): StoredRuntimeConfig {
-  if (!hasBrowserStorage()) {
-    return { config: null, source: null };
-  }
-
-  const sessionRaw = window.sessionStorage.getItem(SESSION_KEY);
-  if (sessionRaw) {
-    try {
-      return {
-        config: JSON.parse(sessionRaw) as AgentRuntimeConfig,
-        source: "session",
-      };
-    } catch {
-      window.sessionStorage.removeItem(SESSION_KEY);
-    }
-  }
-
-  const localRaw = window.localStorage.getItem(LOCAL_KEY);
-  if (localRaw) {
-    try {
-      return {
-        config: JSON.parse(localRaw) as AgentRuntimeConfig,
-        source: "local",
-      };
-    } catch {
-      window.localStorage.removeItem(LOCAL_KEY);
-    }
-  }
-
-  return { config: null, source: null };
-}
-
-export function getAgentRuntimeConfig(): AgentRuntimeConfig | null {
-  return loadAgentRuntimeConfig().config;
-}
-
-export function saveAgentRuntimeConfig(
-  config: AgentRuntimeConfig,
-  persistOnDevice: boolean
-): void {
-  if (!hasBrowserStorage()) {
-    return;
-  }
-
-  const sanitized = sanitizeAgentRuntimeConfig(config);
-  const serialized = JSON.stringify(sanitized);
-
-  window.localStorage.removeItem(LOCAL_KEY);
-  window.sessionStorage.removeItem(SESSION_KEY);
-
-  if (persistOnDevice) {
-    window.localStorage.setItem(LOCAL_KEY, serialized);
-  } else {
-    window.sessionStorage.setItem(SESSION_KEY, serialized);
-  }
-}
-
-export function clearAgentRuntimeConfig(): void {
-  if (!hasBrowserStorage()) {
-    return;
-  }
-  window.localStorage.removeItem(LOCAL_KEY);
-  window.sessionStorage.removeItem(SESSION_KEY);
 }
 
 export function maskApiKey(value: string | undefined): string {

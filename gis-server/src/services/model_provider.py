@@ -198,7 +198,7 @@ class GeminiModelProvider:
 class OpenAICompatibleModelProvider:
     """
     OpenAI-compatible provider for hosted OpenAI and compatible endpoints
-    (for example: Ollama, vLLM, Groq, z.ai OpenAPI-compatible gateways).
+    (for example: Ollama, vLLM, Groq, or DeepSeek-compatible gateways).
     """
 
     name: ProviderName = "openai_compatible"

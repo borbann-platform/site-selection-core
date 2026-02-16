@@ -8,6 +8,7 @@ import { cn } from "../../lib/utils";
 import { useChatStore, type LocalMessage } from "../../stores/chatStore";
 import { StreamingMarkdown } from "../ui/markdown";
 import { AgentStepCard, AgentStepBadge } from "../AgentStepCard";
+import { AgentErrorCard } from "../AgentErrorCard";
 import { ThinkingProcess } from "../ThinkingIndicator";
 
 export function ChatArea() {
@@ -255,6 +256,8 @@ function AssistantMessage({ message }: { message: LocalMessage }) {
         )}
 
         {/* Message content */}
+        {message.error && <AgentErrorCard error={message.error} />}
+
         {message.content && (
           <div className="rounded-2xl px-4 py-2.5 bg-muted">
             <StreamingMarkdown

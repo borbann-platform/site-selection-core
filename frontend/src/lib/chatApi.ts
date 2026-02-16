@@ -4,8 +4,8 @@
 
 import { API_URL, type ChatMessage, type Attachment, type AgentStreamEvent } from "./api";
 import {
-  getAgentRuntimeConfig,
   type AgentRuntimeConfig,
+  sanitizeAgentRuntimeConfig,
 } from "./agentRuntimeConfig";
 
 // ============= Types =============
@@ -73,6 +73,17 @@ export interface ProviderValidationResponse {
   model: string;
   reasoning_mode: "react" | "cot" | "hybrid";
   missing: string[];
+}
+
+export interface RuntimeConfigResponse {
+  configured: boolean;
+  source: "database" | "environment" | "none";
+  runtime: Omit<AgentRuntimeConfig, "api_key">;
+  has_api_key: boolean;
+  api_key_masked: string;
+  effective_provider: "gemini" | "openai_compatible";
+  effective_model: string;
+  reasoning_mode: "react" | "cot" | "hybrid";
 }
 
 // ============= Helper Functions =============
@@ -212,6 +223,35 @@ export const chatApi = {
     return handleResponse<ProviderValidationResponse>(response);
   },
 
+  getRuntimeConfig: async (): Promise<RuntimeConfigResponse> => {
+    const response = await fetch(`${API_URL}/chat/runtime-config`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<RuntimeConfigResponse>(response);
+  },
+
+  saveRuntimeConfig: async (
+    runtime: AgentRuntimeConfig
+  ): Promise<RuntimeConfigResponse> => {
+    const response = await fetch(`${API_URL}/chat/runtime-config`, {
+      method: "PUT",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ runtime: sanitizeAgentRuntimeConfig(runtime) }),
+    });
+    return handleResponse<RuntimeConfigResponse>(response);
+  },
+
+  clearRuntimeConfig: async (): Promise<void> => {
+    const response = await fetch(`${API_URL}/chat/runtime-config`, {
+      method: "DELETE",
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: "Delete failed" }));
+      throw new Error(error.detail || `HTTP ${response.status}`);
+    }
+  },
+
   /**
    * Stream agent chat response with optional session persistence.
    * If a session_id is provided in the request, messages will be persisted.
@@ -232,8 +272,6 @@ export const chatApi = {
       headers.Authorization = `Bearer ${token}`;
     }
 
-    const runtime = options?.runtimeConfig || getAgentRuntimeConfig();
-
     const response = await fetch(`${API_URL}/chat/agent`, {
       method: "POST",
       headers,
@@ -241,11 +279,18 @@ export const chatApi = {
         messages,
         session_id: options?.sessionId,
         attachments: options?.attachments,
-        runtime: runtime || undefined,
+        runtime: options?.runtimeConfig
+          ? sanitizeAgentRuntimeConfig(options.runtimeConfig)
+          : undefined,
       }),
     });
 
-    if (!response.ok) throw new Error("Failed to start agent stream");
+    if (!response.ok) {
+      const error = await response
+        .json()
+        .catch(() => ({ detail: "Failed to start agent stream" }));
+      throw new Error(error.detail || `HTTP ${response.status}`);
+    }
     if (!response.body) throw new Error("No response body");
 
     const reader = response.body.getReader();

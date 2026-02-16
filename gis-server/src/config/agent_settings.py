@@ -12,7 +12,7 @@ class AgentSettings(BaseSettings):
     """Configuration for the LangGraph agent and model providers."""
 
     # Provider selection
-    AGENT_PROVIDER: Literal["gemini", "openai_compatible"] = "gemini"
+    AGENT_PROVIDER: Literal["gemini", "openai_compatible"] = "openai_compatible"
     AGENT_REASONING_MODE: Literal["react", "cot", "hybrid"] = "hybrid"
     AGENT_ENABLE_CLARIFICATION_LOOP: bool = True
     AGENT_DECOMPOSITION_MAX_NODES: int = 6
@@ -25,10 +25,11 @@ class AgentSettings(BaseSettings):
 
     # Model configuration
     AGENT_MODEL: str = "gemini-2.5-flash-lite"
-    OPENAI_MODEL: str = "gpt-4o-mini"
-    OPENAI_BASE_URL: str = "https://api.openai.com/v1"
+    OPENAI_MODEL: str = "deepseek-chat"
+    OPENAI_BASE_URL: str = "https://api.deepseek.com/v1"
     OPENAI_API_KEY: str = ""
     OPENAI_ORG_ID: str = ""
+    AGENT_CREDENTIALS_ENCRYPTION_KEY: str = ""
     EMBEDDING_MODEL: str = "models/text-embedding-004"
 
     # Agent safety limits

@@ -10,7 +10,8 @@ import {
   parsePropertyResults,
   cleanContentFromPropertyMarkers,
 } from "./PropertyResultsCard";
-import type { AgentStep } from "../../lib/api";
+import type { AgentStep, AgentRuntimeError } from "../../lib/api";
+import { AgentErrorCard } from "../AgentErrorCard";
 import { cn } from "../../lib/utils";
 
 export interface AgentMessage {
@@ -18,6 +19,7 @@ export interface AgentMessage {
   role: "user" | "assistant";
   content: string;
   steps?: AgentStep[];
+  error?: AgentRuntimeError;
   isStreaming?: boolean;
   isThinking?: boolean;
   thinkingStartTime?: number;
@@ -185,6 +187,8 @@ function AssistantMessage({ message, onPropertyClick }: AssistantMessageProps) {
         )}
 
         {/* Message content with streaming cursor and markdown rendering */}
+        {message.error && <AgentErrorCard error={message.error} />}
+
         {cleanContent && (
           <div className="max-w-full rounded-xl px-3 py-2 text-sm bg-muted">
             <StreamingMarkdown content={cleanContent} isStreaming={message.isStreaming} />

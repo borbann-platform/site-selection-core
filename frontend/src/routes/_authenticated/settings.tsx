@@ -19,10 +19,7 @@ import {
   type ProviderCatalogResponse,
 } from "../../lib/chatApi";
 import {
-  clearAgentRuntimeConfig,
-  loadAgentRuntimeConfig,
   maskApiKey,
-  saveAgentRuntimeConfig,
   type AgentProvider,
   type AgentRuntimeConfig,
 } from "../../lib/agentRuntimeConfig";
@@ -45,8 +42,31 @@ export const Route = createFileRoute("/_authenticated/settings")({
 });
 
 const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash-lite";
-const DEFAULT_OPENAI_COMPAT_MODEL = "glm-4.5";
-const DEFAULT_OPENAI_COMPAT_BASE_URL = "https://api.z.ai/api/paas/v4";
+const DEFAULT_OPENAI_COMPAT_MODEL = "deepseek-chat";
+const DEFAULT_OPENAI_COMPAT_BASE_URL = "https://api.deepseek.com/v1";
+
+function getDefaultRuntimeConfig(
+  provider: AgentProvider = "openai_compatible"
+): AgentRuntimeConfig {
+  if (provider === "gemini") {
+    return {
+      provider: "gemini",
+      model: DEFAULT_GEMINI_MODEL,
+      api_key: "",
+      reasoning_mode: "hybrid",
+      use_vertex_ai: false,
+      vertex_location: "us-central1",
+    };
+  }
+  return {
+    provider: "openai_compatible",
+    model: DEFAULT_OPENAI_COMPAT_MODEL,
+    base_url: DEFAULT_OPENAI_COMPAT_BASE_URL,
+    api_key: "",
+    reasoning_mode: "hybrid",
+    use_vertex_ai: false,
+  };
+}
 
 function SettingsPage() {
   const { user, logout } = useAuth();
@@ -56,19 +76,17 @@ function SettingsPage() {
     useState<ProviderCatalogResponse | null>(null);
   const [isRefreshingPOIs, setIsRefreshingPOIs] = useState(false);
   const [isClearingCache, setIsClearingCache] = useState(false);
+  const [isSavingProvider, setIsSavingProvider] = useState(false);
   const [isValidatingProvider, setIsValidatingProvider] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [isochroneMode, setIsochroneMode] = useState<"walk" | "drive">("walk");
-  const [rememberOnDevice, setRememberOnDevice] = useState(false);
-
-  const [runtimeConfig, setRuntimeConfig] = useState<AgentRuntimeConfig>({
-    provider: "gemini",
-    model: DEFAULT_GEMINI_MODEL,
-    api_key: "",
-    reasoning_mode: "hybrid",
-    use_vertex_ai: false,
-    vertex_location: "us-central1",
-  });
+  const [runtimeConfigSource, setRuntimeConfigSource] = useState<
+    "database" | "environment" | "none"
+  >("none");
+  const [savedApiKeyMask, setSavedApiKeyMask] = useState("");
+  const [runtimeConfig, setRuntimeConfig] = useState<AgentRuntimeConfig>(
+    getDefaultRuntimeConfig()
+  );
 
   const fetchCacheStatus = useCallback(async () => {
     try {
@@ -90,14 +108,33 @@ function SettingsPage() {
 
   useEffect(() => {
     fetchCacheStatus();
-    fetchProviderCatalog();
+  }, [fetchCacheStatus]);
 
-    const stored = loadAgentRuntimeConfig();
-    if (stored.config) {
-      setRuntimeConfig(stored.config);
-      setRememberOnDevice(stored.source === "local");
-    }
-  }, [fetchCacheStatus, fetchProviderCatalog]);
+  useEffect(() => {
+    const loadRuntimeConfig = async () => {
+      try {
+        const [catalog, saved] = await Promise.all([
+          chatApi.getProviderCatalog(),
+          chatApi.getRuntimeConfig(),
+        ]);
+        setProviderCatalog(catalog);
+        setRuntimeConfigSource(saved.source);
+        setSavedApiKeyMask(saved.api_key_masked || "");
+        const provider = (saved.runtime.provider ||
+          catalog.default_provider) as AgentProvider;
+        const mergedConfig: AgentRuntimeConfig = {
+          ...getDefaultRuntimeConfig(provider),
+          ...saved.runtime,
+          provider,
+          api_key: "",
+        };
+        setRuntimeConfig(mergedConfig);
+      } catch {
+        fetchProviderCatalog();
+      }
+    };
+    loadRuntimeConfig();
+  }, [fetchProviderCatalog]);
 
   const handleRefreshPOIs = async () => {
     setIsRefreshingPOIs(true);
@@ -157,26 +194,41 @@ function SettingsPage() {
   };
 
   const handleSaveRuntimeConfig = () => {
-    saveAgentRuntimeConfig(runtimeConfig, rememberOnDevice);
-    toast.success(
-      rememberOnDevice
-        ? "BYOK model config saved on this device"
-        : "BYOK model config saved for this browser session"
-    );
+    setIsSavingProvider(true);
+    chatApi
+      .saveRuntimeConfig(runtimeConfig)
+      .then((saved) => {
+        setRuntimeConfigSource(saved.source);
+        setSavedApiKeyMask(saved.api_key_masked || "");
+        setRuntimeConfig((prev) => ({
+          ...prev,
+          ...saved.runtime,
+          api_key: "",
+        }));
+        toast.success("BYOK model config saved securely");
+      })
+      .catch((e) => {
+        toast.error(e instanceof Error ? e.message : "Failed to save BYOK config");
+      })
+      .finally(() => {
+        setIsSavingProvider(false);
+      });
   };
 
   const handleClearRuntimeConfig = () => {
-    clearAgentRuntimeConfig();
-    setRuntimeConfig({
-      provider: "gemini",
-      model: DEFAULT_GEMINI_MODEL,
-      api_key: "",
-      reasoning_mode: "hybrid",
-      use_vertex_ai: false,
-      vertex_location: "us-central1",
-    });
-    setRememberOnDevice(false);
-    toast.success("BYOK model config cleared");
+    chatApi
+      .clearRuntimeConfig()
+      .then(() => {
+        const fallbackProvider = (providerCatalog?.default_provider ||
+          "openai_compatible") as AgentProvider;
+        setRuntimeConfig(getDefaultRuntimeConfig(fallbackProvider));
+        setSavedApiKeyMask("");
+        setRuntimeConfigSource("none");
+        toast.success("Stored BYOK model config cleared");
+      })
+      .catch((e) => {
+        toast.error(e instanceof Error ? e.message : "Failed to clear BYOK config");
+      });
   };
 
   const handleValidateRuntimeConfig = async () => {
@@ -198,7 +250,7 @@ function SettingsPage() {
   };
 
   const isOpenAICompatible = runtimeConfig.provider === "openai_compatible";
-  const maskedKey = maskApiKey(runtimeConfig.api_key);
+  const maskedKey = maskApiKey(runtimeConfig.api_key) || savedApiKeyMask;
 
   return (
     <div className="h-full w-full bg-background text-foreground overflow-y-auto custom-scrollbar">
@@ -271,7 +323,7 @@ function SettingsPage() {
                     <SelectContent>
                       <SelectItem value="gemini">Google Gemini</SelectItem>
                       <SelectItem value="openai_compatible">
-                        OpenAI-Compatible (Ollama/vLLM/Groq/z.ai)
+                        OpenAI-Compatible (Ollama/vLLM/Groq/DeepSeek)
                       </SelectItem>
                     </SelectContent>
                   </Select>
@@ -418,29 +470,27 @@ function SettingsPage() {
                   </Select>
                 </div>
 
-                <div className="flex items-center justify-between py-1">
-                  <div>
-                    <div className="text-sm font-medium">Remember on this device</div>
-                    <div className="text-xs text-muted-foreground">
-                      Off = session-only storage. On = persisted in local browser storage.
-                    </div>
-                  </div>
-                  <Switch
-                    checked={rememberOnDevice}
-                    onCheckedChange={setRememberOnDevice}
-                  />
-                </div>
-
                 <div className="text-xs text-muted-foreground bg-muted/40 border border-border rounded-lg px-3 py-2">
-                  Keys are stored in your browser and sent only when making chat requests.
-                  They are not persisted by the API.
+                  API keys are encrypted and stored server-side in your account runtime
+                  profile. They are never returned in plaintext.
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Source: {runtimeConfigSource}
                 </div>
               </div>
 
               <div className="p-6 flex flex-wrap items-center gap-2">
-                <Button type="button" onClick={handleSaveRuntimeConfig}>
-                  <KeyRound size={16} />
-                  Save BYOK Config
+                <Button
+                  type="button"
+                  onClick={handleSaveRuntimeConfig}
+                  disabled={isSavingProvider}
+                >
+                  {isSavingProvider ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <KeyRound size={16} />
+                  )}
+                  {isSavingProvider ? "Saving..." : "Save BYOK Config"}
                 </Button>
                 <Button
                   type="button"

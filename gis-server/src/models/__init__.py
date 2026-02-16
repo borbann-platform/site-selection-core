@@ -3,6 +3,7 @@ SQLAlchemy models for the application.
 """
 
 from src.models.audit_log import AuditAction, AuditLog
+from src.models.agent_runtime_credential import AgentRuntimeCredential
 from src.models.chat import ChatMessage, ChatSession
 from src.models.invitation import Invitation
 from src.models.membership import (
@@ -30,6 +31,7 @@ __all__ = [
     # Chat
     "ChatSession",
     "ChatMessage",
+    "AgentRuntimeCredential",
     # Organization hierarchy
     "Organization",
     "Team",

@@ -12,17 +12,17 @@ from src.services.model_provider import (
 def test_resolve_runtime_openai_compatible_overrides_defaults():
     runtime = RuntimeModelConfig(
         provider="openai_compatible",
-        model="glm-4.5",
+        model="deepseek-chat",
         api_key="test-key",
-        base_url="https://api.z.ai/api/paas/v4/",
+        base_url="https://api.deepseek.com/v1/",
         reasoning_mode="react",
     )
 
     resolved = resolve_runtime_config(runtime)
 
     assert resolved.provider == "openai_compatible"
-    assert resolved.model == "glm-4.5"
-    assert resolved.base_url == "https://api.z.ai/api/paas/v4"
+    assert resolved.model == "deepseek-chat"
+    assert resolved.base_url == "https://api.deepseek.com/v1"
     assert resolved.reasoning_mode == "react"
     assert resolved.is_configured is True
 
@@ -48,9 +48,9 @@ def test_resolve_runtime_gemini_vertex_configuration():
 def test_runtime_configured_false_when_credentials_missing():
     runtime = RuntimeModelConfig(
         provider="openai_compatible",
-        model="glm-4.5",
+        model="deepseek-chat",
         api_key="",
-        base_url="https://api.z.ai/api/paas/v4",
+        base_url="https://api.deepseek.com/v1",
     )
 
     assert is_runtime_model_configured(runtime) is False
