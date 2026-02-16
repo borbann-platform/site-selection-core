@@ -4,15 +4,22 @@
  */
 
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useCallback } from "react";
+import { useState, useCallback, lazy, Suspense } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Shell } from "@/components/Shell";
 import { PropertyUploadForm } from "@/components/PropertyUploadForm";
 import { LocationPicker } from "@/components/LocationPicker";
-import { ValuationReport } from "@/components/ValuationReport";
 import { api, type PropertyUploadRequest, type ValuationResponse } from "@/lib/api";
 import { Sparkles, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ErrorState } from "@/components/ui/error-state";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { ContentLoader } from "@/components/ui/loading";
+
+const ValuationReport = lazy(() =>
+  import("@/components/ValuationReport").then((m) => ({
+    default: m.ValuationReport,
+  }))
+);
 
 export const Route = createFileRoute("/_authenticated/valuation")({
   component: ValuationPage,
@@ -88,7 +95,7 @@ function ValuationPage() {
   }, []);
 
   return (
-    <Shell>
+    <>
       <div className="flex h-full bg-background text-foreground overflow-auto">
         <div className="flex-1 p-6 md:p-8">
           {/* Header */}
@@ -106,20 +113,11 @@ function ValuationPage() {
               </Link>
             </div>
 
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
-                <Sparkles size={24} className="text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">
-                  AI Property Valuation
-                </h1>
-                <p className="text-muted-foreground">
-                  Get an instant estimate of your property's value using our AI
-                  model
-                </p>
-              </div>
-            </div>
+            <PageHeader
+              icon={Sparkles}
+              title="AI Property Valuation"
+              subtitle="Get an instant estimate of your property's value using our AI model"
+            />
           </div>
 
           {/* Content */}
@@ -133,24 +131,27 @@ function ValuationPage() {
           )}
 
           {pageState === "report" && valuationResult && submittedData && (
-            <ValuationReport
-              valuation={valuationResult}
-              propertyData={submittedData}
-              locationIntelligence={locationIntelligence}
-              onBack={handleBackToForm}
-              onNewValuation={handleNewValuation}
-            />
+            <Suspense fallback={<ContentLoader lines={15} />}>
+              <ValuationReport
+                valuation={valuationResult}
+                propertyData={submittedData}
+                locationIntelligence={locationIntelligence}
+                onBack={handleBackToForm}
+                onNewValuation={handleNewValuation}
+              />
+            </Suspense>
           )}
 
           {/* Error State */}
           {valuationMutation.isError && (
-            <div className="max-w-2xl mx-auto mt-6 p-4 bg-rose-500/10 border border-rose-500/30 rounded-lg">
-              <p className="text-rose-400 text-sm">
-                Failed to get valuation. Please try again.
-              </p>
-              <p className="text-muted-foreground text-xs mt-1">
-                {(valuationMutation.error as Error)?.message}
-              </p>
+            <div className="max-w-2xl mx-auto mt-6">
+              <ErrorState
+                compact
+                message={`Failed to get valuation. ${(valuationMutation.error as Error)?.message || "Please try again."}`}
+                onRetry={() => {
+                  if (submittedData) valuationMutation.mutate(submittedData);
+                }}
+              />
             </div>
           )}
         </div>
@@ -163,6 +164,6 @@ function ValuationPage() {
         onConfirm={handleLocationConfirm}
         initialLocation={selectedLocation}
       />
-    </Shell>
+    </>
   );
 }

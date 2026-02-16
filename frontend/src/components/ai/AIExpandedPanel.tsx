@@ -84,11 +84,11 @@ function UserMessage({ message }: { message: AgentMessage }) {
   return (
     <div className="flex gap-2 justify-end">
       <div className="flex-1 min-w-0 flex justify-end">
-        <div className="max-w-[85%] rounded-xl px-3 py-2 text-sm bg-emerald-600 text-white">
+        <div className="max-w-[85%] rounded-xl px-3 py-2 text-sm bg-brand text-brand-foreground">
           <div className="whitespace-pre-wrap break-words">{message.content}</div>
         </div>
       </div>
-      <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 bg-emerald-600">
+      <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 bg-brand">
         <User size={12} className="text-white" />
       </div>
     </div>
@@ -115,8 +115,8 @@ function AssistantMessage({ message, onPropertyClick }: AssistantMessageProps) {
 
   return (
     <div className="flex gap-2">
-      <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 bg-emerald-500/20">
-        <Bot size={12} className="text-emerald-400" />
+      <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 bg-brand/20">
+        <Bot size={12} className="text-brand" />
       </div>
       <div className="flex-1 space-y-2 min-w-0">
         {/* Thinking indicator with rich animation */}

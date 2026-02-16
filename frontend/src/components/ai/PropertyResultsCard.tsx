@@ -147,7 +147,7 @@ function PropertyMiniCard({
           <span
             className={cn(
               "flex items-center gap-0.5 text-[9px] font-medium",
-              property.priceChange >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
+              property.priceChange >= 0 ? "text-success" : "text-destructive"
             )}
           >
             <TrendingUp
@@ -178,7 +178,7 @@ function PropertyMiniCard({
         to="/property/$propertyId"
         params={{ propertyId: String(property.id) }}
         onClick={(e) => e.stopPropagation()}
-        className="mt-1 flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity"
+        className="mt-1 flex items-center gap-1 text-[10px] text-brand opacity-0 group-hover:opacity-100 transition-opacity"
       >
         View details
         <ExternalLink size={10} />

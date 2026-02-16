@@ -87,23 +87,23 @@ function ContributionBar({
   return (
     <div className="mb-3">
       <div className="flex justify-between text-sm mb-1">
-        <span className="text-white/80">{feature_display}</span>
-        <span className="text-white/60">
+        <span className="text-foreground/80">{feature_display}</span>
+        <span className="text-muted-foreground">
           {formatFeatureValue(feature, value)}
         </span>
       </div>
       <div className="flex items-center gap-2">
-        <div className="flex-1 h-6 bg-white/5 rounded relative overflow-hidden">
+        <div className="flex-1 h-6 bg-muted/50 rounded relative overflow-hidden">
           <div
             className={`absolute h-full rounded transition-all ${
-              direction === "positive" ? "bg-emerald-500/80" : "bg-rose-500/80"
+              direction === "positive" ? "bg-success/80" : "bg-destructive/80"
             }`}
             style={{ width: `${widthPercent}%` }}
           />
         </div>
         <span
           className={`text-sm font-mono min-w-20 text-right ${
-            direction === "positive" ? "text-emerald-400" : "text-rose-400"
+            direction === "positive" ? "text-success" : "text-destructive"
           }`}
         >
           {formatContribution(contribution)}
@@ -115,13 +115,13 @@ function ContributionBar({
 
 function LoadingState() {
   return (
-    <div className="bg-black/40 border border-white/10 rounded-lg p-4">
+    <div className="bg-popover border border-border rounded-lg p-4">
       <div className="animate-pulse space-y-3">
-        <div className="h-6 bg-white/10 rounded w-1/3" />
-        <div className="h-10 bg-white/10 rounded w-2/3" />
+        <div className="h-6 bg-muted/50 rounded w-1/3" />
+        <div className="h-10 bg-muted/50 rounded w-2/3" />
         <div className="space-y-2">
           {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="h-8 bg-white/10 rounded" />
+            <div key={i} className="h-8 bg-muted/50 rounded" />
           ))}
         </div>
       </div>
@@ -131,12 +131,12 @@ function LoadingState() {
 
 function ErrorState({ message }: { message: string }) {
   return (
-    <div className="bg-black/40 border border-white/10 rounded-lg p-4">
+    <div className="bg-popover border border-border rounded-lg p-4">
       <div className="text-center py-4">
-        <div className="text-rose-400 text-sm mb-2">
+        <div className="text-destructive text-sm mb-2">
           ⚠️ Price Analysis Unavailable
         </div>
-        <p className="text-white/50 text-xs">{message}</p>
+        <p className="text-muted-foreground text-xs">{message}</p>
       </div>
     </div>
   );
@@ -181,34 +181,34 @@ export function PriceExplanation({
       : null;
 
   return (
-    <div className="bg-black/40 border border-white/10 rounded-lg p-4">
-      <h3 className="text-white font-semibold mb-4">Price Analysis</h3>
+    <div className="bg-popover border border-border rounded-lg p-4">
+      <h3 className="text-foreground font-semibold mb-4">Price Analysis</h3>
 
       {/* Price Summary */}
       <div className="grid grid-cols-2 gap-4 mb-6">
         <div>
-          <div className="text-white/50 text-xs uppercase tracking-wide mb-1">
+          <div className="text-muted-foreground text-xs uppercase tracking-wide mb-1">
             Predicted Value
           </div>
-          <div className="text-2xl font-bold text-emerald-400">
+          <div className="text-2xl font-bold text-success">
             {formatPrice(data.predicted_price)}
           </div>
         </div>
 
         {showActualComparison && (
           <div>
-            <div className="text-white/50 text-xs uppercase tracking-wide mb-1">
+            <div className="text-muted-foreground text-xs uppercase tracking-wide mb-1">
               Appraised Value
             </div>
-            <div className="text-2xl font-bold text-white">
+            <div className="text-2xl font-bold text-foreground">
               {formatPrice(actualPrice)}
             </div>
             {priceDifferencePercent !== null && (
               <div
                 className={`text-xs ${
                   priceDifferencePercent >= 0
-                    ? "text-emerald-400"
-                    : "text-rose-400"
+                    ? "text-success"
+                    : "text-destructive"
                 }`}
               >
                 {priceDifferencePercent >= 0 ? "+" : ""}
@@ -221,14 +221,14 @@ export function PriceExplanation({
 
       {/* District Comparison */}
       {data.district_avg_price > 0 && (
-        <div className="bg-white/5 rounded-lg p-3 mb-4">
+        <div className="bg-muted/50 rounded-lg p-3 mb-4">
           <div className="flex justify-between items-center">
-            <span className="text-white/60 text-sm">vs. District Average</span>
+            <span className="text-muted-foreground text-sm">vs. District Average</span>
             <span
               className={`font-semibold ${
                 data.price_vs_district >= 0
-                  ? "text-emerald-400"
-                  : "text-rose-400"
+                  ? "text-success"
+                  : "text-destructive"
               }`}
             >
               {data.price_vs_district >= 0 ? "+" : ""}
@@ -240,7 +240,7 @@ export function PriceExplanation({
 
       {/* Feature Contributions */}
       <div className="mb-2">
-        <div className="text-white/50 text-xs uppercase tracking-wide mb-3">
+        <div className="text-muted-foreground text-xs uppercase tracking-wide mb-3">
           Top Price Factors
         </div>
         {data.feature_contributions.map((contrib) => (
@@ -257,13 +257,13 @@ export function PriceExplanation({
       </div>
 
       {/* Legend */}
-      <div className="flex gap-4 text-xs text-white/40 mt-4 pt-3 border-t border-white/10">
+      <div className="flex gap-4 text-xs text-muted-foreground mt-4 pt-3 border-t border-border">
         <div className="flex items-center gap-1">
-          <div className="w-3 h-3 rounded bg-emerald-500/80" />
+          <div className="w-3 h-3 rounded bg-success/80" />
           <span>Increases value</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-3 h-3 rounded bg-rose-500/80" />
+          <div className="w-3 h-3 rounded bg-destructive/80" />
           <span>Decreases value</span>
         </div>
       </div>

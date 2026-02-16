@@ -56,7 +56,7 @@ export function QuickFilters({ values, onChange }: QuickFiltersProps) {
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-muted-foreground">Quick Filters</span>
           {hasActiveFilters && (
-            <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[10px] rounded-full">
+            <span className="px-2 py-0.5 bg-brand/20 text-brand text-[10px] rounded-full">
               Active
             </span>
           )}
@@ -87,7 +87,7 @@ export function QuickFilters({ values, onChange }: QuickFiltersProps) {
                     e.target.value ? Number(e.target.value) : null
                   )
                 }
-                className="flex-1 bg-muted/50 border border-border rounded px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-emerald-500/50"
+                className="flex-1 bg-muted/50 border border-border rounded px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-brand/50"
                 aria-label="Minimum budget"
               />
               <span className="text-muted-foreground/50 self-center">–</span>
@@ -101,7 +101,7 @@ export function QuickFilters({ values, onChange }: QuickFiltersProps) {
                     e.target.value ? Number(e.target.value) : null
                   )
                 }
-                className="flex-1 bg-muted/50 border border-border rounded px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-emerald-500/50"
+                className="flex-1 bg-muted/50 border border-border rounded px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-brand/50"
                 aria-label="Maximum budget"
               />
             </div>
@@ -124,7 +124,7 @@ export function QuickFilters({ values, onChange }: QuickFiltersProps) {
                     e.target.value ? Number(e.target.value) : null
                   )
                 }
-                className="w-full bg-muted/50 border border-border rounded px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-emerald-500/50"
+                className="w-full bg-muted/50 border border-border rounded px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-brand/50"
                 aria-label="Minimum area"
               />
             </div>
@@ -142,7 +142,7 @@ export function QuickFilters({ values, onChange }: QuickFiltersProps) {
                     e.target.value ? Number(e.target.value) : null
                   )
                 }
-                className="w-full bg-muted/50 border border-border rounded px-2 py-1.5 text-xs text-foreground focus:outline-none focus:border-emerald-500/50"
+                className="w-full bg-muted/50 border border-border rounded px-2 py-1.5 text-xs text-foreground focus:outline-none focus:border-brand/50"
                 aria-label="Maximum distance to BTS"
               >
                 <option value="">Any</option>
@@ -170,7 +170,7 @@ export function QuickFilters({ values, onChange }: QuickFiltersProps) {
                   e.target.value ? Number(e.target.value) : null
                 )
               }
-              className="w-full bg-muted/50 border border-border rounded px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-emerald-500/50"
+              className="w-full bg-muted/50 border border-border rounded px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-brand/50"
               aria-label="Maximum building age"
             />
           </div>
@@ -182,7 +182,7 @@ export function QuickFilters({ values, onChange }: QuickFiltersProps) {
                 type="checkbox"
                 checked={values.undervaluedOnly}
                 onChange={(e) => updateFilter("undervaluedOnly", e.target.checked)}
-                className="w-3.5 h-3.5 rounded bg-muted/50 border border-border checked:bg-emerald-500 checked:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
+                className="w-3.5 h-3.5 rounded bg-muted/50 border border-border checked:bg-brand checked:border-brand focus:outline-none focus:ring-1 focus:ring-brand/50"
               />
               <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">
                 Undervalued properties only
@@ -194,7 +194,7 @@ export function QuickFilters({ values, onChange }: QuickFiltersProps) {
                 type="checkbox"
                 checked={values.highGrowthOnly}
                 onChange={(e) => updateFilter("highGrowthOnly", e.target.checked)}
-                className="w-3.5 h-3.5 rounded bg-muted/50 border border-border checked:bg-emerald-500 checked:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
+                className="w-3.5 h-3.5 rounded bg-muted/50 border border-border checked:bg-brand checked:border-brand focus:outline-none focus:ring-1 focus:ring-brand/50"
               />
               <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">
                 High growth neighborhoods (&gt;5%)
@@ -206,7 +206,7 @@ export function QuickFilters({ values, onChange }: QuickFiltersProps) {
                 type="checkbox"
                 checked={values.excludeFloodZones}
                 onChange={(e) => updateFilter("excludeFloodZones", e.target.checked)}
-                className="w-3.5 h-3.5 rounded bg-muted/50 border border-border checked:bg-emerald-500 checked:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
+                className="w-3.5 h-3.5 rounded bg-muted/50 border border-border checked:bg-brand checked:border-brand focus:outline-none focus:ring-1 focus:ring-brand/50"
               />
               <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">
                 Exclude flood risk zones

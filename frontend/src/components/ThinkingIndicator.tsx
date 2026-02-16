@@ -167,7 +167,7 @@ export function StreamingText({
       {isStreaming && (
         <span
           className={cn(
-            "inline-block w-1.5 h-4 bg-emerald-500 dark:bg-emerald-400 ml-0.5 align-middle shadow-[0_0_8px_rgba(52,211,153,0.5)]",
+            "inline-block w-1.5 h-4 bg-brand ml-0.5 align-middle shadow-brand/50",
             showCursor ? "opacity-100" : "opacity-0"
           )}
         />

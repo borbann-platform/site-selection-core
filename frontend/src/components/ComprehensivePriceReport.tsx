@@ -228,16 +228,16 @@ function SectionHeader({
       disabled={!expandable}
       className={cn(
         "flex items-center gap-2 w-full text-left",
-        expandable && "cursor-pointer hover:text-white transition-colors"
+        expandable && "cursor-pointer hover:text-foreground transition-colors"
       )}
     >
-      <Icon size={16} className="text-emerald-400" />
-      <span className="font-semibold text-white text-sm flex-1">{title}</span>
+      <Icon size={16} className="text-brand" />
+      <span className="font-semibold text-foreground text-sm flex-1">{title}</span>
       {expandable &&
         (expanded ? (
-          <ChevronUp size={14} className="text-white/50" />
+          <ChevronUp size={14} className="text-muted-foreground" />
         ) : (
-          <ChevronDown size={14} className="text-white/50" />
+          <ChevronDown size={14} className="text-muted-foreground" />
         ))}
     </button>
   );
@@ -246,20 +246,20 @@ function SectionHeader({
 function ConfidenceBadge({ level }: { level: "high" | "medium" | "low" }) {
   const config = {
     high: {
-      bg: "bg-emerald-500/20",
-      text: "text-emerald-400",
+      bg: "bg-success/10",
+      text: "text-success",
       icon: CheckCircle2,
       label: "High Confidence",
     },
     medium: {
-      bg: "bg-amber-500/20",
-      text: "text-amber-400",
+      bg: "bg-warning/20",
+      text: "text-warning",
       icon: Info,
       label: "Medium Confidence",
     },
     low: {
-      bg: "bg-rose-500/20",
-      text: "text-rose-400",
+      bg: "bg-destructive/10",
+      text: "text-destructive",
       icon: AlertTriangle,
       label: "Low Confidence",
     },
@@ -297,15 +297,15 @@ function ContributionBar({
   return (
     <div className="mb-2.5">
       <div className="flex justify-between text-xs mb-1">
-        <span className="text-white/80">{feature_display}</span>
-        <span className="text-white/50">{formatFeatureValue(feature, value)}</span>
+        <span className="text-muted-foreground">{feature_display}</span>
+        <span className="text-muted-foreground">{formatFeatureValue(feature, value)}</span>
       </div>
       <div className="flex items-center gap-2">
-        <div className="flex-1 h-5 bg-white/5 rounded relative overflow-hidden">
+        <div className="flex-1 h-5 bg-muted/50 rounded relative overflow-hidden">
           <div
             className={cn(
               "absolute h-full rounded transition-all",
-              direction === "positive" ? "bg-emerald-500/70" : "bg-rose-500/70"
+              direction === "positive" ? "bg-success/70" : "bg-destructive/70"
             )}
             style={{ width: `${widthPercent}%` }}
           />
@@ -313,7 +313,7 @@ function ContributionBar({
         <span
           className={cn(
             "text-xs font-mono min-w-16 text-right",
-            direction === "positive" ? "text-emerald-400" : "text-rose-400"
+            direction === "positive" ? "text-success" : "text-destructive"
           )}
         >
           {formatContribution(contribution)}
@@ -327,22 +327,22 @@ function ComparableCard({ comp }: { comp: ComparableProperty }) {
   const isHigher = comp.price_diff_percent > 0;
 
   return (
-    <div className="bg-white/5 rounded-lg p-3 border border-white/10">
+    <div className="bg-muted/50 rounded-lg p-3 border border-border">
       <div className="flex items-start justify-between mb-2">
         <div>
-          <p className="text-sm font-medium text-white">
+          <p className="text-sm font-medium text-foreground">
             {comp.building_style_desc || "Property"}
           </p>
-          <p className="text-xs text-white/50">{Math.round(comp.distance_m)}m away</p>
+          <p className="text-xs text-muted-foreground">{Math.round(comp.distance_m)}m away</p>
         </div>
         <div className="text-right">
-          <p className="text-sm font-semibold text-emerald-400">
+          <p className="text-sm font-semibold text-brand">
             {formatPrice(comp.price)}
           </p>
           <p
             className={cn(
               "text-xs",
-              isHigher ? "text-rose-400" : "text-emerald-400"
+              isHigher ? "text-destructive" : "text-success"
             )}
           >
             {isHigher ? "+" : ""}
@@ -351,12 +351,12 @@ function ComparableCard({ comp }: { comp: ComparableProperty }) {
         </div>
       </div>
       <div className="flex items-center justify-between text-xs">
-        <span className="text-white/50">
+        <span className="text-muted-foreground">
           {comp.building_area ? `${comp.building_area} sqm` : "-"}
         </span>
         <div className="flex items-center gap-1">
-          <span className="text-white/50">Similarity:</span>
-          <span className="text-emerald-400 font-medium">
+          <span className="text-muted-foreground">Similarity:</span>
+          <span className="text-brand font-medium">
             {comp.similarity_score}%
           </span>
         </div>
@@ -367,26 +367,26 @@ function ComparableCard({ comp }: { comp: ComparableProperty }) {
 
 function MarketTrendSection({ trend }: { trend: MarketTrend }) {
   const demandConfig = {
-    high_demand: { label: "High Demand", color: "text-emerald-400" },
-    balanced: { label: "Balanced", color: "text-amber-400" },
-    oversupply: { label: "Oversupply", color: "text-rose-400" },
+    high_demand: { label: "High Demand", color: "text-success" },
+    balanced: { label: "Balanced", color: "text-warning" },
+    oversupply: { label: "Oversupply", color: "text-destructive" },
   };
 
   return (
     <div className="grid grid-cols-2 gap-3">
-      <div className="bg-white/5 rounded-lg p-3">
+      <div className="bg-muted/50 rounded-lg p-3">
         <div className="flex items-center gap-1 mb-1">
           {trend.price_change_6m >= 0 ? (
-            <TrendingUp size={14} className="text-emerald-400" />
+            <TrendingUp size={14} className="text-success" />
           ) : (
-            <TrendingDown size={14} className="text-rose-400" />
+            <TrendingDown size={14} className="text-destructive" />
           )}
-          <span className="text-xs text-white/50">6-Month Change</span>
+          <span className="text-xs text-muted-foreground">6-Month Change</span>
         </div>
         <p
           className={cn(
             "text-lg font-bold",
-            trend.price_change_6m >= 0 ? "text-emerald-400" : "text-rose-400"
+            trend.price_change_6m >= 0 ? "text-success" : "text-destructive"
           )}
         >
           {trend.price_change_6m >= 0 ? "+" : ""}
@@ -394,33 +394,33 @@ function MarketTrendSection({ trend }: { trend: MarketTrend }) {
         </p>
       </div>
 
-      <div className="bg-white/5 rounded-lg p-3">
+      <div className="bg-muted/50 rounded-lg p-3">
         <div className="flex items-center gap-1 mb-1">
-          <BarChart3 size={14} className="text-white/50" />
-          <span className="text-xs text-white/50">District Growth</span>
+          <BarChart3 size={14} className="text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">District Growth</span>
         </div>
-        <p className="text-lg font-bold text-white">
+        <p className="text-lg font-bold text-foreground">
           +{trend.district_growth_rate.toFixed(1)}%
-          <span className="text-xs text-white/50 font-normal ml-1">YoY</span>
+          <span className="text-xs text-muted-foreground font-normal ml-1">YoY</span>
         </p>
       </div>
 
-      <div className="bg-white/5 rounded-lg p-3">
+      <div className="bg-muted/50 rounded-lg p-3">
         <div className="flex items-center gap-1 mb-1">
-          <Scale size={14} className="text-white/50" />
-          <span className="text-xs text-white/50">Market Balance</span>
+          <Scale size={14} className="text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">Market Balance</span>
         </div>
         <p className={cn("text-sm font-semibold", demandConfig[trend.supply_demand].color)}>
           {demandConfig[trend.supply_demand].label}
         </p>
       </div>
 
-      <div className="bg-white/5 rounded-lg p-3">
+      <div className="bg-muted/50 rounded-lg p-3">
         <div className="flex items-center gap-1 mb-1">
-          <Home size={14} className="text-white/50" />
-          <span className="text-xs text-white/50">Avg. Days Listed</span>
+          <Home size={14} className="text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">Avg. Days Listed</span>
         </div>
-        <p className="text-lg font-bold text-white">{trend.avg_days_on_market}</p>
+        <p className="text-lg font-bold text-foreground">{trend.avg_days_on_market}</p>
       </div>
     </div>
   );
@@ -428,16 +428,16 @@ function MarketTrendSection({ trend }: { trend: MarketTrend }) {
 
 function LoadingState() {
   return (
-    <div className="bg-black/40 border border-white/10 rounded-lg p-4">
+    <div className="bg-card border border-border rounded-lg p-4">
       <div className="animate-pulse space-y-4">
-        <div className="h-6 bg-white/10 rounded w-1/3" />
+        <div className="h-6 bg-muted/50 rounded w-1/3" />
         <div className="grid grid-cols-2 gap-4">
-          <div className="h-20 bg-white/10 rounded" />
-          <div className="h-20 bg-white/10 rounded" />
+          <div className="h-20 bg-muted/50 rounded" />
+          <div className="h-20 bg-muted/50 rounded" />
         </div>
         <div className="space-y-2">
           {[1, 2, 3, 4].map((i) => (
-            <div key={`skeleton-${i}`} className="h-8 bg-white/10 rounded" />
+            <div key={`skeleton-${i}`} className="h-8 bg-muted/50 rounded" />
           ))}
         </div>
       </div>
@@ -447,11 +447,11 @@ function LoadingState() {
 
 function ErrorState({ message }: { message: string }) {
   return (
-    <div className="bg-black/40 border border-white/10 rounded-lg p-4">
+    <div className="bg-card border border-border rounded-lg p-4">
       <div className="text-center py-4">
-        <AlertTriangle className="h-8 w-8 text-rose-400 mx-auto mb-2" />
-        <div className="text-rose-400 text-sm mb-2">Price Analysis Unavailable</div>
-        <p className="text-white/50 text-xs">{message}</p>
+        <AlertTriangle className="h-8 w-8 text-destructive mx-auto mb-2" />
+        <div className="text-destructive text-sm mb-2">Price Analysis Unavailable</div>
+        <p className="text-muted-foreground text-xs">{message}</p>
       </div>
     </div>
   );
@@ -530,10 +530,10 @@ export function ComprehensivePriceReport({
   return (
     <div className="space-y-4">
       {/* Main Price Card */}
-      <div className="bg-black/40 border border-white/10 rounded-lg p-4">
+      <div className="bg-card border border-border rounded-lg p-4">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-white font-semibold flex items-center gap-2">
-            <BarChart3 size={18} className="text-emerald-400" />
+          <h3 className="text-foreground font-semibold flex items-center gap-2">
+            <BarChart3 size={18} className="text-brand" />
             Price Analysis
           </h3>
           {extendedData && (
@@ -543,33 +543,33 @@ export function ComprehensivePriceReport({
 
         {/* Price Summary */}
         <div className="grid grid-cols-2 gap-4 mb-4">
-          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3">
-            <div className="text-white/50 text-xs uppercase tracking-wide mb-1">
+          <div className="bg-brand/10 border border-brand/20 rounded-lg p-3">
+            <div className="text-muted-foreground text-xs uppercase tracking-wide mb-1">
               Predicted Value
             </div>
-            <div className="text-2xl font-bold text-emerald-400">
+            <div className="text-2xl font-bold text-brand">
               {formatPrice(priceData.predicted_price)}
             </div>
             {extendedData && (
-              <div className="text-xs text-white/50 mt-1">
+              <div className="text-xs text-muted-foreground mt-1">
                 Range: {formatPrice(extendedData.priceRange.min)} -{" "}
                 {formatPrice(extendedData.priceRange.max)}
               </div>
             )}
           </div>
 
-          <div className="bg-white/5 border border-white/10 rounded-lg p-3">
-            <div className="text-white/50 text-xs uppercase tracking-wide mb-1">
+          <div className="bg-muted/50 border border-border rounded-lg p-3">
+            <div className="text-muted-foreground text-xs uppercase tracking-wide mb-1">
               Appraised Value
             </div>
-            <div className="text-2xl font-bold text-white">
+            <div className="text-2xl font-bold text-foreground">
               {actualPrice ? formatPrice(actualPrice) : "-"}
             </div>
             {priceDifferencePercent !== null && (
               <div
                 className={cn(
                   "text-xs mt-1",
-                  priceDifferencePercent >= 0 ? "text-emerald-400" : "text-rose-400"
+                  priceDifferencePercent >= 0 ? "text-success" : "text-destructive"
                 )}
               >
                 {priceDifferencePercent >= 0 ? "+" : ""}
@@ -583,14 +583,14 @@ export function ComprehensivePriceReport({
         <div className="grid grid-cols-2 gap-3 mb-4">
           {/* District Comparison */}
           {priceData.district_avg_price > 0 && (
-            <div className="bg-white/5 rounded-lg p-3">
-              <div className="text-xs text-white/50 mb-1">vs. District Avg</div>
+            <div className="bg-muted/50 rounded-lg p-3">
+              <div className="text-xs text-muted-foreground mb-1">vs. District Avg</div>
               <div
                 className={cn(
                   "text-lg font-bold",
                   priceData.price_vs_district >= 0
-                    ? "text-emerald-400"
-                    : "text-rose-400"
+                    ? "text-success"
+                    : "text-destructive"
                 )}
               >
                 {priceData.price_vs_district >= 0 ? "+" : ""}
@@ -601,9 +601,9 @@ export function ComprehensivePriceReport({
 
           {/* Price Percentile */}
           {extendedData && (
-            <div className="bg-white/5 rounded-lg p-3">
-              <div className="text-xs text-white/50 mb-1">Price Percentile</div>
-              <div className="text-lg font-bold text-white">
+            <div className="bg-muted/50 rounded-lg p-3">
+              <div className="text-xs text-muted-foreground mb-1">Price Percentile</div>
+              <div className="text-lg font-bold text-foreground">
                 Top {(100 - extendedData.pricePercentile).toFixed(0)}%
               </div>
             </div>
@@ -612,12 +612,12 @@ export function ComprehensivePriceReport({
 
         {/* Price per sqm */}
         {property.building_area && priceData.predicted_price && (
-          <div className="bg-white/5 rounded-lg p-3 flex items-center justify-between">
+          <div className="bg-muted/50 rounded-lg p-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Building2 size={14} className="text-white/50" />
-              <span className="text-sm text-white/70">Predicted Price per sqm</span>
+              <Building2 size={14} className="text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">Predicted Price per sqm</span>
             </div>
-            <span className="text-sm font-semibold text-white">
+            <span className="text-sm font-semibold text-foreground">
               ฿
               {Math.round(
                 priceData.predicted_price / property.building_area
@@ -628,7 +628,7 @@ export function ComprehensivePriceReport({
       </div>
 
       {/* Feature Contributions */}
-      <div className="bg-black/40 border border-white/10 rounded-lg p-4">
+      <div className="bg-card border border-border rounded-lg p-4">
         <SectionHeader
           icon={Scale}
           title="Price Factors"
@@ -649,13 +649,13 @@ export function ComprehensivePriceReport({
                 maxContribution={maxContribution}
               />
             ))}
-            <div className="flex gap-4 text-xs text-white/40 mt-3 pt-3 border-t border-white/10">
+            <div className="flex gap-4 text-xs text-muted-foreground mt-3 pt-3 border-t border-border">
               <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded bg-emerald-500/70" />
+                <div className="w-3 h-3 rounded bg-success/70" />
                 <span>Increases value</span>
               </div>
               <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded bg-rose-500/70" />
+                <div className="w-3 h-3 rounded bg-destructive/70" />
                 <span>Decreases value</span>
               </div>
             </div>
@@ -665,7 +665,7 @@ export function ComprehensivePriceReport({
 
       {/* Comparable Properties */}
       {extendedData && extendedData.comparables.length > 0 && (
-        <div className="bg-black/40 border border-white/10 rounded-lg p-4">
+        <div className="bg-card border border-border rounded-lg p-4">
           <SectionHeader
             icon={Home}
             title={`Comparable Properties (${extendedData.comparables.length})`}
@@ -679,11 +679,11 @@ export function ComprehensivePriceReport({
                 <ComparableCard key={comp.id} comp={comp} />
               ))}
               {extendedData.comparables.length > 0 && (
-                <div className="bg-white/5 rounded-lg p-3 flex items-center justify-between">
-                  <span className="text-sm text-white/70">
+                <div className="bg-muted/50 rounded-lg p-3 flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">
                     Avg. Comparable Price
                   </span>
-                  <span className="text-sm font-semibold text-emerald-400">
+                  <span className="text-sm font-semibold text-brand">
                     {formatPrice(
                       extendedData.comparables.reduce((sum, c) => sum + c.price, 0) /
                         extendedData.comparables.length
@@ -698,7 +698,7 @@ export function ComprehensivePriceReport({
 
       {/* Market Trends */}
       {extendedData && (
-        <div className="bg-black/40 border border-white/10 rounded-lg p-4">
+        <div className="bg-card border border-border rounded-lg p-4">
           <SectionHeader
             icon={TrendingUp}
             title="Market Trends"
@@ -716,24 +716,24 @@ export function ComprehensivePriceReport({
 
       {/* Confidence Metrics */}
       {extendedData && (
-        <div className="bg-black/40 border border-white/10 rounded-lg p-4">
+        <div className="bg-card border border-border rounded-lg p-4">
           <SectionHeader icon={CheckCircle2} title="Valuation Quality" />
           <div className="mt-3 grid grid-cols-3 gap-3">
             <div className="text-center">
-              <div className="text-xs text-white/50 mb-1">Data Quality</div>
-              <div className="text-lg font-bold text-white">
+              <div className="text-xs text-muted-foreground mb-1">Data Quality</div>
+              <div className="text-lg font-bold text-foreground">
                 {extendedData.confidence.data_quality_score}%
               </div>
             </div>
             <div className="text-center">
-              <div className="text-xs text-white/50 mb-1">Model Accuracy</div>
-              <div className="text-lg font-bold text-emerald-400">
+              <div className="text-xs text-muted-foreground mb-1">Model Accuracy</div>
+              <div className="text-lg font-bold text-brand">
                 {extendedData.confidence.model_accuracy.toFixed(1)}%
               </div>
             </div>
             <div className="text-center">
-              <div className="text-xs text-white/50 mb-1">Comparables</div>
-              <div className="text-lg font-bold text-white">
+              <div className="text-xs text-muted-foreground mb-1">Comparables</div>
+              <div className="text-lg font-bold text-foreground">
                 {extendedData.confidence.comparable_count}
               </div>
             </div>

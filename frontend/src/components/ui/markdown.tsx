@@ -1,6 +1,6 @@
 /**
  * Markdown renderer component with GitHub Flavored Markdown support.
- * Styled for theme support with emerald accents.
+ * Styled for theme support with brand accents.
  */
 
 import ReactMarkdown from "react-markdown";
@@ -70,7 +70,7 @@ const components: Components = {
   a: ({ children, href, ...props }) => (
     <a
       href={href}
-      className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300 underline underline-offset-2 transition-colors"
+      className="text-brand hover:text-brand underline underline-offset-2 transition-colors"
       target="_blank"
       rel="noopener noreferrer"
       {...props}
@@ -106,7 +106,7 @@ const components: Components = {
   // Blockquote
   blockquote: ({ children, ...props }) => (
     <blockquote
-      className="border-l-2 border-emerald-500/50 pl-3 my-2 text-muted-foreground italic"
+      className="border-l-2 border-brand/50 pl-3 my-2 text-muted-foreground italic"
       {...props}
     >
       {children}
@@ -122,7 +122,7 @@ const components: Components = {
       return (
         <code
           className={cn(
-            "block bg-muted rounded-lg p-3 my-2 overflow-x-auto text-sm font-mono text-emerald-600 dark:text-emerald-300",
+            "block bg-muted rounded-lg p-3 my-2 overflow-x-auto text-sm font-mono text-brand",
             className
           )}
           {...props}
@@ -134,7 +134,7 @@ const components: Components = {
 
     return (
       <code
-        className="bg-muted text-emerald-600 dark:text-emerald-300 px-1.5 py-0.5 rounded text-sm font-mono"
+        className="bg-muted text-brand px-1.5 py-0.5 rounded text-sm font-mono"
         {...props}
       >
         {children}
@@ -243,7 +243,7 @@ export function StreamingMarkdown({
     return (
       <div className={cn("whitespace-pre-wrap text-foreground/90", className)}>
         {content}
-        <span className="inline-block w-2 h-4 ml-0.5 bg-emerald-500 dark:bg-emerald-400 animate-pulse rounded-sm" />
+        <span className="inline-block w-2 h-4 ml-0.5 bg-brand animate-pulse rounded-sm" />
       </div>
     );
   }

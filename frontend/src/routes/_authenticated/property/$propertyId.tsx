@@ -2,13 +2,11 @@
 // TypeScript checks disabled due to complex DeckGL generic types
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
-import { Shell } from "@/components/Shell";
+import { useState, useMemo, lazy, Suspense } from "react";
 import { MapContainer } from "@/components/MapContainer";
 import { api } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LocationIntelligencePanel } from "@/components/LocationIntelligence";
-import { ComprehensivePriceReport } from "@/components/ComprehensivePriceReport";
 import { ScatterplotLayer } from "@deck.gl/layers";
 import {
   Home,
@@ -21,6 +19,14 @@ import {
   Navigation,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ErrorState } from "@/components/ui/error-state";
+import { ContentLoader } from "@/components/ui/loading";
+
+const ComprehensivePriceReport = lazy(() =>
+  import("@/components/ComprehensivePriceReport").then((m) => ({
+    default: m.ComprehensivePriceReport,
+  }))
+);
 
 export const Route = createFileRoute("/_authenticated/property/$propertyId")({
   component: PropertyDetailPage,
@@ -106,7 +112,7 @@ function PropertyDetailPage() {
       id: "current-property",
       data: [property],
       getPosition: (d) => [d.lon, d.lat],
-      // Emerald accent (matches Shell)
+      // Brand accent (emerald)
       getFillColor: [16, 185, 129, 255],
       getRadius: 40,
       radiusMinPixels: 10,
@@ -133,30 +139,28 @@ function PropertyDetailPage() {
 
   if (isPropertyError) {
     return (
-      <Shell>
-        <div className="flex h-full items-center justify-center bg-background text-foreground">
-          <div className="text-center">
-            <p className="mb-4 text-rose-400">Property not found</p>
-            <Link to="/" search={{ district: undefined }}>
-              <Button
-                variant="outline"
-                className="border-border bg-muted text-foreground hover:bg-muted/80"
-              >
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Explorer
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </Shell>
+      <div className="flex h-full flex-col items-center justify-center bg-background text-foreground">
+        <ErrorState
+          title="Property not found"
+          message="The property you are looking for could not be loaded."
+        />
+        <Link to="/" search={{ district: undefined }} className="mt-2">
+          <Button
+            variant="outline"
+            className="border-border bg-muted text-foreground hover:bg-muted/80"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Explorer
+          </Button>
+        </Link>
+      </div>
     );
   }
 
   return (
-    <Shell>
-      <div className="flex h-full bg-background text-foreground">
+    <div className="flex h-full flex-col md:flex-row bg-background text-foreground">
         {/* Left Panel - Property Details */}
-        <div className="w-100 shrink-0 overflow-auto border-r border-border bg-background">
+        <div className="w-full md:w-100 md:shrink-0 overflow-auto border-b md:border-b-0 md:border-r border-border bg-background">
           {/* Back button */}
           <div className="border-b border-border p-4">
             <Link to="/" search={{ district: undefined }}>
@@ -189,8 +193,8 @@ function PropertyDetailPage() {
               {/* Header */}
               <div className="mb-6">
                 <div className="flex items-start gap-3">
-                  <div className="rounded-lg bg-emerald-500/15 p-2">
-                    <Home className="h-5 w-5 text-emerald-400" />
+                  <div className="rounded-lg bg-brand/15 p-2">
+                    <Home className="h-5 w-5 text-brand" />
                   </div>
                   <div>
                     <h1 className="text-lg font-semibold">
@@ -200,7 +204,7 @@ function PropertyDetailPage() {
                   </div>
                 </div>
                 <div className="mt-4">
-                  <p className="text-2xl font-bold text-emerald-400">
+                  <p className="text-2xl font-bold text-brand">
                     {formatPrice(property.total_price)}
                   </p>
                   {property.building_area && property.total_price && (
@@ -297,7 +301,7 @@ function PropertyDetailPage() {
                                 {Math.round(nearby.distance_m)}m away
                               </p>
                             </div>
-                            <p className="text-sm font-semibold text-emerald-300">
+                            <p className="text-sm font-semibold text-brand">
                               {formatPrice(nearby.total_price)}
                             </p>
                           </div>
@@ -332,17 +336,19 @@ function PropertyDetailPage() {
 
               {/* Price Explanation */}
               <div className="mt-6">
-                <ComprehensivePriceReport
-                  propertyId={id}
-                  property={property}
-                />
+                <Suspense fallback={<ContentLoader lines={15} />}>
+                  <ComprehensivePriceReport
+                    propertyId={id}
+                    property={property}
+                  />
+                </Suspense>
               </div>
             </div>
           ) : null}
         </div>
 
         {/* Right Panel - Map */}
-        <div className="relative flex-1">
+        <div className="relative flex-1 h-64 md:h-auto">
           {initialViewState ? (
             <MapContainer
               viewState={viewState || initialViewState}
@@ -377,8 +383,7 @@ function PropertyDetailPage() {
             </div>
           )}
         </div>
-      </div>
-    </Shell>
+    </div>
   );
 }
 

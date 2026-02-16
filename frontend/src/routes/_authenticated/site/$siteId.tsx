@@ -4,7 +4,6 @@ import type React from "react";
 import type { Feature, GeoJsonProperties, Point } from "geojson";
 import { useState, useMemo, useEffect } from "react";
 import { MapContainer } from "../../../components/MapContainer";
-import { Shell } from "../../../components/Shell";
 import { GeoJsonLayer, ScatterplotLayer } from "@deck.gl/layers";
 import { FlyToInterpolator } from "@deck.gl/core";
 import { api } from "../../../lib/api";
@@ -20,9 +19,11 @@ import {
   Eye,
   EyeOff,
   Download,
+  SlidersHorizontal,
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { Skeleton } from "../../../components/ui/skeleton";
+import { Sheet, SheetContent, SheetTrigger } from "../../../components/ui/sheet";
 
 interface SiteSearch {
   lat: number;
@@ -226,9 +227,9 @@ function SiteInspector() {
     if (!object) return null;
     if (object.properties?.name) {
       return {
-        html: `<div class="p-2 bg-black/80 text-white rounded text-xs">
+        html: `<div class="p-2 bg-card/90 text-foreground rounded text-xs backdrop-blur">
           <div class="font-bold">${object.properties.name}</div>
-          <div class="text-white/60">${object.properties.amenity}</div>
+          <div class="text-muted-foreground">${object.properties.amenity}</div>
         </div>`,
       };
     }
@@ -273,7 +274,7 @@ function SiteInspector() {
               Site Inspector
             </div>
             <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
-              <MapPin className="text-emerald-400" />
+              <MapPin className="text-brand" />
               Site #{siteId === "new" ? "Draft" : siteId}
             </h2>
             <p className="text-muted-foreground text-sm mt-1">
@@ -293,13 +294,13 @@ function SiteInspector() {
 
       {/* Location Warning */}
       {analysis?.location_warning && (
-        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+        <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
           <div>
-            <h4 className="text-red-400 font-medium text-sm">
+            <h4 className="text-destructive font-medium text-sm">
               Accessibility Issue
             </h4>
-            <p className="text-red-400/80 text-xs mt-1">
+            <p className="text-destructive/80 text-xs mt-1">
               {analysis.location_warning}
             </p>
           </div>
@@ -343,8 +344,8 @@ function SiteInspector() {
                 )}
                 total={analysis?.summary.total_population || 1}
                 icon={User}
-                color="text-blue-400"
-                bg="bg-blue-400"
+                color="text-brand"
+                bg="bg-brand"
               />
               <DemographicRow
                 label="Workers"
@@ -353,8 +354,8 @@ function SiteInspector() {
                 )}
                 total={analysis?.summary.total_population || 1}
                 icon={Briefcase}
-                color="text-purple-400"
-                bg="bg-purple-400"
+                color="text-ai-accent"
+                bg="bg-ai-accent"
               />
               <DemographicRow
                 label="Students"
@@ -363,8 +364,8 @@ function SiteInspector() {
                 )}
                 total={analysis?.summary.total_population || 1}
                 icon={GraduationCap}
-                color="text-yellow-400"
-                bg="bg-yellow-400"
+                color="text-warning"
+                bg="bg-warning"
               />
             </>
           )}
@@ -421,8 +422,7 @@ function SiteInspector() {
   );
 
   return (
-    <Shell panelContent={PanelContent}>
-      <div className="w-full h-full bg-background relative overflow-hidden">
+    <div className="w-full h-full bg-background relative overflow-hidden">
         <MapContainer
           viewState={viewState}
           onViewStateChange={(e) => setViewState(e.viewState)}
@@ -430,18 +430,38 @@ function SiteInspector() {
           getTooltip={getTooltip}
         />
 
+        {/* Floating Left Panel -- desktop only */}
+        <div className="absolute left-4 top-4 bottom-4 w-80 z-40 bg-card/95 backdrop-blur-xl border border-border rounded-2xl shadow-xl overflow-auto p-6 hidden md:block">
+          {PanelContent}
+        </div>
+
+        {/* Mobile panel sheet */}
+        <div className="md:hidden absolute bottom-20 left-4 z-40">
+          <Sheet>
+            <SheetTrigger asChild>
+              <button className="flex items-center gap-2 bg-card/95 backdrop-blur-xl border border-border rounded-full px-4 py-2.5 shadow-lg text-sm font-medium text-foreground">
+                <SlidersHorizontal className="h-4 w-4" />
+                Site Details
+              </button>
+            </SheetTrigger>
+            <SheetContent side="bottom" className="h-[80vh] overflow-auto rounded-t-2xl">
+              {PanelContent}
+            </SheetContent>
+          </Sheet>
+        </div>
+
         {/* Floating Score Card (Always Visible) */}
-        <div className="absolute top-6 right-6 w-64 bg-card/90 backdrop-blur-xl border border-border rounded-2xl p-6 shadow-2xl z-50">
-          <div className="flex justify-between items-start mb-4">
-            <h3 className="text-lg font-semibold text-foreground">
+        <div className="absolute top-4 right-4 w-48 md:w-64 bg-card/90 backdrop-blur-xl border border-border rounded-2xl p-4 md:p-6 shadow-2xl z-50">
+          <div className="flex justify-between items-start mb-2 md:mb-4">
+            <h3 className="text-sm md:text-lg font-semibold text-foreground">
               Potential Score
             </h3>
-            <div className="text-3xl font-bold text-emerald-400">
+            <div className="text-xl md:text-3xl font-bold text-brand">
               {analysis?.site_score}/100
             </div>
           </div>
 
-          <div className="h-32 w-full relative">
+          <div className="h-24 md:h-32 w-full relative">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -458,8 +478,8 @@ function SiteInspector() {
                   paddingAngle={0}
                   dataKey="value"
                 >
-                  <Cell fill="#34d399" />
-                  <Cell fill="#333" />
+                  <Cell fill="oklch(0.7 0.17 162)" />
+                  <Cell fill="oklch(0.3 0 0)" />
                 </Pie>
               </PieChart>
             </ResponsiveContainer>
@@ -468,14 +488,13 @@ function SiteInspector() {
             </div>
           </div>
 
-          <div className="mt-4 text-sm text-muted-foreground bg-muted p-3 rounded border border-border">
-            <span className="text-emerald-400 font-bold">Why?</span> Boosted by
+          <div className="mt-2 md:mt-4 text-xs md:text-sm text-muted-foreground bg-muted p-2 md:p-3 rounded border border-border">
+            <span className="text-brand font-bold">Why?</span> Boosted by
             high student traffic, penalized by{" "}
             {analysis?.summary.competitors_count} nearby rivals.
           </div>
         </div>
-      </div>
-    </Shell>
+    </div>
   );
 }
 
@@ -575,17 +594,17 @@ function RiskItem({
     <div className="flex items-center justify-between p-3 bg-muted/50 rounded border border-border">
       <span className="text-foreground/80 text-sm">{label}</span>
       {status === "safe" && (
-        <div className="flex items-center gap-1 text-emerald-400 text-xs font-bold">
+        <div className="flex items-center gap-1 text-success text-xs font-bold">
           <CheckCircle size={14} /> LOW RISK
         </div>
       )}
       {status === "warning" && (
-        <div className="flex items-center gap-1 text-yellow-400 text-xs font-bold">
+        <div className="flex items-center gap-1 text-warning text-xs font-bold">
           <AlertTriangle size={14} /> MEDIUM
         </div>
       )}
       {status === "danger" && (
-        <div className="flex items-center gap-1 text-red-400 text-xs font-bold">
+        <div className="flex items-center gap-1 text-destructive text-xs font-bold">
           <AlertTriangle size={14} /> HIGH RISK
         </div>
       )}

@@ -542,7 +542,7 @@ interface SuggestedQuestionsProps {
 function SuggestedQuestions({ onSelect, disabled }: SuggestedQuestionsProps) {
   return (
     <div className="px-3 pb-2">
-      <div className="flex items-center gap-1.5 text-[10px] text-white/50 mb-2">
+      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mb-2">
         <MessageSquare size={10} />
         <span>Try asking</span>
       </div>
@@ -555,14 +555,14 @@ function SuggestedQuestions({ onSelect, disabled }: SuggestedQuestionsProps) {
             disabled={disabled}
             className={cn(
               "text-left px-3 py-2.5 rounded-lg border transition-all text-sm",
-              "bg-white/5 border-white/10 text-white/80",
-              "hover:bg-emerald-500/10 hover:border-emerald-500/30 hover:text-white",
+              "bg-muted/50 border-border text-foreground/80",
+              "hover:bg-brand/10 hover:border-brand/30 hover:text-foreground",
               "disabled:opacity-50 disabled:cursor-not-allowed",
               "group"
             )}
           >
             <span className="mr-2">{q.icon}</span>
-            <span className="group-hover:text-emerald-300 transition-colors">
+            <span className="group-hover:text-brand transition-colors">
               {q.text}
             </span>
           </button>
@@ -586,8 +586,8 @@ function AssistantMessage({ message }: AssistantMessageProps) {
 
   return (
     <div className="flex gap-2">
-      <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 bg-emerald-500/20">
-        <Bot size={12} className="text-emerald-400" />
+      <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 bg-brand/20">
+        <Bot size={12} className="text-brand" />
       </div>
       <div className="flex-1 space-y-2 min-w-0">
         {/* Steps section */}
@@ -597,7 +597,7 @@ function AssistantMessage({ message }: AssistantMessageProps) {
             <button
               type="button"
               onClick={() => setShowSteps(!showSteps)}
-              className="flex items-center gap-1.5 text-[10px] text-white/50 hover:text-white/70 transition-colors"
+              className="flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-foreground/70 transition-colors"
             >
               {showSteps ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
               <Sparkles size={10} />
@@ -638,14 +638,14 @@ function AssistantMessage({ message }: AssistantMessageProps) {
 
         {/* Message content */}
         {(message.content || message.isStreaming) && (
-          <div className="max-w-full rounded-xl px-3 py-2 text-sm bg-white/5 text-white/90">
+          <div className="max-w-full rounded-xl px-3 py-2 text-sm bg-muted/50 text-foreground/90">
             {message.content ? (
               <StreamingMarkdown
                 content={message.content}
                 isStreaming={message.isStreaming}
               />
             ) : (
-              <span className="flex items-center gap-1 text-white/50">
+              <span className="flex items-center gap-1 text-muted-foreground">
                 <Loader2 size={12} className="animate-spin" />
                 Generating response...
               </span>
@@ -778,13 +778,13 @@ export function AgentChatPanel({
   return (
     <div className={cn("flex flex-col h-full", className)}>
       {/* Header */}
-      <div className="flex items-center gap-2 p-3 border-b border-white/10">
-        <div className="w-8 h-8 bg-emerald-500/20 rounded-lg flex items-center justify-center">
-          <Bot size={18} className="text-emerald-400" />
+      <div className="flex items-center gap-2 p-3 border-b border-border">
+        <div className="w-8 h-8 bg-brand/20 rounded-lg flex items-center justify-center">
+          <Bot size={18} className="text-brand" />
         </div>
         <div>
-          <h3 className="text-sm font-medium text-white">AI Assistant</h3>
-          <p className="text-[10px] text-white/50">
+          <h3 className="text-sm font-medium text-foreground">AI Assistant</h3>
+          <p className="text-[10px] text-muted-foreground">
             Real Estate Expert • ReAct Agent
           </p>
         </div>
@@ -795,10 +795,10 @@ export function AgentChatPanel({
         {messages.map((message) =>
           message.role === "user" ? (
             <div key={message.id} className="flex gap-2 flex-row-reverse">
-              <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 bg-blue-500/20">
+              <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 bg-ai-accent/20">
                 <User size={12} className="text-blue-400" />
               </div>
-              <div className="max-w-[85%] rounded-xl px-3 py-2 text-sm bg-blue-500/20 text-white">
+              <div className="max-w-[85%] rounded-xl px-3 py-2 text-sm bg-ai-accent/20 text-foreground">
                 {message.content}
               </div>
             </div>
@@ -818,20 +818,20 @@ export function AgentChatPanel({
       )}
 
       {/* Input */}
-      <form onSubmit={handleSubmit} className="p-3 border-t border-white/10">
+      <form onSubmit={handleSubmit} className="p-3 border-t border-border">
         {/* Attachments */}
         {attachments.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-2">
             {attachments.map((att) => (
               <div
                 key={att.id}
-                className="flex items-center gap-1 bg-white/10 rounded-full px-2 py-1 text-xs text-white/80"
+                className="flex items-center gap-1 bg-muted/50 rounded-full px-2 py-1 text-xs text-foreground/80"
               >
                 <span className="truncate max-w-36">{att.label}</span>
                 <button
                   type="button"
                   onClick={() => onRemoveAttachment?.(att.id)}
-                  className="hover:text-white"
+                  className="hover:text-foreground"
                 >
                   <X size={12} />
                 </button>
@@ -844,7 +844,7 @@ export function AgentChatPanel({
           <button
             type="button"
             onClick={onPickLocation}
-            className="p-2 bg-white/5 hover:bg-white/10 rounded-lg text-white/70 transition-colors"
+            className="p-2 bg-muted/50 hover:bg-muted rounded-lg text-muted-foreground transition-colors"
             title="Pick location on map"
           >
             <MapPin size={18} />
@@ -856,15 +856,15 @@ export function AgentChatPanel({
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask about prices, locations, site analysis..."
             disabled={isRunning}
-            className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-emerald-500/50 disabled:opacity-50"
+            className="flex-1 bg-muted/50 border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-brand/50 disabled:opacity-50"
           />
           <button
             type="submit"
             disabled={(!input.trim() && attachments.length === 0) || isRunning}
-            className="p-2 bg-emerald-500 hover:bg-emerald-600 disabled:bg-white/10 disabled:text-white/30 rounded-lg text-black transition-colors"
+            className="p-2 bg-brand hover:bg-brand/90 disabled:bg-muted disabled:text-muted-foreground rounded-lg text-brand-foreground transition-colors"
           >
             {isRunning ? (
-              <Loader2 size={18} className="animate-spin text-white/50" />
+              <Loader2 size={18} className="animate-spin text-muted-foreground" />
             ) : (
               <Send size={18} />
             )}

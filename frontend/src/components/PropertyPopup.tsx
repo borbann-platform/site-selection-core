@@ -91,7 +91,7 @@ export function PropertyPopup({
               {property.building_area ? `${property.building_area} sqm` : "N/A"}
             </div>
             <div>Price/sqm:</div>
-            <div className="text-right font-medium text-emerald-600 dark:text-emerald-400">
+            <div className="text-right font-medium text-brand">
               {pricePerSqm}
             </div>
             <div>Floors:</div>
@@ -109,7 +109,7 @@ export function PropertyPopup({
             <Link
               to="/property/$propertyId"
               params={{ propertyId: String(property.id) }}
-              className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium rounded-lg transition-colors"
+              className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 bg-brand hover:bg-brand/90 text-brand-foreground text-xs font-medium rounded-lg transition-colors"
             >
               <ArrowRight size={14} />
               <span>View Details</span>

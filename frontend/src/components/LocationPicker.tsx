@@ -87,25 +87,25 @@ export function LocationPicker({
       {/* Backdrop */}
       <button
         type="button"
-        className="absolute inset-0 bg-black/80 backdrop-blur-sm cursor-default"
+        className="absolute inset-0 bg-popover backdrop-blur-sm cursor-default"
         onClick={onClose}
         onKeyDown={(e) => e.key === "Escape" && onClose()}
         aria-label="Close location picker"
       />
 
       {/* Modal */}
-      <div className="relative z-10 w-full max-w-4xl h-[80vh] bg-zinc-900 rounded-2xl border border-white/10 overflow-hidden flex flex-col">
+      <div className="relative z-10 w-full max-w-4xl h-[80vh] bg-zinc-900 rounded-2xl border border-border overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-              <MapPin size={16} className="text-emerald-400" />
+            <div className="w-8 h-8 rounded-lg bg-brand/20 flex items-center justify-center">
+              <MapPin size={16} className="text-brand" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-white">
+              <h3 className="text-sm font-semibold text-foreground">
                 Select Property Location
               </h3>
-              <p className="text-xs text-white/50">
+              <p className="text-xs text-muted-foreground">
                 Click on the map to set the location
               </p>
             </div>
@@ -113,9 +113,9 @@ export function LocationPicker({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+            className="p-2 hover:bg-muted rounded-lg transition-colors"
           >
-            <X size={18} className="text-white/70" />
+            <X size={18} className="text-muted-foreground" />
           </button>
         </div>
 
@@ -131,9 +131,9 @@ export function LocationPicker({
 
           {/* Instructions overlay */}
           {!selectedLocation && (
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/80 backdrop-blur-sm rounded-lg px-4 py-2 border border-white/10">
-              <p className="text-sm text-white/80 flex items-center gap-2">
-                <Navigation size={14} className="text-emerald-400" />
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-popover backdrop-blur-sm rounded-lg px-4 py-2 border border-border">
+              <p className="text-sm text-foreground/80 flex items-center gap-2">
+                <Navigation size={14} className="text-brand" />
                 Click anywhere on the map to select location
               </p>
             </div>
@@ -141,9 +141,9 @@ export function LocationPicker({
 
           {/* Selected location info */}
           {selectedLocation && (
-            <div className="absolute bottom-4 left-4 bg-black/90 backdrop-blur-sm rounded-lg px-4 py-3 border border-emerald-500/30">
-              <p className="text-xs text-white/70 mb-1">Selected Location</p>
-              <p className="text-sm font-mono text-white">
+            <div className="absolute bottom-4 left-4 bg-popover backdrop-blur-sm rounded-lg px-4 py-3 border border-brand/30">
+              <p className="text-xs text-muted-foreground mb-1">Selected Location</p>
+              <p className="text-sm font-mono text-foreground">
                 {selectedLocation.lat.toFixed(6)}, {selectedLocation.lon.toFixed(6)}
               </p>
             </div>
@@ -151,8 +151,8 @@ export function LocationPicker({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-4 py-3 border-t border-white/10 bg-black/40">
-          <p className="text-xs text-white/50">
+        <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-popover">
+          <p className="text-xs text-muted-foreground">
             {selectedLocation
               ? "Location selected. Click Confirm to continue."
               : "No location selected yet."}
@@ -161,7 +161,7 @@ export function LocationPicker({
             <Button
               variant="outline"
               onClick={onClose}
-              className="border-white/20 bg-white/5 text-white hover:bg-white/10"
+              className="border-border bg-muted/50 text-foreground hover:bg-muted"
             >
               Cancel
             </Button>
@@ -169,7 +169,7 @@ export function LocationPicker({
               onClick={handleConfirm}
               disabled={!selectedLocation}
               className={cn(
-                "bg-emerald-500 hover:bg-emerald-600 text-black",
+                "bg-brand hover:bg-brand/90 text-brand-foreground",
                 !selectedLocation && "opacity-50 cursor-not-allowed"
               )}
             >
