@@ -51,6 +51,7 @@ export function ScoreCard({
           viewBox={`0 0 ${config.svgSize} ${config.svgSize}`}
           className="-rotate-90"
         >
+          <title>{`${label} score ${Math.round(clampedScore)} out of 100`}</title>
           {/* Background track */}
           <circle
             cx={center}

@@ -39,12 +39,14 @@ interface ContentLoaderProps {
 }
 
 export function ContentLoader({ lines = 3, className }: ContentLoaderProps) {
+  const lineNumbers = Array.from({ length: lines }, (_, idx) => idx + 1);
+
   return (
     <div className={cn("space-y-3", className)}>
-      {Array.from({ length: lines }).map((_, i) => (
+      {lineNumbers.map((lineNumber) => (
         <Skeleton
-          key={i}
-          className={cn("h-4", i === lines - 1 ? "w-2/3" : "w-full")}
+          key={`content-line-${lineNumber}`}
+          className={cn("h-4", lineNumber === lines ? "w-2/3" : "w-full")}
         />
       ))}
     </div>
@@ -78,15 +80,15 @@ export function PageSkeleton({ variant = "detail" }: PageSkeletonProps) {
         <div className="p-6 space-y-6">
           {/* Header stats */}
           <div className="grid grid-cols-3 gap-4">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-24 rounded-xl" />
+            {Array.from({ length: 3 }, (_, idx) => idx + 1).map((item) => (
+              <Skeleton key={`table-header-${item}`} className="h-24 rounded-xl" />
             ))}
           </div>
           {/* Table header */}
           <Skeleton className="h-10 w-full rounded-lg" />
           {/* Table rows */}
-          {Array.from({ length: 8 }).map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full rounded-lg" />
+          {Array.from({ length: 8 }, (_, idx) => idx + 1).map((item) => (
+            <Skeleton key={`table-row-${item}`} className="h-12 w-full rounded-lg" />
           ))}
         </div>
       );
@@ -97,8 +99,8 @@ export function PageSkeleton({ variant = "detail" }: PageSkeletonProps) {
           <Skeleton className="h-8 w-48" />
           <Skeleton className="h-4 w-72" />
           <div className="space-y-4 mt-8">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="space-y-2">
+            {Array.from({ length: 4 }, (_, idx) => idx + 1).map((item) => (
+              <div key={`form-field-${item}`} className="space-y-2">
                 <Skeleton className="h-4 w-24" />
                 <Skeleton className="h-10 w-full rounded-lg" />
               </div>
@@ -107,8 +109,6 @@ export function PageSkeleton({ variant = "detail" }: PageSkeletonProps) {
           <Skeleton className="h-10 w-32 rounded-lg" />
         </div>
       );
-
-    case "detail":
     default:
       return (
         <div className="p-6 space-y-6">

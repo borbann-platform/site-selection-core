@@ -437,9 +437,12 @@ function SiteInspector() {
 
         {/* Mobile panel sheet */}
         <div className="md:hidden absolute bottom-20 left-4 z-40">
-          <Sheet>
-            <SheetTrigger asChild>
-              <button className="flex items-center gap-2 bg-card/95 backdrop-blur-xl border border-border rounded-full px-4 py-2.5 shadow-lg text-sm font-medium text-foreground">
+            <Sheet>
+              <SheetTrigger asChild>
+              <button
+                type="button"
+                className="flex items-center gap-2 bg-card/95 backdrop-blur-xl border border-border rounded-full px-4 py-2.5 shadow-lg text-sm font-medium text-foreground"
+              >
                 <SlidersHorizontal className="h-4 w-4" />
                 Site Details
               </button>
