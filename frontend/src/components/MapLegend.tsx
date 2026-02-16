@@ -48,7 +48,7 @@ export function MapLegend({
     <div
       className={cn(
         "absolute bottom-6 left-6 z-40",
-        "bg-card/90 backdrop-blur-md border border-border rounded-xl shadow-lg",
+        "bg-card/92 backdrop-blur-lg border border-border rounded-xl shadow-lg animate-fade-in",
         "transition-all duration-200",
         className
       )}

@@ -49,14 +49,14 @@ export function PropertyPopup({
 
   return (
     <div
-      className="fixed z-100 pointer-events-auto"
+      className="fixed z-100 pointer-events-auto animate-fade-in"
       style={{
         left: position.x,
         top: position.y,
         transform: "translate(-50%, -100%) translateY(-10px)",
       }}
     >
-      <div className="bg-card/95 border border-border rounded-xl shadow-2xl backdrop-blur-md overflow-hidden min-w-64">
+      <div className="bg-card/95 border border-border rounded-xl shadow-2xl shadow-black/25 backdrop-blur-lg overflow-hidden min-w-64">
         {/* Header */}
         <div className="flex items-center gap-2 px-3 py-2 bg-amber-500/10 border-b border-border">
           <Home size={14} className="text-amber-500 dark:text-amber-400" />

@@ -12,7 +12,7 @@ const formatPrice = (value: number): string => {
 
 export function PriceLegend({ minPrice, maxPrice }: PriceLegendProps) {
   return (
-    <div className="absolute bottom-6 right-6 z-40 bg-card/90 backdrop-blur-md border border-border rounded-lg p-3 min-w-40">
+    <div className="absolute bottom-6 right-6 z-40 bg-card/92 backdrop-blur-lg border border-border rounded-lg p-3 min-w-40 animate-fade-in">
       <div className="text-[10px] text-muted-foreground mb-2 font-medium">
         Price (THB)
       </div>

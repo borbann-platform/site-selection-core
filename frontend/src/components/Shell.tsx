@@ -32,7 +32,7 @@ export function Shell({ children, panelContent }: ShellProps) {
       {/* Navigation Rail */}
       <nav className="w-16 flex flex-col items-center py-6 bg-card border-r border-border z-50">
         <div className="mb-8">
-          <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center font-bold text-black">
+          <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center font-bold text-black shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 transition-shadow duration-200">
             K
           </div>
         </div>
@@ -50,7 +50,7 @@ export function Shell({ children, panelContent }: ShellProps) {
           <button
             type="button"
             onClick={toggleTheme}
-            className="w-full flex flex-col items-center gap-1 py-2 text-muted-foreground hover:text-foreground transition-colors"
+            className="w-full flex flex-col items-center gap-1 py-2 mx-auto rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200"
             title={`Theme: ${themeLabel}`}
           >
             <ThemeIcon size={20} />
@@ -67,8 +67,8 @@ export function Shell({ children, panelContent }: ShellProps) {
         {panelContent && (
           <div
             className={cn(
-              "absolute top-4 left-4 bottom-4 w-80 bg-card/80 backdrop-blur-md border border-border rounded-2xl z-40 flex flex-col overflow-hidden",
-              !isPanelOpen && "w-0 opacity-0 pointer-events-none border-0"
+              "absolute top-4 left-4 bottom-4 w-80 bg-card/85 backdrop-blur-xl border border-border rounded-2xl z-40 flex flex-col overflow-hidden transition-all duration-300 ease-in-out",
+              !isPanelOpen && "-translate-x-[calc(100%+2rem)] opacity-0 pointer-events-none"
             )}
           >
             <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
@@ -104,7 +104,7 @@ function NavItem({
   highlight,
 }: {
   to: string;
-  icon: React.ComponentType<{ size?: number }>;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
   label: string;
   highlight?: boolean;
 }) {
@@ -115,7 +115,7 @@ function NavItem({
     <Link
       to={to}
       className={cn(
-        "w-full flex flex-col items-center gap-1 py-2 transition-colors relative",
+        "w-full flex flex-col items-center gap-1 py-2 transition-all duration-200 relative group",
         isActive
           ? "text-emerald-400"
           : highlight
@@ -123,10 +123,13 @@ function NavItem({
             : "text-muted-foreground hover:text-foreground"
       )}
     >
-      <Icon size={20} />
+      <Icon size={20} className="transition-transform duration-200 group-hover:scale-110" />
       <span className="text-[10px] font-medium">{label}</span>
       {isActive && (
-        <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-emerald-400" />
+        <>
+          <div className="absolute left-0 top-1/4 bottom-1/4 w-0.5 bg-emerald-400 rounded-full" />
+          <div className="absolute inset-x-1.5 inset-y-0.5 bg-emerald-500/10 rounded-xl -z-10" />
+        </>
       )}
     </Link>
   );

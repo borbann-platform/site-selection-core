@@ -79,7 +79,7 @@ export function AICommandBar({
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-2xl px-4">
       <form
         onSubmit={handleSubmit}
-        className="bg-card/95 backdrop-blur-xl border border-border rounded-2xl shadow-2xl overflow-hidden"
+        className="bg-card/95 backdrop-blur-xl border border-border rounded-2xl shadow-2xl shadow-black/10 overflow-hidden focus-within:ring-1 focus-within:ring-emerald-500/20 focus-within:border-emerald-500/30 transition-all duration-200"
       >
         {/* Selection Mode Indicator */}
         {selectionMode !== "none" && (
@@ -122,7 +122,7 @@ export function AICommandBar({
               onClick={onPickLocation}
               disabled={selectionMode !== "none"}
               className={cn(
-                "p-2 rounded-lg transition-colors",
+                "p-2 rounded-lg transition-all duration-150 active:scale-95",
                 selectionMode === "location"
                   ? "bg-brand/20 text-brand border border-brand/30"
                   : "bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground disabled:opacity-30"
@@ -136,7 +136,7 @@ export function AICommandBar({
               onClick={onPickBbox}
               disabled={selectionMode !== "none"}
               className={cn(
-                "p-2 rounded-lg transition-colors",
+                "p-2 rounded-lg transition-all duration-150 active:scale-95",
                 selectionMode === "bbox"
                   ? "bg-brand/20 text-brand border border-brand/30"
                   : "bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground disabled:opacity-30"
@@ -166,7 +166,7 @@ export function AICommandBar({
           <button
             type="submit"
             disabled={!input.trim() || isRunning || selectionMode !== "none"}
-            className="p-2 rounded-lg bg-brand hover:bg-brand/90 text-brand-foreground transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            className="p-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 enabled:shadow-md enabled:shadow-emerald-500/20"
             title="Send message"
           >
             <Send size={18} />
@@ -195,7 +195,7 @@ export function AICommandBar({
                   key={prompt}
                   type="button"
                   onClick={() => onInputChange(prompt)}
-                  className="px-2 py-1 text-[11px] bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded border border-border transition-colors"
+                  className="px-2 py-1 text-[11px] bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground hover:border-emerald-500/30 rounded border border-border transition-all duration-150"
                 >
                   {prompt}
                 </button>
