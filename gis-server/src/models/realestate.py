@@ -2,9 +2,22 @@ from datetime import date, datetime
 from typing import Any
 
 from geoalchemy2 import Geometry
-from sqlalchemy import Boolean, Date, DateTime, Float, Integer, String, Text
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import JSON, UUID
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.sql import func
 from src.config.database import Base
 import uuid
 
@@ -150,3 +163,122 @@ class UserProperty(Base):
 
     # Geometry
     geometry = mapped_column(Geometry("POINT", srid=4326), nullable=True)
+
+
+class ScrapedListing(Base):
+    """
+    Normalized listing metadata loaded from scraped JSONL files.
+    Image binaries are stored in object storage and linked via ScrapedListingImage.
+    """
+
+    __tablename__ = "scraped_listings"
+    __table_args__ = (
+        UniqueConstraint(
+            "source", "source_listing_id", name="uq_scraped_listings_source_listing"
+        ),
+        Index("idx_scraped_listings_source", "source"),
+        Index("idx_scraped_listings_scraped_at", "scraped_at"),
+        Index("idx_scraped_listings_geometry", "geometry", postgresql_using="gist"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    source: Mapped[str] = mapped_column(String(32), nullable=False)
+    source_listing_id: Mapped[str] = mapped_column(Text, nullable=False)
+
+    source_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    detail_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_search_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    title: Mapped[str | None] = mapped_column(Text, nullable=True)
+    title_th: Mapped[str | None] = mapped_column(Text, nullable=True)
+    title_en: Mapped[str | None] = mapped_column(Text, nullable=True)
+    property_type: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    property_types: Mapped[Any | None] = mapped_column(JSON, nullable=True)
+
+    province_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    province: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    district_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    district: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    subdistrict_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    subdistrict: Mapped[str | None] = mapped_column(String(128), nullable=True)
+
+    status: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    price_start: Mapped[float | None] = mapped_column(Float, nullable=True)
+    price_end: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    geometry = mapped_column(Geometry("POINT", srid=4326), nullable=True)
+
+    main_image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    image_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    scraped_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    raw_payload: Mapped[Any | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+
+class ScrapedListingImage(Base):
+    """
+    Listing image catalog and object-storage sync metadata.
+    """
+
+    __tablename__ = "scraped_listing_images"
+    __table_args__ = (
+        UniqueConstraint(
+            "listing_id", "source_url", name="uq_scraped_listing_images_listing_url"
+        ),
+        Index(
+            "idx_scraped_listing_images_fetch_status",
+            "fetch_status",
+        ),
+        Index("idx_scraped_listing_images_sha256", "checksum_sha256"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    listing_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("scraped_listings.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    source_url: Mapped[str] = mapped_column(Text, nullable=False)
+    source_host: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    image_role: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    image_order: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    storage_bucket: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    object_key: Mapped[str | None] = mapped_column(Text, nullable=True)
+    object_uri: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    mime_type: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    size_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    width: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    height: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    fetch_status: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="pending"
+    )
+    last_http_status: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    fetch_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    fetched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )

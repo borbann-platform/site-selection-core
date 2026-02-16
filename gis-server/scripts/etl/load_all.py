@@ -24,6 +24,7 @@ from scripts.etl.load_places import (
 )
 from scripts.etl.load_population import load_population
 from scripts.etl.load_realestate import load_condo_projects, load_real_estate_listings
+from scripts.etl.load_scraped_projects import load_scraped_projects
 from src.config.database import SessionLocal
 
 # Configure logging
@@ -66,6 +67,7 @@ def main():
         # Real Estate
         load_condo_projects(db)
         load_real_estate_listings(db)
+        load_scraped_projects(db)
         load_house_prices(db)
 
     except Exception as e:

@@ -18,6 +18,20 @@ services:
       start_period: 10s
     restart: unless-stopped
 
+  minio:
+    image: minio/minio:RELEASE.2026-01-18T19-40-09Z
+    container_name: gis_minio
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    restart: unless-stopped
+
   backend:
     build:
       context: .
@@ -29,11 +43,19 @@ services:
       - ACCESS_TOKEN_EXPIRE_MINUTES=30
       - REFRESH_TOKEN_EXPIRE_DAYS=7
       - GOOGLE_API_KEY=
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+      - MINIO_SECURE=false
+      - MINIO_BUCKET=listing-images
+      - MINIO_OBJECT_PREFIX=scraped-listings
     ports:
       - "8000:8000"
     depends_on:
       db:
         condition: service_healthy
+      minio:
+        condition: service_started
     volumes:
       - .:/app
       - ./models:/app/models
@@ -109,6 +131,8 @@ services:
 volumes:
   gis_data:
     name: gis_server_data
+  minio_data:
+    name: minio_data
   mlflow_pg_data:
     name: mlflow_pg_data
   mlflow_artifacts:

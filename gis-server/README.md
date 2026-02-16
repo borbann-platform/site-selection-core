@@ -21,11 +21,21 @@ A FastAPI backend for real estate information, price prediction AI, and property
 
 3.  **Initialize & Load Data** (Run once)
     ```bash
-    # Create database tables
+    # Existing database: apply schema migrations without dropping data
+    uv run alembic upgrade head
+
+    # Fresh reset only: recreate all tables (drops existing data)
     uv run python -m scripts.init_db
     
     # Load all data (POIs, transit, real estate, demographics)
     uv run python -m scripts.etl.load_all
+
+    # Optional: load normalized scraper outputs (data/scraped/*.jsonl)
+    uv run python -m scripts.etl.load_scraped_projects --include-raw
+
+    # Optional: sync scraped image URLs to MinIO object storage
+    # first-time dependency: uv add minio
+    uv run python -m scripts.etl.sync_images_to_minio
     
     # Create unified views
     uv run python -m scripts.create_views

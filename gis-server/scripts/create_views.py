@@ -181,6 +181,16 @@ def create_views():
             geometry
         FROM real_estate_listings
         UNION ALL
+        SELECT
+            'scraped_' || id::text AS id,
+            source || ':' || source_listing_id AS original_id,
+            COALESCE(title, title_en, title_th) AS name,
+            COALESCE(property_type, 'scraped_project') AS type,
+            COALESCE(price_start, price_end)::text AS price,
+            source,
+            geometry
+        FROM scraped_listings
+        UNION ALL
         SELECT 
             'house_' || id::text AS id,
             id::text as original_id,
