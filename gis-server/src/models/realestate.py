@@ -208,7 +208,10 @@ class ScrapedListing(Base):
 
     latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
-    geometry = mapped_column(Geometry("POINT", srid=4326), nullable=True)
+    # Explicit GiST index is declared in __table_args__; disable GeoAlchemy auto index.
+    geometry = mapped_column(
+        Geometry("POINT", srid=4326, spatial_index=False), nullable=True
+    )
 
     main_image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     image_count: Mapped[int | None] = mapped_column(Integer, nullable=True)

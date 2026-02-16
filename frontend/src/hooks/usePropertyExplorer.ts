@@ -51,18 +51,18 @@ export interface SelectedProperty {
 export interface DeckGLObject {
   lon?: number;
   lat?: number;
-  total_price?: number;
-  building_area?: number;
-  amphur?: string;
-  tumbon?: string;
-  building_style_desc?: string;
-  no_of_floor?: number;
-  building_age?: number;
+  total_price?: number | null;
+  building_area?: number | null;
+  amphur?: string | null;
+  tumbon?: string | null;
+  building_style_desc?: string | null;
+  no_of_floor?: number | null;
+  building_age?: number | null;
   id?: string | number;
   h3_index?: string;
   value?: number;
-  properties?: Record<string, unknown>;
-  geometry?: { coordinates: [number, number] };
+  properties?: Record<string, unknown> | null;
+  geometry?: { coordinates?: [number, number] | number[] } | null;
 }
 
 // ---- Constants ----
@@ -414,6 +414,9 @@ export function usePropertyExplorer(districtFromUrl?: string) {
       if (selectionMode === "none" && info.object) {
         const obj = info.object;
         const props = obj.properties || {};
+        const coords = obj.geometry?.coordinates;
+        const coordLon = Number(coords?.[0]);
+        const coordLat = Number(coords?.[1]);
 
         const rawId = obj.id || props.id;
         const propertyData: SelectedProperty = {
@@ -434,8 +437,8 @@ export function usePropertyExplorer(districtFromUrl?: string) {
             obj.no_of_floor || Number(props.no_of_floor) || undefined,
           building_age:
             obj.building_age || Number(props.building_age) || undefined,
-          lat: obj.lat || obj.geometry?.coordinates[1],
-          lon: obj.lon || obj.geometry?.coordinates[0],
+          lat: obj.lat ?? (Number.isFinite(coordLat) ? coordLat : undefined),
+          lon: obj.lon ?? (Number.isFinite(coordLon) ? coordLon : undefined),
         };
 
         if (propertyData.total_price || propertyData.id) {

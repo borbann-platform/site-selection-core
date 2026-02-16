@@ -20,7 +20,7 @@ interface HousePricesData {
 }
 
 interface SchoolsData {
-  features: DeckGLObject[];
+  features: any[];
 }
 
 interface TransitLinesData {
@@ -148,8 +148,13 @@ export function useMapLayers({
               iconAtlas: iconAtlas.atlas,
               iconMapping: iconAtlas.mapping,
               getIcon: () => "home",
-              getPosition: (d: DeckGLObject) =>
-                d.geometry?.coordinates ?? [0, 0],
+              getPosition: (d: DeckGLObject) => {
+                const coords = d.geometry?.coordinates;
+                return [Number(coords?.[0] ?? 0), Number(coords?.[1] ?? 0)] as [
+                  number,
+                  number,
+                ];
+              },
               getSize: 32,
               getColor: (d: DeckGLObject) => {
                 const price = Number(d.properties?.total_price) || 0;
@@ -194,8 +199,13 @@ export function useMapLayers({
               iconMapping: iconAtlas.mapping,
               getIcon: (d: DeckGLObject) =>
                 getIconNameForType(String(d.properties?.type ?? "")),
-              getPosition: (d: DeckGLObject) =>
-                d.geometry?.coordinates ?? [0, 0],
+              getPosition: (d: DeckGLObject) => {
+                const coords = d.geometry?.coordinates;
+                return [Number(coords?.[0] ?? 0), Number(coords?.[1] ?? 0)] as [
+                  number,
+                  number,
+                ];
+              },
               getSize: (d: DeckGLObject) => {
                 const type = d.properties?.type;
                 if (type === "transit_stop") return 28;
@@ -236,8 +246,13 @@ export function useMapLayers({
           iconAtlas: iconAtlas.atlas,
           iconMapping: iconAtlas.mapping,
           getIcon: () => "school",
-          getPosition: (d: DeckGLObject) =>
-            d.geometry?.coordinates || [0, 0],
+          getPosition: (d: DeckGLObject) => {
+            const coords = d.geometry?.coordinates;
+            return [Number(coords?.[0] ?? 0), Number(coords?.[1] ?? 0)] as [
+              number,
+              number,
+            ];
+          },
           getColor: [59, 130, 246],
           getSize: 32,
           sizeScale: 1,

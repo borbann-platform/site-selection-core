@@ -66,7 +66,7 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <Link to="/">
+              <Link to="/" search={{ district: undefined }}>
                 <Logo size="sm" showText />
               </Link>
             </SidebarMenuButton>
@@ -91,10 +91,17 @@ export function AppSidebar() {
                       isActive={isActive}
                       tooltip={item.label}
                     >
-                      <Link to={item.to}>
-                        <item.icon />
-                        <span>{item.label}</span>
-                      </Link>
+                      {item.to === "/" ? (
+                        <Link to={item.to} search={{ district: undefined }}>
+                          <item.icon />
+                          <span>{item.label}</span>
+                        </Link>
+                      ) : (
+                        <Link to={item.to}>
+                          <item.icon />
+                          <span>{item.label}</span>
+                        </Link>
+                      )}
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
