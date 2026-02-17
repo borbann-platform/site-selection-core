@@ -12,7 +12,7 @@ class TransitStop(Base):
     zone_id: Mapped[str | None] = mapped_column(String, nullable=True)
     wheelchair_boarding: Mapped[str | None] = mapped_column(String, nullable=True)
     source: Mapped[str | None] = mapped_column(String, nullable=True)
-    geometry = mapped_column(Geometry("POINT", srid=4326), nullable=True)
+    geometry = mapped_column(Geometry("POINT", srid=4326, spatial_index=False), nullable=True)
 
     __table_args__ = (
         Index("idx_transit_stops_geometry", "geometry", postgresql_using="gist"),
