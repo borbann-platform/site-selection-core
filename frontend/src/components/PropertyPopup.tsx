@@ -38,11 +38,17 @@ export function PropertyPopup({
       maximumFractionDigits: 0,
     }).format(p);
 
-  const price = property.total_price || 0;
+  const price =
+    typeof property.total_price === "number" && property.total_price > 0
+      ? property.total_price
+      : undefined;
   const pricePerSqm =
-    property.building_area && price
+    property.building_area && price !== undefined
       ? formatPrice(price / property.building_area)
       : "N/A";
+  const propertyReference =
+    property.house_ref ||
+    (property.id !== undefined ? `house:${property.id}` : undefined);
 
   const handleAddToChat = () => {
     onAddToChat?.(property);
@@ -77,7 +83,7 @@ export function PropertyPopup({
         {/* Content */}
         <div className="p-3">
           <div className="text-lg font-bold text-foreground mb-2">
-            {formatPrice(price)}
+            {price !== undefined ? formatPrice(price) : "Price unavailable"}
           </div>
           <div className="grid grid-cols-2 gap-1 text-[11px] text-muted-foreground">
             <div>District:</div>
@@ -105,6 +111,11 @@ export function PropertyPopup({
               {property.building_age ? `${property.building_age} yrs` : "N/A"}
             </div>
           </div>
+          {propertyReference && (
+            <div className="mt-2 rounded-md border border-border/60 bg-muted/40 px-2 py-1 text-[10px] text-muted-foreground">
+              Ref: <span className="font-mono text-foreground/80">{propertyReference}</span>
+            </div>
+          )}
 
           {/* View Details button - only show if property has ID */}
           {property.id && (
