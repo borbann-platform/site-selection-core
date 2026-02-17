@@ -33,7 +33,7 @@ class AgentSettings(BaseSettings):
     EMBEDDING_MODEL: str = "models/text-embedding-004"
 
     # Agent safety limits
-    AGENT_MAX_ITERATIONS: int = 5
+    AGENT_MAX_ITERATIONS: int = 12
     AGENT_TOOL_TIMEOUT_SECONDS: int = 30
     AGENT_MAX_TOKENS_PER_TURN: int = 4096
 

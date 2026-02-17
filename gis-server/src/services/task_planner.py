@@ -48,23 +48,23 @@ class TaskDAG(BaseModel):
 DECOMPOSITION_PROMPT = """
 You are a task planner for a real-estate ReAct agent.
 Return ONLY valid JSON using this schema:
-{
+{{
   "objective": "string",
   "reasoning_summary": "short summary",
   "requires_clarification": false,
   "missing_constraints": [],
   "clarification_questions": [],
   "nodes": [
-    {
+    {{
       "id": "n1",
       "action": "string",
       "purpose": "string",
       "tool": "search_properties",
-      "parameters": {},
+      "parameters": {{}},
       "depends_on": []
-    }
+    }}
   ]
-}
+}}
 
 Rules:
 - Use a DAG (no cycles), and dependencies must reference earlier or existing ids.

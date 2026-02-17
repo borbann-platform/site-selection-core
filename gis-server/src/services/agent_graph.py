@@ -11,6 +11,7 @@ from typing import Any, TypedDict, cast
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
+from langgraph.errors import GraphRecursionError
 from langgraph.prebuilt import create_react_agent
 
 from src.config.agent_settings import agent_settings
@@ -212,6 +213,18 @@ class AgentService:
 
         return str(content) if content else ""
 
+    def _compute_recursion_limit(self) -> int:
+        """
+        Compute a robust LangGraph recursion budget.
+
+        A single tool iteration often includes multiple internal graph hops
+        (model planning, tool routing, tool execution, post-tool synthesis),
+        so a low multiple can trip false-positive recursion failures on
+        legitimate complex tasks.
+        """
+        max_iterations = max(1, agent_settings.AGENT_MAX_ITERATIONS)
+        return max(25, max_iterations * 6 + 5)
+
     async def astream(
         self,
         messages: list[dict[str, Any]],
@@ -270,12 +283,13 @@ class AgentService:
                 lc_messages = lc_messages[:-1] + [dag_context]
 
         run_config: RunnableConfig = {
-            "recursion_limit": agent_settings.AGENT_MAX_ITERATIONS * 2 + 1,
+            "recursion_limit": self._compute_recursion_limit(),
             **(config or {}),
         }
 
         iteration = 0
-        max_iterations = agent_settings.AGENT_MAX_ITERATIONS
+        max_iterations = max(1, agent_settings.AGENT_MAX_ITERATIONS)
+        tool_call_budget = max_iterations * 3
 
         try:
             async for event in agent.astream_events(
@@ -289,10 +303,13 @@ class AgentService:
 
                 if event_type == "on_chain_start" and event_name == "tools":
                     iteration += 1
-                    if iteration > max_iterations:
+                    if iteration > tool_call_budget:
                         yield {
                             "type": "error",
-                            "content": f"Max iterations ({max_iterations}) reached. Stopping.",
+                            "content": (
+                                f"Tool-call safety budget reached ({tool_call_budget}). "
+                                "Stopping to avoid a potential loop."
+                            ),
                         }
                         break
 
@@ -346,6 +363,21 @@ class AgentService:
                                     "content": str(last_message.content),
                                 }
 
+        except GraphRecursionError:
+            recursion_limit = run_config.get("recursion_limit")
+            logger.error(
+                "Agent streaming hit GraphRecursionError (limit=%s).",
+                recursion_limit,
+                exc_info=True,
+            )
+            yield {
+                "type": "error",
+                "content": (
+                    "Execution exceeded the graph recursion budget before completion. "
+                    f"Current limit: {recursion_limit}. "
+                    "Try simplifying the request or increase AGENT_MAX_ITERATIONS."
+                ),
+            }
         except Exception as e:
             logger.error("Agent streaming error: %s", e, exc_info=True)
             yield {
