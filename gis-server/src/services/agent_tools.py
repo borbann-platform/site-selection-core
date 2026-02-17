@@ -570,6 +570,122 @@ def search_properties(
 
 
 @tool
+def validate_house_reference(
+    property_id: int | None = None,
+    latitude: float | None = None,
+    longitude: float | None = None,
+    radius_meters: int = 80,
+) -> str:
+    """
+    Validate that a UI-grounded house reference still exists before interacting with it.
+
+    WHEN TO USE THIS TOOL:
+    - User selected a house on the map and asks to analyze "this house"
+    - The request references a property/house locator from UI context
+    - You need to confirm the target still exists after async updates/filter changes
+
+    Args:
+        property_id: Canonical property ID from UI house reference
+        latitude: Optional fallback latitude if ID is unavailable
+        longitude: Optional fallback longitude if ID is unavailable
+        radius_meters: Nearby match radius for coordinate fallback
+
+    Returns:
+        JSON with is_valid flag, matched property (if found), and validation metadata.
+    """
+    try:
+        with SessionLocal() as db:
+            if property_id is not None:
+                row = db.execute(
+                    text(
+                        """
+                        SELECT
+                            id, amphur, building_style_desc, total_price,
+                            ST_Y(geometry) AS lat, ST_X(geometry) AS lon
+                        FROM house_prices
+                        WHERE id = :id
+                        LIMIT 1
+                        """
+                    ),
+                    {"id": property_id},
+                ).fetchone()
+
+                if row:
+                    return json.dumps(
+                        {
+                            "is_valid": True,
+                            "match_type": "id",
+                            "property": {
+                                "id": row.id,
+                                "district": row.amphur,
+                                "building_style": row.building_style_desc,
+                                "price_thb": row.total_price,
+                                "lat": row.lat,
+                                "lon": row.lon,
+                            },
+                        },
+                        ensure_ascii=False,
+                    )
+
+            if latitude is not None and longitude is not None:
+                row = db.execute(
+                    text(
+                        """
+                        SELECT
+                            id, amphur, building_style_desc, total_price,
+                            ST_Y(geometry) AS lat, ST_X(geometry) AS lon,
+                            ST_Distance(
+                                geometry::geography,
+                                ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography
+                            ) AS distance_m
+                        FROM house_prices
+                        WHERE ST_DWithin(
+                            geometry::geography,
+                            ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography,
+                            :radius
+                        )
+                        ORDER BY distance_m
+                        LIMIT 1
+                        """
+                    ),
+                    {"lat": latitude, "lon": longitude, "radius": radius_meters},
+                ).fetchone()
+
+                if row:
+                    return json.dumps(
+                        {
+                            "is_valid": True,
+                            "match_type": "coordinate",
+                            "distance_m": round(row.distance_m, 2),
+                            "property": {
+                                "id": row.id,
+                                "district": row.amphur,
+                                "building_style": row.building_style_desc,
+                                "price_thb": row.total_price,
+                                "lat": row.lat,
+                                "lon": row.lon,
+                            },
+                        },
+                        ensure_ascii=False,
+                    )
+
+            return json.dumps(
+                {
+                    "is_valid": False,
+                    "reason": "No matching property found for the provided house reference.",
+                    "property_id": property_id,
+                    "latitude": latitude,
+                    "longitude": longitude,
+                },
+                ensure_ascii=False,
+            )
+
+    except Exception as e:
+        logger.error(f"House reference validation failed: {e}")
+        return json.dumps({"error": str(e)}, ensure_ascii=False)
+
+
+@tool
 def get_nearby_properties(
     latitude: float,
     longitude: float,
@@ -853,6 +969,7 @@ from src.services.rag_service import retrieve_knowledge
 ALL_TOOLS = [
     # Primary property tools - use these first for property queries
     search_properties,  # Find properties by criteria
+    validate_house_reference,  # Validate UI-grounded property references
     get_nearby_properties,  # Find comparable properties near a location
     get_market_statistics,  # Get market overview and district stats
     # Location analysis tools - use for evaluating locations

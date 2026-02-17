@@ -16,6 +16,7 @@ from sqlalchemy.sql import func
 from src.config.database import Base
 
 if TYPE_CHECKING:
+    from src.models.agent_runtime_credential import AgentRuntimeCredential
     from src.models.membership import OrganizationMember, TeamMember
     from src.models.organization import Organization
 
@@ -72,6 +73,12 @@ class User(Base):
         "TeamMember",
         back_populates="user",
         cascade="all, delete-orphan",
+    )
+    agent_runtime_credential: Mapped["AgentRuntimeCredential | None"] = relationship(
+        "AgentRuntimeCredential",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        uselist=False,
     )
 
     @property

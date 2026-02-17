@@ -10,7 +10,12 @@ import {
   type ChatSession,
   type GroupedSessions,
 } from "../lib/chatApi";
-import type { ChatMessage, Attachment, AgentStep } from "../lib/api";
+import type {
+  ChatMessage,
+  Attachment,
+  AgentStep,
+  AgentRuntimeError,
+} from "../lib/api";
 
 // ============= Types =============
 
@@ -21,6 +26,7 @@ export interface LocalMessage {
   attachments?: Attachment[];
   isStreaming?: boolean;
   steps?: AgentStep[];
+  error?: AgentRuntimeError;
   createdAt: Date;
 }
 
@@ -344,7 +350,7 @@ export const useChatStore = create<ChatStore>()(
             set({
               messages: currentMessages.map((m) =>
                 m.id === lastMessage.id
-                  ? { ...m, content: fullContent }
+                  ? { ...m, content: fullContent, error: undefined }
                   : m
               ),
             });
@@ -375,6 +381,25 @@ export const useChatStore = create<ChatStore>()(
                   : m
               ),
             });
+          } else if (event.event === "error" && event.data) {
+            const streamError: AgentRuntimeError = {
+              title: event.data.title || "Model request failed",
+              message:
+                event.data.message ||
+                "The model provider returned an error. Please check your settings.",
+              statusCode: event.data.status_code,
+              providerCode: event.data.provider_code,
+              rawMessage: event.data.raw_message,
+              retryable: event.data.retryable,
+            };
+            set({
+              messages: currentMessages.map((m) =>
+                m.id === lastMessage.id
+                  ? { ...m, isStreaming: false, error: streamError }
+                  : m
+              ),
+              isStreaming: false,
+            });
           } else if (event.event === "done") {
             // Mark message as complete
             set({
@@ -404,7 +429,14 @@ export const useChatStore = create<ChatStore>()(
               ? {
                   ...m,
                   isStreaming: false,
-                  content: m.content || "An error occurred while generating the response.",
+                  content: m.content,
+                  error: {
+                    title: "Request failed",
+                    message:
+                      error instanceof Error
+                        ? error.message
+                        : "An error occurred while generating the response.",
+                  },
                 }
               : m
           ),

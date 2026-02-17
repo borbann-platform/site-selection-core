@@ -41,6 +41,8 @@ dependencies = [
     # Authentication
     "passlib[bcrypt]>=1.7.4",
     "python-jose[cryptography]>=3.3.0",
+    "langchain-openai>=1.1.9",
+    "langchain-google-vertexai>=3.2.2",
 ]
 
 [project.optional-dependencies]

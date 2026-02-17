@@ -1,4 +1,5 @@
 import type { FeatureCollection, Geometry, GeoJsonProperties } from "geojson";
+import type { AgentRuntimeConfig } from "./agentRuntimeConfig";
 
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 export const API_URL = BASE_URL.endsWith("/api/v1")
@@ -269,6 +270,7 @@ export interface ChatRequest {
   messages: ChatMessage[];
   session_id?: string;
   attachments?: Attachment[];
+  runtime?: AgentRuntimeConfig;
 }
 
 // Agent Streaming Event Types
@@ -357,19 +359,36 @@ export interface AgentStep {
 
 // Agent stream event from /chat/agent endpoint
 export interface AgentStreamEvent {
-  event: "thinking" | "step" | "token" | "done";
-  data: {
-    thinking?: boolean;
-    id?: string;
-    type?: string;
-    name?: string;
-    status?: string;
-    input?: Record<string, unknown>;
-    output?: string;
-    start_time?: number;
-    end_time?: number;
-    token?: string;
-  } | null;
+  event: "thinking" | "step" | "token" | "error" | "done";
+  data: AgentStreamEventData | null;
+}
+
+export interface AgentRuntimeError {
+  title: string;
+  message: string;
+  statusCode?: number;
+  providerCode?: string;
+  rawMessage?: string;
+  retryable?: boolean;
+}
+
+export interface AgentStreamEventData {
+  thinking?: boolean;
+  id?: string;
+  type?: string;
+  name?: string;
+  status?: string;
+  input?: Record<string, unknown>;
+  output?: string;
+  start_time?: number;
+  end_time?: number;
+  token?: string;
+  title?: string;
+  message?: string;
+  status_code?: number;
+  provider_code?: string;
+  raw_message?: string;
+  retryable?: boolean;
 }
 
 export interface HousePriceItem {
@@ -435,6 +454,13 @@ export interface HousePriceStatsResponse {
   total_count: number;
   by_district: DistrictStats[];
   by_building_style: BuildingStyleStats[];
+}
+
+export interface ResolveLocationResponse {
+  amphur: string;
+  tumbon: string | null;
+  village: string | null;
+  distance_m: number;
 }
 
 // Location Intelligence Types
@@ -775,6 +801,21 @@ export const api = {
     return res.json();
   },
 
+  resolveLocation: async (params: {
+    lat: number;
+    lon: number;
+  }): Promise<ResolveLocationResponse> => {
+    const searchParams = new URLSearchParams();
+    searchParams.set("lat", String(params.lat));
+    searchParams.set("lon", String(params.lon));
+
+    const res = await fetch(
+      `${API_URL}/house-prices/resolve-location?${searchParams}`
+    );
+    if (!res.ok) throw new Error("Failed to resolve location");
+    return res.json();
+  },
+
   /**
    * Stream chat response from the AI agent.
    * Returns an async generator that yields text chunks.
@@ -840,7 +881,12 @@ export const api = {
       body: JSON.stringify({ messages, attachments }),
     });
 
-    if (!res.ok) throw new Error("Failed to start agent stream");
+    if (!res.ok) {
+      const error = await res
+        .json()
+        .catch(() => ({ detail: "Failed to start agent stream" }));
+      throw new Error(error.detail || `HTTP ${res.status}`);
+    }
     if (!res.body) throw new Error("No response body");
 
     const reader = res.body.getReader();

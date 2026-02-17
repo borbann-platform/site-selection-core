@@ -222,6 +222,25 @@ class TestGetMarketStatistics:
         assert isinstance(data, dict)
 
 
+class TestValidateHouseReference:
+    """Tests for validate_house_reference tool."""
+
+    def test_validate_house_reference_returns_json(self):
+        """Should always return valid JSON structure."""
+        from src.services.agent_tools import validate_house_reference
+
+        result = validate_house_reference.invoke(
+            {
+                "property_id": 12345,
+                "latitude": 13.75,
+                "longitude": 100.55,
+            }
+        )
+        data = json.loads(result)
+        assert isinstance(data, dict)
+        assert "is_valid" in data or "error" in data
+
+
 class TestBuildSpatialContext:
     """Tests for the build_spatial_context_message helper function."""
 

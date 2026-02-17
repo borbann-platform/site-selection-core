@@ -5,7 +5,7 @@ Provides access to appraised house prices from Treasury Department.
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
@@ -59,6 +59,13 @@ class HousePriceStatsResponse(BaseModel):
     total_count: int
     by_district: list[DistrictStats]
     by_building_style: list[BuildingStyleStats]
+
+
+class ResolveLocationResponse(BaseModel):
+    amphur: str
+    tumbon: str | None = None
+    village: str | None = None
+    distance_m: float
 
 
 @router.get("", response_model=HousePriceListResponse)
@@ -281,6 +288,43 @@ def get_nearby_house_prices(
         "count": len(items),
         "items": items,
     }
+
+
+@router.get("/resolve-location", response_model=ResolveLocationResponse)
+def resolve_location(
+    lat: float = Query(..., description="Latitude of location"),
+    lon: float = Query(..., description="Longitude of location"),
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
+    db: Session = Depends(get_db_session),
+):
+    """
+    Resolve district/sub-district for a location using nearest property record.
+    """
+    sql = text(
+        """
+        SELECT amphur, tumbon, village,
+               ST_Distance(
+                   geometry::geography,
+                   ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography
+               ) as distance_m
+        FROM house_prices
+        WHERE geometry IS NOT NULL
+          AND amphur IS NOT NULL
+        ORDER BY distance_m
+        LIMIT 1
+    """
+    )
+
+    row = db.execute(sql, {"lat": lat, "lon": lon}).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="No nearby location data")
+
+    return ResolveLocationResponse(
+        amphur=row.amphur,
+        tumbon=row.tumbon,
+        village=row.village,
+        distance_m=round(float(row.distance_m), 1),
+    )
 
 
 @router.get("/tile/{z}/{x}/{y}", tags=["Maps"])

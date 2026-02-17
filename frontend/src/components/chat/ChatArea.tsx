@@ -8,6 +8,7 @@ import { cn } from "../../lib/utils";
 import { useChatStore, type LocalMessage } from "../../stores/chatStore";
 import { StreamingMarkdown } from "../ui/markdown";
 import { AgentStepCard, AgentStepBadge } from "../AgentStepCard";
+import { AgentErrorCard } from "../AgentErrorCard";
 import { ThinkingProcess } from "../ThinkingIndicator";
 
 export function ChatArea() {
@@ -190,6 +191,10 @@ function AssistantMessage({ message }: { message: LocalMessage }) {
   const hasSteps = message.steps && message.steps.length > 0;
   const stepsCount = message.steps?.length || 0;
   const hasRunningStep = message.steps?.some((s) => s.status === "running");
+  const thinkingCount =
+    message.steps?.filter((s) => s.type === "thinking").length || 0;
+  const toolCount =
+    message.steps?.filter((s) => s.type === "tool_call").length || 0;
 
   return (
     <div className="flex gap-3">
@@ -218,8 +223,10 @@ function AssistantMessage({ message }: { message: LocalMessage }) {
               {showSteps ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
               <span>
                 {hasRunningStep
-                  ? `Running tool ${stepsCount}...`
-                  : `Used ${stepsCount} tool${stepsCount !== 1 ? "s" : ""}`}
+                  ? "Thinking and executing..."
+                  : thinkingCount > 0
+                    ? `Thinking sequence (${thinkingCount}) + ${toolCount} tool${toolCount !== 1 ? "s" : ""}`
+                    : `Used ${stepsCount} tool${stepsCount !== 1 ? "s" : ""}`}
               </span>
             </button>
 
@@ -255,6 +262,8 @@ function AssistantMessage({ message }: { message: LocalMessage }) {
         )}
 
         {/* Message content */}
+        {message.error && <AgentErrorCard error={message.error} />}
+
         {message.content && (
           <div className="rounded-2xl px-4 py-2.5 bg-muted">
             <StreamingMarkdown

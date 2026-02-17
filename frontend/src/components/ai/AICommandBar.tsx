@@ -2,7 +2,7 @@ import { useRef, useEffect } from "react";
 import { MapPin, Square, Send, ChevronUp, ChevronDown, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Local type definitions (decoupled from AgentChatPanel)
+// Local type definitions for command bar interaction.
 export type SelectionMode = "none" | "location" | "bbox";
 
 export type AttachmentType = "location" | "bbox" | "property";
@@ -46,7 +46,7 @@ export function AICommandBar({
   onPickBbox,
   onRemoveAttachment,
 }: AICommandBarProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // Keyboard shortcut: / to focus input
   useEffect(() => {
@@ -66,6 +66,12 @@ export function AICommandBar({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  useEffect(() => {
+    if (!inputRef.current) return;
+    inputRef.current.style.height = "0px";
+    inputRef.current.style.height = `${Math.min(inputRef.current.scrollHeight, 144)}px`;
+  }, [input]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim() && !isRunning && selectionMode === "none") {
@@ -76,7 +82,7 @@ export function AICommandBar({
   const showExamples = !input && attachments.length === 0 && !isExpanded;
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-2xl px-4">
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-3xl px-3 sm:px-4">
       <form
         onSubmit={handleSubmit}
         className="bg-card/95 backdrop-blur-xl border border-border rounded-2xl shadow-2xl shadow-black/10 overflow-hidden focus-within:ring-1 focus-within:ring-emerald-500/20 focus-within:border-emerald-500/30 transition-all duration-200"
@@ -114,7 +120,7 @@ export function AICommandBar({
         )}
 
         {/* Main Input Bar */}
-        <div className="flex items-center gap-2 px-4 py-3">
+        <div className="flex items-end gap-2 px-3 py-3 sm:px-4">
           {/* Selection Toolbar */}
           <div className="flex gap-1">
             <button
@@ -148,18 +154,26 @@ export function AICommandBar({
           </div>
 
           {/* Input Field */}
-          <input
+          <textarea
             ref={inputRef}
-            type="text"
             value={input}
             onChange={(e) => onInputChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                if (input.trim() && !isRunning && selectionMode === "none") {
+                  onSubmit();
+                }
+              }
+            }}
             placeholder={
               selectionMode !== "none"
                 ? "Complete selection on map..."
-                : "Ask AI: Find houses, analyze locations... (press / to focus)"
+                : "Ask AI for analysis, planning, or market insights... (press / to focus)"
             }
             disabled={isRunning || selectionMode !== "none"}
-            className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-50"
+            rows={1}
+            className="flex-1 resize-none overflow-y-auto max-h-36 min-h-10 bg-muted/40 border border-border/60 rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-emerald-500/40 disabled:opacity-50"
           />
 
           {/* Send Button */}
@@ -182,6 +196,12 @@ export function AICommandBar({
             {isExpanded ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
           </button>
         </div>
+
+        {selectionMode === "none" && (
+          <div className="px-4 pb-2 -mt-1 text-[10px] text-muted-foreground">
+            Enter to send, Shift+Enter for newline
+          </div>
+        )}
 
         {/* Example Prompts */}
         {showExamples && (

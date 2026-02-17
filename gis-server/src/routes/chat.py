@@ -1,18 +1,17 @@
 """
-Chat API endpoints.
-Provides agentic chatbot with streaming responses using LangGraph + Gemini.
+Chat API endpoints with provider-agnostic agent orchestration.
 """
 
-import asyncio
+import ast
 import json
 import logging
 import math
-import random
+import re
 import time
 import uuid as uuid_lib
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Query, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -20,8 +19,16 @@ from sqlalchemy.orm import Session
 from src.config.agent_settings import agent_settings
 from src.config.database import get_db_session
 from src.dependencies.auth import get_current_active_user
+from src.models.agent_runtime_credential import AgentRuntimeCredential
 from src.models.user import User
 from src.services.chat_service import ChatService
+from src.services.model_provider import (
+    RuntimeModelConfig,
+    is_runtime_model_configured,
+    list_supported_providers,
+    resolve_runtime_config,
+)
+from src.services.secret_encryption import decrypt_secret, encrypt_secret, mask_secret
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 logger = logging.getLogger(__name__)
@@ -43,6 +50,19 @@ def sanitize_json_value(obj):
     return obj
 
 
+def is_finite_number(value: Any) -> bool:
+    return isinstance(value, (int, float)) and math.isfinite(value)
+
+
+def _is_valid_lat_lon(lat: Any, lon: Any) -> bool:
+    return (
+        is_finite_number(lat)
+        and is_finite_number(lon)
+        and -90 <= float(lat) <= 90
+        and -180 <= float(lon) <= 180
+    )
+
+
 class ChatMessage(BaseModel):
     role: str  # "user" or "assistant"
     content: str
@@ -61,6 +81,7 @@ class ChatRequest(BaseModel):
     messages: list[ChatMessage]
     session_id: str | None = None  # Optional session for conversation memory
     attachments: list[AttachmentData] | None = None  # Optional spatial attachments
+    runtime: RuntimeModelConfig | None = None  # Optional BYOK runtime model config
 
 
 def build_spatial_context_message(attachments: list[AttachmentData]) -> str:
@@ -80,9 +101,13 @@ def build_spatial_context_message(attachments: list[AttachmentData]) -> str:
         if attachment.type == "location":
             lat = sanitized_data.get("lat")
             lon = sanitized_data.get("lon")
-            if lat and lon:
+            if _is_valid_lat_lon(lat, lon):
                 parts.append(
                     f"- PIN LOCATION: latitude={lat}, longitude={lon} (User has selected this specific point on the map)"
+                )
+            else:
+                parts.append(
+                    "- PIN LOCATION: ignored due to invalid coordinates (validation failed)"
                 )
 
         elif attachment.type == "bbox":
@@ -113,8 +138,15 @@ def build_spatial_context_message(attachments: list[AttachmentData]) -> str:
                 )
                 if corners:
                     parts.append(f"  - Polygon corners (4 points): {corners}")
+                locator = sanitized_data.get("locator")
+                if locator:
+                    parts.append(f"  - Locator: {locator}")
                 parts.append(
                     "  - USE THESE BOUNDS when searching for properties or analyzing this area"
+                )
+            else:
+                parts.append(
+                    "- BOUNDING BOX AREA: ignored due to invalid bounds (validation failed)"
                 )
 
         elif attachment.type == "property":
@@ -123,9 +155,16 @@ def build_spatial_context_message(attachments: list[AttachmentData]) -> str:
 
             if property_id:
                 parts.append(f"- SELECTED PROPERTY: ID={property_id}")
+                house_ref = property_data.get("house_ref")
+                locator = property_data.get("locator")
+                if house_ref:
+                    parts.append(f"  House Reference: {house_ref}")
+                if locator:
+                    parts.append(f"  Locator: {locator}")
                 # Include key property details if available
                 details = []
-                if property_data.get("total_price"):
+                total_price = property_data.get("total_price")
+                if is_finite_number(total_price):
                     details.append(f"Price: ฿{property_data['total_price']:,.0f}")
                 if property_data.get("building_style_desc"):
                     details.append(f"Type: {property_data['building_style_desc']}")
@@ -135,7 +174,9 @@ def build_spatial_context_message(attachments: list[AttachmentData]) -> str:
                     details.append(
                         f"Building Area: {property_data['building_area']} sqm"
                     )
-                if property_data.get("lat") and property_data.get("lon"):
+                if _is_valid_lat_lon(
+                    property_data.get("lat"), property_data.get("lon")
+                ):
                     details.append(
                         f"Location: ({property_data['lat']}, {property_data['lon']})"
                     )
@@ -151,55 +192,152 @@ def build_spatial_context_message(attachments: list[AttachmentData]) -> str:
     return "\n".join(parts)
 
 
-# Mock responses for fallback when agent is not configured
-MOCK_RESPONSES = [
-    "Based on the current market data, properties in this area have seen a 5% increase in value over the past year.",
-    "The average price per square meter in Bangkok is around 80,000-120,000 THB, depending on the district.",
-    "I can help you analyze property prices. What specific area or property type are you interested in?",
-    "Looking at the data, บางกะปิ district has affordable options with good public transit access.",
-    "For investment purposes, areas near new BTS extensions typically show strong appreciation.",
-    "The price you mentioned seems reasonable for that location. Would you like me to find comparable properties?",
-]
+def _extract_provider_error_payload(raw: str) -> tuple[int | None, str | None, str]:
+    status_code: int | None = None
+    provider_code: str | None = None
+    message = raw
+
+    status_match = re.search(r"Error code:\s*(\d{3})", raw)
+    if not status_match:
+        status_match = re.search(r"status(?:_code)?[=: ]+(\d{3})", raw, re.IGNORECASE)
+    if status_match:
+        status_code = int(status_match.group(1))
+
+    payload_candidate = None
+    if " - " in raw:
+        payload_candidate = raw.split(" - ", 1)[1].strip()
+    elif raw.startswith("{") and raw.endswith("}"):
+        payload_candidate = raw
+
+    if payload_candidate:
+        parsed = None
+        try:
+            parsed = json.loads(payload_candidate)
+        except json.JSONDecodeError:
+            try:
+                parsed = ast.literal_eval(payload_candidate)
+            except (SyntaxError, ValueError):
+                parsed = None
+
+        if isinstance(parsed, dict):
+            maybe_error = parsed.get("error")
+            payload = maybe_error if isinstance(maybe_error, dict) else parsed
+            extracted_message = payload.get("message") or payload.get("detail")
+            if isinstance(extracted_message, str):
+                message = extracted_message
+            extracted_code = payload.get("code")
+            if extracted_code is not None:
+                provider_code = str(extracted_code)
+
+    return status_code, provider_code, message
 
 
-async def generate_mock_stream(user_message: str):
-    """Generate mock streaming response when agent is not configured."""
-    response = random.choice(MOCK_RESPONSES)
+def build_agent_error_payload(raw_error: Any) -> dict[str, Any]:
+    raw = str(raw_error)
+    status_code, provider_code, provider_message = _extract_provider_error_payload(raw)
+    lowered = provider_message.lower()
 
-    if "price" in user_message.lower():
-        response = "Based on our database, the average house price in Bangkok is around 4.5 million THB. Prices vary significantly by district - from 2M in outer areas to 15M+ in prime locations like Sukhumvit."
-    elif "predict" in user_message.lower() or "forecast" in user_message.lower():
-        response = "Our price prediction model suggests that properties in developing areas near new transit lines could see 10-15% appreciation over the next 2 years. Would you like me to analyze a specific location?"
-    elif "recommend" in user_message.lower() or "suggest" in user_message.lower():
-        response = "Based on your criteria, I'd recommend looking at properties in Lat Phrao or Bang Kapi districts. They offer good value with improving infrastructure and are well-connected to the city center."
+    title = "Model request failed"
+    user_message = "The provider request failed. Please retry or update provider settings."
+    retryable = False
 
-    # Add warning about mock mode
-    response = "[Mock Mode - Set GOOGLE_API_KEY for full agent]\n\n" + response
+    if (
+        status_code == 429
+        or provider_code in {"1113"}
+        or "insufficient balance" in lowered
+        or "quota" in lowered
+    ):
+        title = "Provider quota exceeded"
+        user_message = (
+            "The provider rejected the request because quota or account balance is exhausted. "
+            "Recharge or switch provider/model in Settings."
+        )
+        retryable = False
+    elif status_code in {401, 403} or "invalid api key" in lowered:
+        title = "Provider authentication failed"
+        user_message = (
+            "The provider key is invalid or unauthorized. Update your API key in Settings."
+        )
+    elif status_code == 404 or "model" in lowered and "not found" in lowered:
+        title = "Model not found"
+        user_message = (
+            "The selected model is unavailable on this provider endpoint. Choose a valid model."
+        )
+    elif status_code in {408, 500, 502, 503, 504} or "timeout" in lowered:
+        title = "Provider temporarily unavailable"
+        user_message = "The provider is temporarily unavailable. Please retry in a moment."
+        retryable = True
 
-    words = response.split()
-    for i, word in enumerate(words):
-        chunk = f" {word}" if i > 0 else word
-        yield f"data: {chunk}\n\n"
-        await asyncio.sleep(random.uniform(0.03, 0.08))
+    return {
+        "title": title,
+        "message": user_message,
+        "status_code": status_code,
+        "provider_code": provider_code,
+        "raw_message": provider_message,
+        "retryable": retryable,
+    }
 
+
+def _build_agent_not_configured_error() -> dict[str, Any]:
+    return {
+        "title": "Model provider not configured",
+        "message": (
+            "No executable model configuration was found. Configure BYOK credentials in Settings."
+        ),
+        "status_code": None,
+        "provider_code": None,
+        "raw_message": "Missing model provider credentials",
+        "retryable": False,
+    }
+
+
+async def generate_unconfigured_chat_stream():
+    """Emit non-mock error for the legacy text stream endpoint."""
+    payload = _build_agent_not_configured_error()
+    yield f"data: {payload['title']}: {payload['message']}\n\n"
     yield "data: [DONE]\n\n"
 
 
-async def generate_agent_stream(messages: list[ChatMessage], debug: bool = False):
+async def generate_unconfigured_agent_stream_with_steps():
+    """Emit structured error stream when model runtime is not configured."""
+    payload = _build_agent_not_configured_error()
+    yield f"data: {json.dumps({'event': 'thinking', 'data': {'thinking': False}})}\n\n"
+    yield f"data: {json.dumps({'event': 'error', 'data': payload})}\n\n"
+    yield f"data: {json.dumps({'event': 'done', 'data': None})}\n\n"
+
+
+async def generate_agent_stream(
+    messages: list[ChatMessage],
+    debug: bool = False,
+    runtime_config: RuntimeModelConfig | None = None,
+):
     """Generate streaming response from the LangGraph agent."""
     from src.services.agent_graph import agent_service
 
     # Convert to dict format
     message_dicts = [{"role": m.role, "content": m.content} for m in messages]
 
+    buffered_tokens: list[str] = []
+    final_sent = False
+
     try:
-        async for event in agent_service.astream(message_dicts):
+        async for event in agent_service.astream(
+            message_dicts, runtime_config=runtime_config
+        ):
             event_type = event.get("type", "")
             content = event.get("content", "")
 
             if event_type == "token":
-                # Stream text tokens
+                # Suppress intermediate reasoning tokens and prefer final output.
+                buffered_tokens.append(str(content))
+
+            elif event_type == "clarification":
+                clarification = content.get("message", "")
+                yield f"data: {clarification}\n\n"
+
+            elif event_type == "final":
                 yield f"data: {content}\n\n"
+                final_sent = True
 
             elif event_type == "tool_call" and debug:
                 # Include tool call info in debug mode
@@ -207,19 +345,29 @@ async def generate_agent_stream(messages: list[ChatMessage], debug: bool = False
                 name = tool_info.get("name", "unknown")
                 yield f"data: \n[{name}]\n\n"
 
+            elif event_type == "decomposition" and debug:
+                yield "data: \n[Task decomposition created]\n\n"
+
             elif event_type == "tool_result" and debug:
                 # Include truncated tool result in debug mode
                 truncated = content[:200] + "..." if len(content) > 200 else content
                 yield f"data: \n[-> {truncated}]\n\n"
 
             elif event_type == "error":
-                yield f"data: \n[Error: {content}]\n\n"
+                payload = build_agent_error_payload(content)
+                yield f"data: \n[{payload['title']}: {payload['message']}]\n\n"
+
+        if not final_sent and buffered_tokens:
+            fallback_text = "".join(buffered_tokens).strip()
+            if fallback_text:
+                yield f"data: {fallback_text}\n\n"
 
         yield "data: [DONE]\n\n"
 
     except Exception as e:
         logger.error(f"Agent stream error: {e}", exc_info=True)
-        yield f"data: Sorry, I encountered an error: {e!s}\n\n"
+        payload = build_agent_error_payload(e)
+        yield f"data: {payload['title']}: {payload['message']}\n\n"
         yield "data: [DONE]\n\n"
 
 
@@ -227,6 +375,7 @@ async def generate_agent_stream(messages: list[ChatMessage], debug: bool = False
 async def chat(
     request: ChatRequest,
     current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db_session),
     debug: bool = Query(False, description="Include tool call info in response"),
 ):
     """
@@ -235,19 +384,22 @@ async def chat(
 
     Set debug=true to include tool call information in the stream.
     """
-    # Get the last user message for context
-    user_message = ""
-    for msg in reversed(request.messages):
-        if msg.role == "user":
-            user_message = msg.content
-            break
+    runtime_config = _resolve_effective_runtime_config(
+        request.runtime,
+        db=db,
+        user=current_user,
+    )
 
-    # Use agent if configured, otherwise fall back to mock
-    if agent_settings.is_configured:
-        stream_generator = generate_agent_stream(request.messages, debug=debug)
+    # Use real agent if configured; otherwise emit explicit configuration error.
+    if is_runtime_model_configured(runtime_config):
+        stream_generator = generate_agent_stream(
+            request.messages,
+            debug=debug,
+            runtime_config=runtime_config,
+        )
     else:
-        logger.warning("Agent not configured, using mock responses")
-        stream_generator = generate_mock_stream(user_message)
+        logger.warning("Agent not configured for user=%s", current_user.id)
+        stream_generator = generate_unconfigured_chat_stream()
 
     return StreamingResponse(
         stream_generator,
@@ -262,14 +414,261 @@ async def chat(
 @router.get("/status")
 async def chat_status():
     """Check if the chat agent is properly configured."""
+    resolved = resolve_runtime_config()
     return {
-        "agent_configured": agent_settings.is_configured,
-        "model": agent_settings.AGENT_MODEL if agent_settings.is_configured else None,
+        "agent_configured": resolved.is_configured,
+        "provider": resolved.provider,
+        "model": resolved.model if resolved.is_configured else None,
         "embedding_model": agent_settings.EMBEDDING_MODEL
-        if agent_settings.is_configured
+        if resolved.is_configured
         else None,
         "max_iterations": agent_settings.AGENT_MAX_ITERATIONS,
+        "reasoning_mode": agent_settings.AGENT_REASONING_MODE,
+        "clarification_loop": agent_settings.AGENT_ENABLE_CLARIFICATION_LOOP,
+        "supported_providers": list_supported_providers(),
     }
+
+
+@router.get("/providers")
+async def get_supported_model_providers():
+    """Return provider metadata and safe defaults for BYOK UI configuration."""
+    resolved = resolve_runtime_config()
+    return {
+        "default_provider": agent_settings.AGENT_PROVIDER,
+        "default_model": resolved.model,
+        "reasoning_mode": agent_settings.AGENT_REASONING_MODE,
+        "supported_providers": list_supported_providers(),
+    }
+
+
+class ProviderValidationRequest(BaseModel):
+    runtime: RuntimeModelConfig
+
+
+@router.post("/providers/validate")
+async def validate_model_provider_config(
+    request: ProviderValidationRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db_session),
+):
+    """
+    Validate runtime provider config shape and credential completeness.
+    Does not persist credentials.
+    """
+    runtime = request.runtime
+    if runtime.api_key is None:
+        try:
+            stored_runtime = _load_user_runtime_config(db, current_user.id)
+        except ValueError as exc:
+            logger.warning(
+                "Unable to decrypt runtime key while validating provider for user=%s: %s",
+                current_user.id,
+                exc,
+            )
+            stored_runtime = None
+        if stored_runtime and stored_runtime.api_key is not None:
+            runtime = runtime.model_copy(
+                update={"api_key": stored_runtime.api_key.get_secret_value()}
+            )
+
+    resolved = resolve_runtime_config(runtime)
+    return {
+        "valid": resolved.is_configured,
+        "provider": resolved.provider,
+        "model": resolved.model,
+        "reasoning_mode": resolved.reasoning_mode,
+        "missing": [] if resolved.is_configured else ["credentials"],
+    }
+
+
+class RuntimeConfigUpsertRequest(BaseModel):
+    runtime: RuntimeModelConfig
+
+
+def _public_runtime_payload(runtime: RuntimeModelConfig | None) -> dict[str, Any]:
+    if runtime is None:
+        return {}
+    return runtime.model_dump(exclude_none=True, exclude={"api_key"})
+
+
+def _load_user_runtime_credential(
+    db: Session, user_id: uuid_lib.UUID
+) -> AgentRuntimeCredential | None:
+    return (
+        db.query(AgentRuntimeCredential)
+        .filter(AgentRuntimeCredential.user_id == user_id)
+        .first()
+    )
+
+
+def _credential_to_runtime_config(
+    credential: AgentRuntimeCredential,
+) -> RuntimeModelConfig:
+    api_key: str | None = None
+    if credential.encrypted_api_key:
+        api_key = decrypt_secret(credential.encrypted_api_key)
+
+    return RuntimeModelConfig(
+        provider=credential.provider,  # type: ignore[arg-type]
+        model=credential.model,
+        api_key=api_key,
+        base_url=credential.base_url,
+        organization=credential.organization,
+        use_vertex_ai=credential.use_vertex_ai,
+        vertex_project=credential.vertex_project,
+        vertex_location=credential.vertex_location,
+        reasoning_mode=credential.reasoning_mode,  # type: ignore[arg-type]
+        temperature=credential.temperature,
+        max_tokens=credential.max_tokens,
+    )
+
+
+def _load_user_runtime_config(
+    db: Session,
+    user_id: uuid_lib.UUID,
+) -> RuntimeModelConfig | None:
+    credential = _load_user_runtime_credential(db, user_id)
+    if credential is None:
+        return None
+    return _credential_to_runtime_config(credential)
+
+
+def _resolve_effective_runtime_config(
+    request_runtime: RuntimeModelConfig | None,
+    *,
+    db: Session,
+    user: User,
+) -> RuntimeModelConfig | None:
+    if request_runtime is not None:
+        return request_runtime
+    try:
+        return _load_user_runtime_config(db, user.id)
+    except ValueError as exc:
+        logger.error(
+            "Failed to decrypt stored runtime credentials for user=%s: %s",
+            user.id,
+            exc,
+        )
+        return None
+
+
+def _build_runtime_config_response(
+    *,
+    source: str,
+    runtime: RuntimeModelConfig | None,
+    has_api_key: bool,
+    api_key_masked: str = "",
+) -> dict[str, Any]:
+    resolved = resolve_runtime_config(runtime)
+    return {
+        "configured": resolved.is_configured,
+        "source": source,
+        "runtime": _public_runtime_payload(runtime),
+        "has_api_key": has_api_key,
+        "api_key_masked": api_key_masked,
+        "effective_provider": resolved.provider,
+        "effective_model": resolved.model,
+        "reasoning_mode": resolved.reasoning_mode,
+    }
+
+
+@router.get("/runtime-config")
+async def get_runtime_config(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db_session),
+):
+    """Get the current user's stored runtime model configuration."""
+    credential = _load_user_runtime_credential(db, current_user.id)
+    if credential is None:
+        default_runtime = RuntimeModelConfig(provider=agent_settings.AGENT_PROVIDER)
+        resolved = resolve_runtime_config(default_runtime)
+        return _build_runtime_config_response(
+            source="environment" if resolved.is_configured else "none",
+            runtime=default_runtime,
+            has_api_key=bool(resolved.api_key),
+        )
+
+    try:
+        runtime = _credential_to_runtime_config(credential)
+    except ValueError as exc:
+        logger.error(
+            "Failed to decrypt stored runtime credentials for user=%s: %s",
+            current_user.id,
+            exc,
+        )
+        return _build_runtime_config_response(
+            source="none",
+            runtime=RuntimeModelConfig(provider=agent_settings.AGENT_PROVIDER),
+            has_api_key=False,
+        )
+    key_mask = mask_secret(runtime.api_key.get_secret_value() if runtime.api_key else "")
+    return _build_runtime_config_response(
+        source="database",
+        runtime=runtime.model_copy(update={"api_key": None}),
+        has_api_key=bool(credential.encrypted_api_key),
+        api_key_masked=key_mask,
+    )
+
+
+@router.put("/runtime-config")
+async def upsert_runtime_config(
+    request: RuntimeConfigUpsertRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db_session),
+):
+    """Create or update encrypted per-user runtime model configuration."""
+    credential = _load_user_runtime_credential(db, current_user.id)
+    if credential is None:
+        credential = AgentRuntimeCredential(user_id=current_user.id)
+        db.add(credential)
+
+    runtime = request.runtime
+    credential.provider = runtime.provider
+    credential.model = runtime.model
+    credential.base_url = runtime.base_url
+    credential.organization = runtime.organization
+    credential.use_vertex_ai = bool(runtime.use_vertex_ai)
+    credential.vertex_project = runtime.vertex_project
+    credential.vertex_location = runtime.vertex_location
+    credential.reasoning_mode = runtime.reasoning_mode
+    credential.temperature = runtime.temperature
+    credential.max_tokens = runtime.max_tokens
+
+    if runtime.api_key is not None:
+        api_key_value = runtime.api_key.get_secret_value().strip()
+        if api_key_value:
+            credential.encrypted_api_key = encrypt_secret(api_key_value)
+            credential.api_key_last4 = api_key_value[-4:]
+        else:
+            credential.encrypted_api_key = None
+            credential.api_key_last4 = None
+
+    db.commit()
+    db.refresh(credential)
+
+    persisted_runtime = _credential_to_runtime_config(credential)
+    key_mask = mask_secret(
+        persisted_runtime.api_key.get_secret_value() if persisted_runtime.api_key else ""
+    )
+    return _build_runtime_config_response(
+        source="database",
+        runtime=persisted_runtime.model_copy(update={"api_key": None}),
+        has_api_key=bool(credential.encrypted_api_key),
+        api_key_masked=key_mask,
+    )
+
+
+@router.delete("/runtime-config")
+async def delete_runtime_config(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db_session),
+):
+    """Delete the current user's stored runtime model configuration."""
+    credential = _load_user_runtime_credential(db, current_user.id)
+    if credential is not None:
+        db.delete(credential)
+        db.commit()
+    return {"deleted": True}
 
 
 # ============ Agent Stream Endpoint (with tool steps) ============
@@ -277,9 +676,9 @@ async def chat_status():
 
 class AgentStep(BaseModel):
     id: str
-    type: str  # "tool_call"
+    type: str  # "tool_call" | "thinking" | "waiting_user"
     name: str
-    status: str  # "running", "complete", "error"
+    status: str  # "running", "complete", "error", "waiting"
     input: dict | None = None
     output: str | None = None
     start_time: int | None = None
@@ -287,288 +686,8 @@ class AgentStep(BaseModel):
 
 
 class AgentStreamEvent(BaseModel):
-    event: str  # "thinking", "step", "token", "done"
+    event: str  # "thinking", "step", "token", "error", "done"
     data: dict | None = None
-
-
-def select_mock_tools(message: str) -> list[dict]:
-    """Select mock tools based on message content."""
-    lower_msg = message.lower()
-
-    if (
-        "price" in lower_msg
-        or "ราคา" in lower_msg
-        or "หา" in lower_msg
-        or "บ้าน" in lower_msg
-    ):
-        return [
-            {
-                "name": "search_properties",
-                "input": {"district": "บางกะปิ", "limit": 5},
-                "output": {
-                    "count": 5,
-                    "properties": [
-                        {
-                            "id": 1,
-                            "price": 4500000,
-                            "district": "บางกะปิ",
-                            "building_style": "บ้านเดี่ยว",
-                        },
-                        {
-                            "id": 2,
-                            "price": 5200000,
-                            "district": "ลาดพร้าว",
-                            "building_style": "ทาวน์เฮ้าส์",
-                        },
-                        {
-                            "id": 3,
-                            "price": 3800000,
-                            "district": "บางกะปิ",
-                            "building_style": "บ้านเดี่ยว",
-                        },
-                    ],
-                },
-                "duration": 1.2,
-            },
-            {
-                "name": "get_market_statistics",
-                "input": {"district": "บางกะปิ"},
-                "output": {
-                    "avg_price": 4800000,
-                    "median_price": 4500000,
-                    "price_change_yoy": 5.2,
-                    "total_listings": 1245,
-                },
-                "duration": 0.8,
-            },
-        ]
-
-    if (
-        "location" in lower_msg
-        or "area" in lower_msg
-        or "พื้นที่" in lower_msg
-        or "ทำเล" in lower_msg
-    ):
-        return [
-            {
-                "name": "get_location_intelligence",
-                "input": {
-                    "latitude": 13.7563,
-                    "longitude": 100.5018,
-                    "radius_meters": 1000,
-                },
-                "output": {
-                    "transit_score": 85,
-                    "walkability_score": 72,
-                    "flood_risk": "low",
-                    "schools_nearby": 8,
-                },
-                "duration": 1.5,
-            },
-            {
-                "name": "analyze_catchment",
-                "input": {"latitude": 13.7563, "longitude": 100.5018, "minutes": 15},
-                "output": {
-                    "population_reached": 125000,
-                    "area_sqkm": 4.2,
-                    "transit_stops": 12,
-                },
-                "duration": 1.0,
-            },
-        ]
-
-    if (
-        "business" in lower_msg
-        or "site" in lower_msg
-        or "ร้าน" in lower_msg
-        or "ธุรกิจ" in lower_msg
-    ):
-        return [
-            {
-                "name": "analyze_site",
-                "input": {
-                    "latitude": 13.7563,
-                    "longitude": 100.5018,
-                    "target_category": "restaurant",
-                },
-                "output": {
-                    "site_score": 78,
-                    "competitors_count": 12,
-                    "magnets_count": 8,
-                    "traffic_potential": "High",
-                },
-                "duration": 1.8,
-            },
-        ]
-
-    # Default: knowledge retrieval
-    return [
-        {
-            "name": "retrieve_knowledge",
-            "input": {"query": message},
-            "output": {
-                "documents": [
-                    {"title": "Bangkok Real Estate Guide 2025", "relevance": 0.92},
-                    {"title": "Price Prediction Methodology", "relevance": 0.85},
-                ],
-            },
-            "duration": 0.6,
-        },
-    ]
-
-
-def generate_mock_response(message: str, tools: list[dict]) -> str:
-    """Generate contextual response based on message and tools used."""
-    lower_msg = message.lower()
-
-    if (
-        "price" in lower_msg
-        or "ราคา" in lower_msg
-        or "หา" in lower_msg
-        or "บ้าน" in lower_msg
-    ):
-        return """## Property Search Results
-
-Based on my analysis of the market data, here are the properties I found:
-
-| District | Style | Price | 
-|----------|-------|-------|
-| บางกะปิ | บ้านเดี่ยว | ฿4,500,000 |
-| ลาดพร้าว | ทาวน์เฮ้าส์ | ฿5,200,000 |
-| บางกะปิ | บ้านเดี่ยว | ฿3,800,000 |
-
-### Market Statistics for บางกะปิ
-- **Average Price:** ฿4.8M
-- **Median Price:** ฿4.5M  
-- **YoY Growth:** +5.2%
-- **Total Listings:** 1,245
-
-Would you like me to analyze specific properties or search with different criteria?"""
-
-    if (
-        "location" in lower_msg
-        or "area" in lower_msg
-        or "พื้นที่" in lower_msg
-        or "ทำเล" in lower_msg
-    ):
-        return """## Location Intelligence Report
-
-### Scores
-| Metric | Score | Rating |
-|--------|-------|--------|
-| Transit | 85/100 | Excellent |
-| Walkability | 72/100 | Good |
-| Schools | 8 nearby | Good |
-| Flood Risk | Low | Safe |
-
-### Catchment Analysis (15-min walk)
-- **Population Reached:** 125,000
-- **Area Coverage:** 4.2 sq km
-- **Transit Stops:** 12
-
-This is a well-connected location suitable for both residential and commercial use."""
-
-    if (
-        "business" in lower_msg
-        or "site" in lower_msg
-        or "ร้าน" in lower_msg
-        or "ธุรกิจ" in lower_msg
-    ):
-        return """## Site Analysis Results
-
-### Overall Score: 78/100 - Good Potential
-
-| Factor | Value |
-|--------|-------|
-| Competitors | 12 within 1km |
-| Traffic Magnets | 8 nearby |
-| Traffic Potential | High |
-
-**Recommendation:** This location has good foot traffic from nearby transit and schools. Competition is moderate, suggesting market demand exists.
-
-Would you like me to compare this with other potential sites?"""
-
-    return """## Information Retrieved
-
-Based on our knowledge base, here's what I found:
-
-The Bangkok property market shows varied trends across districts:
-- **Prime areas** (Sukhumvit, Sathorn): ฿10-15M+ 
-- **Mid-range** (Chatuchak, Phra Khanong): ฿5-10M
-- **Affordable** (Bang Kapi, Lat Phrao): ฿2.5-5M
-
-Areas near new transit extensions typically show 10-15% appreciation potential.
-
-What specific aspect would you like me to explore?"""
-
-
-async def generate_mock_agent_stream_with_steps(messages: list[ChatMessage]):
-    """Generate mock streaming response with structured tool steps (fallback mode)."""
-    # Get the last user message
-    user_message = ""
-    for msg in reversed(messages):
-        if msg.role == "user":
-            user_message = msg.content
-            break
-
-    # Emit thinking event
-    yield f"data: {json.dumps({'event': 'thinking', 'data': {'thinking': True}})}\n\n"
-    await asyncio.sleep(0.8)
-
-    # Get mock tools for this message
-    tools = select_mock_tools(user_message)
-
-    # Execute each tool with steps
-    for i, tool in enumerate(tools):
-        step_id = f"step-{int(time.time() * 1000)}-{i}"
-        start_time = int(time.time() * 1000)
-
-        # Emit running step
-        step_running = {
-            "id": step_id,
-            "type": "tool_call",
-            "name": tool["name"],
-            "status": "running",
-            "input": tool["input"],
-            "start_time": start_time,
-        }
-        yield f"data: {json.dumps({'event': 'step', 'data': step_running})}\n\n"
-
-        # Simulate execution time
-        await asyncio.sleep(tool["duration"])
-
-        # Emit completed step
-        step_complete = {
-            "id": step_id,
-            "type": "tool_call",
-            "name": tool["name"],
-            "status": "complete",
-            "input": tool["input"],
-            "output": json.dumps(tool["output"], ensure_ascii=False),
-            "start_time": start_time,
-            "end_time": int(time.time() * 1000),
-        }
-        yield f"data: {json.dumps({'event': 'step', 'data': step_complete})}\n\n"
-
-        # Brief pause between tools
-        if i < len(tools) - 1:
-            yield f"data: {json.dumps({'event': 'thinking', 'data': {'thinking': True}})}\n\n"
-            await asyncio.sleep(0.4)
-
-    # Stream final response
-    yield f"data: {json.dumps({'event': 'thinking', 'data': {'thinking': False}})}\n\n"
-
-    # Add mock mode warning
-    response = (
-        "[Mock Mode - Configure GOOGLE_API_KEY for real agent]\n\n"
-        + generate_mock_response(user_message, tools)
-    )
-
-    for char in response:
-        yield f"data: {json.dumps({'event': 'token', 'data': {'token': char}})}\n\n"
-        await asyncio.sleep(0.012 + random.random() * 0.018)
-
-    yield f"data: {json.dumps({'event': 'done', 'data': None})}\n\n"
 
 
 async def generate_real_agent_stream_with_steps(
@@ -578,6 +697,7 @@ async def generate_real_agent_stream_with_steps(
     db_session_id: str | None = None,
     db: Session | None = None,
     user: User | None = None,
+    runtime_config: RuntimeModelConfig | None = None,
 ):
     """
     Generate streaming response from real LangGraph agent with structured events.
@@ -595,6 +715,7 @@ async def generate_real_agent_stream_with_steps(
         db_session_id: Optional database session ID for persistent storage
         db: Optional database session for persistence
         user: Optional authenticated user
+        runtime_config: Optional runtime model provider config (BYOK)
     """
     from src.services.agent_graph import agent_service
     from src.services.conversation_memory import conversation_memory
@@ -665,16 +786,84 @@ async def generate_real_agent_stream_with_steps(
     current_tool_id: str | None = None
     current_tool_name: str | None = None
     current_tool_start: int | None = None
+    thinking_step_id: str | None = None
+    thinking_step_start: int | None = None
+    thinking_sequence_index = 0
+    suppressed_token_buffer: list[str] = []
     response_content = ""
     has_started_response = False
+    final_emitted = False
     collected_tool_calls: list[dict[str, Any]] = []  # Track tool calls for persistence
 
     try:
-        async for event in agent_service.astream(message_dicts):
+        async for event in agent_service.astream(
+            message_dicts, runtime_config=runtime_config
+        ):
             event_type = event.get("type", "")
             content = event.get("content", "")
 
+            if event_type == "decomposition":
+                step_data = {
+                    "id": f"step-decomposition-{int(time.time() * 1000)}",
+                    "type": "thinking",
+                    "name": "Task Decomposition DAG",
+                    "status": "complete",
+                    "output": json.dumps(content, ensure_ascii=False),
+                    "start_time": int(time.time() * 1000),
+                    "end_time": int(time.time() * 1000),
+                }
+                yield f"data: {json.dumps({'event': 'step', 'data': step_data})}\n\n"
+                continue
+
+            if event_type == "clarification":
+                if thinking_step_id:
+                    thinking_complete = {
+                        "id": thinking_step_id,
+                        "type": "thinking",
+                        "name": f"Thinking Sequence {thinking_sequence_index}",
+                        "status": "complete",
+                        "output": "Clarification required before execution.",
+                        "start_time": thinking_step_start,
+                        "end_time": int(time.time() * 1000),
+                    }
+                    yield f"data: {json.dumps({'event': 'step', 'data': thinking_complete})}\n\n"
+                    thinking_step_id = None
+                    thinking_step_start = None
+
+                clarification_data = content if isinstance(content, dict) else {}
+                clarification_message = clarification_data.get(
+                    "message",
+                    "I need more detail before executing this request.",
+                )
+                step_data = {
+                    "id": f"step-clarification-{int(time.time() * 1000)}",
+                    "type": "waiting_user",
+                    "name": "Clarification Required",
+                    "status": "waiting",
+                    "output": clarification_message,
+                    "start_time": int(time.time() * 1000),
+                }
+                yield f"data: {json.dumps({'event': 'thinking', 'data': {'thinking': False}})}\n\n"
+                yield f"data: {json.dumps({'event': 'step', 'data': step_data})}\n\n"
+                yield f"data: {json.dumps({'event': 'token', 'data': {'token': clarification_message}})}\n\n"
+                response_content += clarification_message
+                break
+
             if event_type == "tool_call":
+                if thinking_step_id:
+                    thinking_complete = {
+                        "id": thinking_step_id,
+                        "type": "thinking",
+                        "name": f"Thinking Sequence {thinking_sequence_index}",
+                        "status": "complete",
+                        "output": "Execution plan prepared. Running next tool.",
+                        "start_time": thinking_step_start,
+                        "end_time": int(time.time() * 1000),
+                    }
+                    yield f"data: {json.dumps({'event': 'step', 'data': thinking_complete})}\n\n"
+                    thinking_step_id = None
+                    thinking_step_start = None
+
                 # A new tool is being called
                 tool_info = content
                 current_tool_id = (
@@ -730,31 +919,105 @@ async def generate_real_agent_stream_with_steps(
                     yield f"data: {json.dumps({'event': 'thinking', 'data': {'thinking': True}})}\n\n"
 
             elif event_type == "token":
-                # LLM is generating text
+                # Keep intermediate reasoning inside structured thinking steps.
                 if not has_started_response:
-                    # Stop thinking when response starts
-                    yield f"data: {json.dumps({'event': 'thinking', 'data': {'thinking': False}})}\n\n"
-                    has_started_response = True
+                    suppressed_token_buffer.append(str(content))
+                    if not thinking_step_id:
+                        thinking_sequence_index += 1
+                        thinking_step_id = (
+                            f"step-thinking-{int(time.time() * 1000)}-{thinking_sequence_index}"
+                        )
+                        thinking_step_start = int(time.time() * 1000)
+                        thinking_running = {
+                            "id": thinking_step_id,
+                            "type": "thinking",
+                            "name": f"Thinking Sequence {thinking_sequence_index}",
+                            "status": "running",
+                            "output": "Analyzing context and preparing next action...",
+                            "start_time": thinking_step_start,
+                        }
+                        yield f"data: {json.dumps({'event': 'step', 'data': thinking_running})}\n\n"
+                    continue
 
                 response_content += content
                 yield f"data: {json.dumps({'event': 'token', 'data': {'token': content}})}\n\n"
 
+            elif event_type == "final":
+                final_text = str(content)
+                if final_text and not has_started_response:
+                    if thinking_step_id:
+                        thinking_complete = {
+                            "id": thinking_step_id,
+                            "type": "thinking",
+                            "name": f"Thinking Sequence {thinking_sequence_index}",
+                            "status": "complete",
+                            "output": "Reasoning complete. Drafting final response.",
+                            "start_time": thinking_step_start,
+                            "end_time": int(time.time() * 1000),
+                        }
+                        yield f"data: {json.dumps({'event': 'step', 'data': thinking_complete})}\n\n"
+                        thinking_step_id = None
+                        thinking_step_start = None
+
+                    yield f"data: {json.dumps({'event': 'thinking', 'data': {'thinking': False}})}\n\n"
+                    response_content += final_text
+                    yield f"data: {json.dumps({'event': 'token', 'data': {'token': final_text}})}\n\n"
+                    has_started_response = True
+                    final_emitted = True
+
             elif event_type == "error":
                 # Handle errors
+                error_payload = build_agent_error_payload(content)
+                if thinking_step_id:
+                    thinking_error = {
+                        "id": thinking_step_id,
+                        "type": "thinking",
+                        "name": f"Thinking Sequence {thinking_sequence_index}",
+                        "status": "error",
+                        "output": error_payload["message"],
+                        "start_time": thinking_step_start,
+                        "end_time": int(time.time() * 1000),
+                    }
+                    yield f"data: {json.dumps({'event': 'step', 'data': thinking_error})}\n\n"
+                    thinking_step_id = None
+                    thinking_step_start = None
+
                 if current_tool_id:
                     step_data = {
                         "id": current_tool_id,
                         "type": "tool_call",
                         "name": current_tool_name or "unknown",
                         "status": "error",
-                        "output": str(content),
+                        "output": error_payload["raw_message"],
                         "end_time": int(time.time() * 1000),
                     }
                     yield f"data: {json.dumps({'event': 'step', 'data': step_data})}\n\n"
 
                 yield f"data: {json.dumps({'event': 'thinking', 'data': {'thinking': False}})}\n\n"
-                error_msg = f"\n\n**Error:** {content}"
-                yield f"data: {json.dumps({'event': 'token', 'data': {'token': error_msg}})}\n\n"
+                yield f"data: {json.dumps({'event': 'error', 'data': error_payload})}\n\n"
+                response_content += (
+                    f"{error_payload['title']}: {error_payload['message']}"
+                )
+                break
+
+        if not final_emitted and thinking_step_id:
+            thinking_complete = {
+                "id": thinking_step_id,
+                "type": "thinking",
+                "name": f"Thinking Sequence {thinking_sequence_index}",
+                "status": "complete",
+                "output": "Thinking finished.",
+                "start_time": thinking_step_start,
+                "end_time": int(time.time() * 1000),
+            }
+            yield f"data: {json.dumps({'event': 'step', 'data': thinking_complete})}\n\n"
+
+        if not final_emitted and not response_content and suppressed_token_buffer:
+            fallback_text = "".join(suppressed_token_buffer).strip()
+            if fallback_text:
+                yield f"data: {json.dumps({'event': 'thinking', 'data': {'thinking': False}})}\n\n"
+                yield f"data: {json.dumps({'event': 'token', 'data': {'token': fallback_text}})}\n\n"
+                response_content += fallback_text
 
         # Save assistant response to database or memory
         if db_session_id and db and user and response_content:
@@ -773,9 +1036,10 @@ async def generate_real_agent_stream_with_steps(
 
     except Exception as e:
         logger.error(f"Real agent stream error: {e}", exc_info=True)
+        error_payload = build_agent_error_payload(e)
         yield f"data: {json.dumps({'event': 'thinking', 'data': {'thinking': False}})}\n\n"
-        error_msg = f"Sorry, I encountered an error: {str(e)}"
-        yield f"data: {json.dumps({'event': 'token', 'data': {'token': error_msg}})}\n\n"
+        yield f"data: {json.dumps({'event': 'error', 'data': error_payload})}\n\n"
+        response_content += f"{error_payload['title']}: {error_payload['message']}"
 
     # Emit done event
     yield f"data: {json.dumps({'event': 'done', 'data': None})}\n\n"
@@ -784,7 +1048,6 @@ async def generate_real_agent_stream_with_steps(
 @router.post("/agent")
 async def agent_chat(
     request: ChatRequest,
-    response: Response,
     background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db_session),
@@ -797,6 +1060,7 @@ async def agent_chat(
     - thinking: Agent is processing {"thinking": true/false}
     - step: Tool call step {"id", "name", "status", "input", "output", "start_time", "end_time"}
     - token: Text token for response {"token": str}
+    - error: Structured provider/runtime error {"title", "message", ...}
     - done: Stream complete {null}
 
     Optional:
@@ -834,11 +1098,18 @@ async def agent_chat(
         new_session = chat_service.create_session(user_id=current_user.id)
         db_session_id = str(new_session.id)
 
-    # Choose real agent or mock based on configuration
-    if agent_settings.is_configured:
+    runtime_config = _resolve_effective_runtime_config(
+        request.runtime,
+        db=db,
+        user=current_user,
+    )
+
+    # Choose real agent when configured; otherwise emit explicit configuration error.
+    if is_runtime_model_configured(runtime_config):
         logger.info(
             f"Using real agent for session db={db_session_id} "
-            f"with {len(request.attachments or [])} attachments"
+            f"with {len(request.attachments or [])} attachments "
+            f"provider={resolve_runtime_config(runtime_config).provider}"
         )
         stream_generator = generate_real_agent_stream_with_steps(
             messages=request.messages,
@@ -847,10 +1118,11 @@ async def agent_chat(
             db_session_id=db_session_id,
             db=db,
             user=current_user,
+            runtime_config=runtime_config,
         )
     else:
-        logger.warning("Agent not configured, using mock stream")
-        stream_generator = generate_mock_agent_stream_with_steps(request.messages)
+        logger.warning("Agent not configured for user=%s", current_user.id)
+        stream_generator = generate_unconfigured_agent_stream_with_steps()
 
     streaming_response = StreamingResponse(
         stream_generator,

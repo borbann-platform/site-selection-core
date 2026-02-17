@@ -7,9 +7,11 @@ import {
   ChevronDown,
   ChevronRight,
   Brain,
+  MessageCircleQuestion,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import type { AgentStep, AgentStepStatus } from "../lib/api";
+import { StreamingMarkdown } from "./ui/markdown";
 import {
   Collapsible,
   CollapsibleContent,
@@ -29,6 +31,8 @@ function getStatusIcon(status: AgentStepStatus) {
       return <CheckCircle2 size={14} className="text-success" />;
     case "error":
       return <AlertCircle size={14} className="text-red-400" />;
+    case "waiting":
+      return <MessageCircleQuestion size={14} className="text-sky-400" />;
     default:
       return <Loader2 size={14} className="text-muted-foreground" />;
   }
@@ -37,6 +41,9 @@ function getStatusIcon(status: AgentStepStatus) {
 function getStepIcon(type: "tool_call" | "thinking" | "waiting_user") {
   if (type === "thinking") {
     return <Brain size={14} className="text-purple-400" />;
+  }
+  if (type === "waiting_user") {
+    return <MessageCircleQuestion size={14} className="text-sky-400" />;
   }
   return <Wrench size={14} className="text-blue-400" />;
 }
@@ -119,16 +126,25 @@ export function AgentStepCard({ step, className }: AgentStepCardProps) {
                 <div className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">
                   Result
                 </div>
-                <div
-                  className={cn(
-                    "text-xs font-mono bg-popover rounded px-2 py-1.5 overflow-x-auto max-h-32 overflow-y-auto custom-scrollbar",
-                    step.status === "error" ? "text-red-300" : "text-muted-foreground"
-                  )}
-                >
-                  <pre className="whitespace-pre-wrap break-all">
-                    {step.output}
-                  </pre>
-                </div>
+                {step.type === "thinking" ? (
+                  <div className="text-xs bg-popover rounded px-2 py-1.5 max-h-40 overflow-y-auto custom-scrollbar">
+                    <StreamingMarkdown
+                      content={step.output}
+                      isStreaming={step.status === "running"}
+                    />
+                  </div>
+                ) : (
+                  <div
+                    className={cn(
+                      "text-xs font-mono bg-popover rounded px-2 py-1.5 overflow-x-auto max-h-32 overflow-y-auto custom-scrollbar",
+                      step.status === "error" ? "text-red-300" : "text-muted-foreground"
+                    )}
+                  >
+                    <pre className="whitespace-pre-wrap break-all">
+                      {step.output}
+                    </pre>
+                  </div>
+                )}
               </div>
             )}
           </div>

@@ -1,7 +1,5 @@
 import { useRef, useEffect, useState } from "react";
 import { Bot, User, ChevronDown, ChevronUp } from "lucide-react";
-import type { FilterValues } from "./QuickFilters";
-import { QuickFilters } from "./QuickFilters";
 import { ThinkingProcess } from "../ThinkingIndicator";
 import { StreamingMarkdown } from "../ui/markdown";
 import { AgentStepCard, AgentStepBadge } from "../AgentStepCard";
@@ -10,7 +8,8 @@ import {
   parsePropertyResults,
   cleanContentFromPropertyMarkers,
 } from "./PropertyResultsCard";
-import type { AgentStep } from "../../lib/api";
+import type { AgentStep, AgentRuntimeError } from "../../lib/api";
+import { AgentErrorCard } from "../AgentErrorCard";
 import { cn } from "../../lib/utils";
 
 export interface AgentMessage {
@@ -18,6 +17,7 @@ export interface AgentMessage {
   role: "user" | "assistant";
   content: string;
   steps?: AgentStep[];
+  error?: AgentRuntimeError;
   isStreaming?: boolean;
   isThinking?: boolean;
   thinkingStartTime?: number;
@@ -26,16 +26,12 @@ export interface AgentMessage {
 interface AIExpandedPanelProps {
   isExpanded: boolean;
   messages: AgentMessage[];
-  filterValues: FilterValues;
-  onFilterChange: (values: FilterValues) => void;
   onPropertyClick?: (property: { lat?: number; lon?: number; id: string | number }) => void;
 }
 
 export function AIExpandedPanel({
   isExpanded,
   messages,
-  filterValues,
-  onFilterChange,
   onPropertyClick,
 }: AIExpandedPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -54,10 +50,25 @@ export function AIExpandedPanel({
   }
 
   return (
-    <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40 w-full max-w-2xl px-4">
-      <div className="bg-card/95 backdrop-blur-xl border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[60vh]">
-        {/* Conversation History */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 custom-scrollbar">
+    <div className="fixed inset-x-0 bottom-28 z-40 mx-auto w-full max-w-3xl px-3 sm:px-4">
+      <div className="bg-card/95 backdrop-blur-xl border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[64vh]">
+        <div className="flex items-center justify-between px-4 py-2 border-b border-border/80">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Agent Session
+          </p>
+          <span className="text-[11px] text-muted-foreground/80">
+            {messages.length} {messages.length === 1 ? "message" : "messages"}
+          </span>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-3 py-3 sm:px-4 sm:py-4 space-y-4 custom-scrollbar">
+          {messages.length === 0 && (
+            <div className="rounded-xl border border-dashed border-border/70 bg-muted/40 p-4 text-sm text-muted-foreground">
+              Start with a prompt below. Use map attachments when you need the
+              agent to ground analysis to a location, area, or selected property.
+            </div>
+          )}
+
           {messages.map((message) =>
             message.role === "user" ? (
               <UserMessage key={message.id} message={message} />
@@ -71,9 +82,6 @@ export function AIExpandedPanel({
           )}
           <div ref={messagesEndRef} />
         </div>
-
-        {/* Quick Filters */}
-        <QuickFilters values={filterValues} onChange={onFilterChange} />
       </div>
     </div>
   );
@@ -105,6 +113,10 @@ function AssistantMessage({ message, onPropertyClick }: AssistantMessageProps) {
   const [showSteps, setShowSteps] = useState(false);
   const hasSteps = message.steps && message.steps.length > 0;
   const stepsCount = message.steps?.length || 0;
+  const thinkingCount =
+    message.steps?.filter((s) => s.type === "thinking").length || 0;
+  const toolCount =
+    message.steps?.filter((s) => s.type === "tool_call").length || 0;
 
   // Parse property results from content
   const propertyResults = message.content ? parsePropertyResults(message.content) : null;
@@ -146,8 +158,10 @@ function AssistantMessage({ message, onPropertyClick }: AssistantMessageProps) {
               )}
               <span>
                 {hasRunningStep
-                  ? `Running tool ${stepsCount}...`
-                  : `Used ${stepsCount} tool${stepsCount !== 1 ? "s" : ""}`}
+                  ? "Thinking and executing..."
+                  : thinkingCount > 0
+                    ? `Thinking sequence (${thinkingCount}) + ${toolCount} tool${toolCount !== 1 ? "s" : ""}`
+                    : `Used ${stepsCount} tool${stepsCount !== 1 ? "s" : ""}`}
               </span>
             </button>
 
@@ -185,6 +199,8 @@ function AssistantMessage({ message, onPropertyClick }: AssistantMessageProps) {
         )}
 
         {/* Message content with streaming cursor and markdown rendering */}
+        {message.error && <AgentErrorCard error={message.error} />}
+
         {cleanContent && (
           <div className="max-w-full rounded-xl px-3 py-2 text-sm bg-muted">
             <StreamingMarkdown content={cleanContent} isStreaming={message.isStreaming} />
