@@ -317,6 +317,9 @@ async def generate_agent_stream(
     # Convert to dict format
     message_dicts = [{"role": m.role, "content": m.content} for m in messages]
 
+    buffered_tokens: list[str] = []
+    final_sent = False
+
     try:
         async for event in agent_service.astream(
             message_dicts, runtime_config=runtime_config
@@ -325,8 +328,8 @@ async def generate_agent_stream(
             content = event.get("content", "")
 
             if event_type == "token":
-                # Stream text tokens
-                yield f"data: {content}\n\n"
+                # Suppress intermediate reasoning tokens and prefer final output.
+                buffered_tokens.append(str(content))
 
             elif event_type == "clarification":
                 clarification = content.get("message", "")
@@ -334,6 +337,7 @@ async def generate_agent_stream(
 
             elif event_type == "final":
                 yield f"data: {content}\n\n"
+                final_sent = True
 
             elif event_type == "tool_call" and debug:
                 # Include tool call info in debug mode
@@ -352,6 +356,11 @@ async def generate_agent_stream(
             elif event_type == "error":
                 payload = build_agent_error_payload(content)
                 yield f"data: \n[{payload['title']}: {payload['message']}]\n\n"
+
+        if not final_sent and buffered_tokens:
+            fallback_text = "".join(buffered_tokens).strip()
+            if fallback_text:
+                yield f"data: {fallback_text}\n\n"
 
         yield "data: [DONE]\n\n"
 
@@ -777,8 +786,13 @@ async def generate_real_agent_stream_with_steps(
     current_tool_id: str | None = None
     current_tool_name: str | None = None
     current_tool_start: int | None = None
+    thinking_step_id: str | None = None
+    thinking_step_start: int | None = None
+    thinking_sequence_index = 0
+    suppressed_token_buffer: list[str] = []
     response_content = ""
     has_started_response = False
+    final_emitted = False
     collected_tool_calls: list[dict[str, Any]] = []  # Track tool calls for persistence
 
     try:
@@ -802,6 +816,20 @@ async def generate_real_agent_stream_with_steps(
                 continue
 
             if event_type == "clarification":
+                if thinking_step_id:
+                    thinking_complete = {
+                        "id": thinking_step_id,
+                        "type": "thinking",
+                        "name": f"Thinking Sequence {thinking_sequence_index}",
+                        "status": "complete",
+                        "output": "Clarification required before execution.",
+                        "start_time": thinking_step_start,
+                        "end_time": int(time.time() * 1000),
+                    }
+                    yield f"data: {json.dumps({'event': 'step', 'data': thinking_complete})}\n\n"
+                    thinking_step_id = None
+                    thinking_step_start = None
+
                 clarification_data = content if isinstance(content, dict) else {}
                 clarification_message = clarification_data.get(
                     "message",
@@ -822,6 +850,20 @@ async def generate_real_agent_stream_with_steps(
                 break
 
             if event_type == "tool_call":
+                if thinking_step_id:
+                    thinking_complete = {
+                        "id": thinking_step_id,
+                        "type": "thinking",
+                        "name": f"Thinking Sequence {thinking_sequence_index}",
+                        "status": "complete",
+                        "output": "Execution plan prepared. Running next tool.",
+                        "start_time": thinking_step_start,
+                        "end_time": int(time.time() * 1000),
+                    }
+                    yield f"data: {json.dumps({'event': 'step', 'data': thinking_complete})}\n\n"
+                    thinking_step_id = None
+                    thinking_step_start = None
+
                 # A new tool is being called
                 tool_info = content
                 current_tool_id = (
@@ -877,11 +919,25 @@ async def generate_real_agent_stream_with_steps(
                     yield f"data: {json.dumps({'event': 'thinking', 'data': {'thinking': True}})}\n\n"
 
             elif event_type == "token":
-                # LLM is generating text
+                # Keep intermediate reasoning inside structured thinking steps.
                 if not has_started_response:
-                    # Stop thinking when response starts
-                    yield f"data: {json.dumps({'event': 'thinking', 'data': {'thinking': False}})}\n\n"
-                    has_started_response = True
+                    suppressed_token_buffer.append(str(content))
+                    if not thinking_step_id:
+                        thinking_sequence_index += 1
+                        thinking_step_id = (
+                            f"step-thinking-{int(time.time() * 1000)}-{thinking_sequence_index}"
+                        )
+                        thinking_step_start = int(time.time() * 1000)
+                        thinking_running = {
+                            "id": thinking_step_id,
+                            "type": "thinking",
+                            "name": f"Thinking Sequence {thinking_sequence_index}",
+                            "status": "running",
+                            "output": "Analyzing context and preparing next action...",
+                            "start_time": thinking_step_start,
+                        }
+                        yield f"data: {json.dumps({'event': 'step', 'data': thinking_running})}\n\n"
+                    continue
 
                 response_content += content
                 yield f"data: {json.dumps({'event': 'token', 'data': {'token': content}})}\n\n"
@@ -889,14 +945,43 @@ async def generate_real_agent_stream_with_steps(
             elif event_type == "final":
                 final_text = str(content)
                 if final_text and not has_started_response:
+                    if thinking_step_id:
+                        thinking_complete = {
+                            "id": thinking_step_id,
+                            "type": "thinking",
+                            "name": f"Thinking Sequence {thinking_sequence_index}",
+                            "status": "complete",
+                            "output": "Reasoning complete. Drafting final response.",
+                            "start_time": thinking_step_start,
+                            "end_time": int(time.time() * 1000),
+                        }
+                        yield f"data: {json.dumps({'event': 'step', 'data': thinking_complete})}\n\n"
+                        thinking_step_id = None
+                        thinking_step_start = None
+
                     yield f"data: {json.dumps({'event': 'thinking', 'data': {'thinking': False}})}\n\n"
                     response_content += final_text
                     yield f"data: {json.dumps({'event': 'token', 'data': {'token': final_text}})}\n\n"
                     has_started_response = True
+                    final_emitted = True
 
             elif event_type == "error":
                 # Handle errors
                 error_payload = build_agent_error_payload(content)
+                if thinking_step_id:
+                    thinking_error = {
+                        "id": thinking_step_id,
+                        "type": "thinking",
+                        "name": f"Thinking Sequence {thinking_sequence_index}",
+                        "status": "error",
+                        "output": error_payload["message"],
+                        "start_time": thinking_step_start,
+                        "end_time": int(time.time() * 1000),
+                    }
+                    yield f"data: {json.dumps({'event': 'step', 'data': thinking_error})}\n\n"
+                    thinking_step_id = None
+                    thinking_step_start = None
+
                 if current_tool_id:
                     step_data = {
                         "id": current_tool_id,
@@ -914,6 +999,25 @@ async def generate_real_agent_stream_with_steps(
                     f"{error_payload['title']}: {error_payload['message']}"
                 )
                 break
+
+        if not final_emitted and thinking_step_id:
+            thinking_complete = {
+                "id": thinking_step_id,
+                "type": "thinking",
+                "name": f"Thinking Sequence {thinking_sequence_index}",
+                "status": "complete",
+                "output": "Thinking finished.",
+                "start_time": thinking_step_start,
+                "end_time": int(time.time() * 1000),
+            }
+            yield f"data: {json.dumps({'event': 'step', 'data': thinking_complete})}\n\n"
+
+        if not final_emitted and not response_content and suppressed_token_buffer:
+            fallback_text = "".join(suppressed_token_buffer).strip()
+            if fallback_text:
+                yield f"data: {json.dumps({'event': 'thinking', 'data': {'thinking': False}})}\n\n"
+                yield f"data: {json.dumps({'event': 'token', 'data': {'token': fallback_text}})}\n\n"
+                response_content += fallback_text
 
         # Save assistant response to database or memory
         if db_session_id and db and user and response_content:

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import type { AgentStep, AgentStepStatus } from "../lib/api";
+import { StreamingMarkdown } from "./ui/markdown";
 import {
   Collapsible,
   CollapsibleContent,
@@ -125,16 +126,25 @@ export function AgentStepCard({ step, className }: AgentStepCardProps) {
                 <div className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">
                   Result
                 </div>
-                <div
-                  className={cn(
-                    "text-xs font-mono bg-popover rounded px-2 py-1.5 overflow-x-auto max-h-32 overflow-y-auto custom-scrollbar",
-                    step.status === "error" ? "text-red-300" : "text-muted-foreground"
-                  )}
-                >
-                  <pre className="whitespace-pre-wrap break-all">
-                    {step.output}
-                  </pre>
-                </div>
+                {step.type === "thinking" ? (
+                  <div className="text-xs bg-popover rounded px-2 py-1.5 max-h-40 overflow-y-auto custom-scrollbar">
+                    <StreamingMarkdown
+                      content={step.output}
+                      isStreaming={step.status === "running"}
+                    />
+                  </div>
+                ) : (
+                  <div
+                    className={cn(
+                      "text-xs font-mono bg-popover rounded px-2 py-1.5 overflow-x-auto max-h-32 overflow-y-auto custom-scrollbar",
+                      step.status === "error" ? "text-red-300" : "text-muted-foreground"
+                    )}
+                  >
+                    <pre className="whitespace-pre-wrap break-all">
+                      {step.output}
+                    </pre>
+                  </div>
+                )}
               </div>
             )}
           </div>

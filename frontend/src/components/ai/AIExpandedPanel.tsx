@@ -107,6 +107,10 @@ function AssistantMessage({ message, onPropertyClick }: AssistantMessageProps) {
   const [showSteps, setShowSteps] = useState(false);
   const hasSteps = message.steps && message.steps.length > 0;
   const stepsCount = message.steps?.length || 0;
+  const thinkingCount =
+    message.steps?.filter((s) => s.type === "thinking").length || 0;
+  const toolCount =
+    message.steps?.filter((s) => s.type === "tool_call").length || 0;
 
   // Parse property results from content
   const propertyResults = message.content ? parsePropertyResults(message.content) : null;
@@ -148,8 +152,10 @@ function AssistantMessage({ message, onPropertyClick }: AssistantMessageProps) {
               )}
               <span>
                 {hasRunningStep
-                  ? `Running tool ${stepsCount}...`
-                  : `Used ${stepsCount} tool${stepsCount !== 1 ? "s" : ""}`}
+                  ? "Thinking and executing..."
+                  : thinkingCount > 0
+                    ? `Thinking sequence (${thinkingCount}) + ${toolCount} tool${toolCount !== 1 ? "s" : ""}`
+                    : `Used ${stepsCount} tool${stepsCount !== 1 ? "s" : ""}`}
               </span>
             </button>
 
