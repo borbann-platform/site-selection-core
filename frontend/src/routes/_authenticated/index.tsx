@@ -271,12 +271,10 @@ function PropertyExplorer() {
         }
       />
 
-      {/* AI Expanded Panel -- conversation history + filters */}
+      {/* AI Expanded Panel -- conversation history */}
       <AIExpandedPanel
         isExpanded={explorer.isAIExpanded}
         messages={explorer.aiMessages}
-        filterValues={explorer.aiFilters}
-        onFilterChange={explorer.setAiFilters}
         onPropertyClick={(property) => {
           const latitude = property.lat;
           const longitude = property.lon;

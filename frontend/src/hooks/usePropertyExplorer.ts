@@ -3,11 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import {
-  DEFAULT_FILTERS,
   type Attachment,
   type SelectionMode,
   type AgentMessage,
-  type FilterValues,
 } from "@/components/ai";
 import type { PropertyFiltersState } from "@/components/PropertyFilters";
 import {
@@ -125,7 +123,6 @@ export function usePropertyExplorer(districtFromUrl?: string) {
   const [isAIExpanded, setIsAIExpanded] = useState(false);
   const [aiInput, setAiInput] = useState("");
   const [aiMessages, setAiMessages] = useState<AgentMessage[]>([]);
-  const [aiFilters, setAiFilters] = useState<FilterValues>(DEFAULT_FILTERS);
   const [isAIRunning, setIsAIRunning] = useState(false);
 
   // -- Bbox selection (4-click polygon) --
@@ -214,25 +211,11 @@ export function usePropertyExplorer(districtFromUrl?: string) {
     setIsAIRunning(true);
     setIsAIExpanded(true);
 
-    const filterContext = Object.entries(aiFilters)
-      .filter(
-        ([, v]) =>
-          v !== null && v !== false && v !== undefined && v !== ""
-      )
-      .map(([k, v]) => `${k}: ${v}`)
-      .join(", ");
-
     const attachmentContext = chatAttachments
       .map((a) => `[${a.type}: ${a.label}]`)
       .join(" ");
 
-    const fullMessage = [
-      aiInput,
-      filterContext && `(Filters: ${filterContext})`,
-      attachmentContext,
-    ]
-      .filter(Boolean)
-      .join(" ");
+    const fullMessage = [aiInput, attachmentContext].filter(Boolean).join(" ");
 
     const userMsgId = `msg-${Date.now()}`;
     const userMessage: AgentMessage = {
@@ -356,9 +339,8 @@ export function usePropertyExplorer(districtFromUrl?: string) {
       });
     }
 
-    setAiFilters(DEFAULT_FILTERS);
     setIsAIRunning(false);
-  }, [aiInput, isAIRunning, aiFilters, chatAttachments, aiMessages]);
+  }, [aiInput, isAIRunning, chatAttachments, aiMessages]);
 
   const sanitizePropertyData = useCallback(
     (data: Record<string, unknown>): Record<string, unknown> => {
@@ -591,8 +573,6 @@ export function usePropertyExplorer(districtFromUrl?: string) {
     aiInput,
     setAiInput,
     aiMessages,
-    aiFilters,
-    setAiFilters,
     isAIRunning,
 
     // Bbox
