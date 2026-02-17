@@ -45,8 +45,7 @@ function PropertyExplorer() {
   const [panels, setPanels] = useState({
     explorer: true,
     overlays: true,
-    priceLegend: true,
-    mapLegend: true,
+    legends: true,
   });
 
   const togglePanel = (key: keyof typeof panels) =>
@@ -151,39 +150,40 @@ function PropertyExplorer() {
           </div>
         </div>
 
-        {/* Floating Price Legend */}
-        {panels.priceLegend && (
+        {/* Floating Legends Panel */}
+        {panels.legends && (
           <FloatingPanel
-            title="Price Legend"
-            defaultPosition={{ bottom: 24, right: 24 }}
+            title="Legends"
+            icon={<MapPin className="h-3.5 w-3.5 text-muted-foreground" />}
+            defaultPosition={{ top: 96, right: 16 }}
             draggable
             collapsible
             closable
-            className="min-w-40"
+            className="min-w-44 hidden md:block"
             contentClassName="p-3"
-            onClose={() => togglePanel("priceLegend")}
+            onClose={() => togglePanel("legends")}
           >
-            <PriceLegendContent
-              minPrice={explorer.propertyFilters.minPrice}
-              maxPrice={explorer.propertyFilters.maxPrice}
-            />
-          </FloatingPanel>
-        )}
-
-        {/* Floating Map Legend */}
-        {panels.mapLegend && (
-          <FloatingPanel
-            title="Map Legend"
-            icon={<MapPin className="h-3.5 w-3.5 text-muted-foreground" />}
-            defaultPosition={{ bottom: 24, left: 16 }}
-            className="hidden md:block"
-            contentClassName="p-3"
-            onClose={() => togglePanel("mapLegend")}
-          >
-            <MapLegendContent
-              showHouses={true}
-              showPOIs={explorer.overlays.pois}
-            />
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  Price
+                </div>
+                <PriceLegendContent
+                  minPrice={explorer.propertyFilters.minPrice}
+                  maxPrice={explorer.propertyFilters.maxPrice}
+                />
+              </div>
+              <div className="h-px bg-border/60" />
+              <div className="space-y-2">
+                <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  Map
+                </div>
+                <MapLegendContent
+                  showHouses={true}
+                  showPOIs={explorer.overlays.pois}
+                />
+              </div>
+            </div>
           </FloatingPanel>
         )}
 
@@ -198,11 +198,7 @@ function PropertyExplorer() {
                 onClick={() => togglePanel(key as keyof typeof panels)}
                 className="px-2.5 py-1 text-[10px] font-medium text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted rounded-full transition-colors capitalize"
               >
-                {key === "priceLegend"
-                  ? "Price"
-                  : key === "mapLegend"
-                    ? "Legend"
-                    : key}
+                {key === "legends" ? "Legends" : key}
               </button>
             ))}
           </div>

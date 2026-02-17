@@ -3,7 +3,7 @@
  * Uses the existing MapContainer with click-to-select functionality.
  */
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { MapContainer } from "@/components/MapContainer";
 import { ScatterplotLayer } from "@deck.gl/layers";
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,20 @@ export function LocationPicker({
     pitch: 0,
     bearing: 0,
   });
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    setSelectedLocation(initialLocation || null);
+    setViewState({
+      ...DEFAULT_CENTER,
+      latitude: initialLocation?.lat || DEFAULT_CENTER.latitude,
+      longitude: initialLocation?.lon || DEFAULT_CENTER.longitude,
+      zoom: initialLocation ? 15 : DEFAULT_CENTER.zoom,
+      pitch: 0,
+      bearing: 0,
+    });
+  }, [isOpen, initialLocation]);
 
   const handleMapClick = useCallback(
     (info: { coordinate?: [number, number] }) => {

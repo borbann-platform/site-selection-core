@@ -456,6 +456,13 @@ export interface HousePriceStatsResponse {
   by_building_style: BuildingStyleStats[];
 }
 
+export interface ResolveLocationResponse {
+  amphur: string;
+  tumbon: string | null;
+  village: string | null;
+  distance_m: number;
+}
+
 // Location Intelligence Types
 export interface TransitDetail {
   name: string;
@@ -791,6 +798,21 @@ export const api = {
 
     const res = await fetch(`${API_URL}/house-prices/nearby?${searchParams}`);
     if (!res.ok) throw new Error("Failed to get nearby properties");
+    return res.json();
+  },
+
+  resolveLocation: async (params: {
+    lat: number;
+    lon: number;
+  }): Promise<ResolveLocationResponse> => {
+    const searchParams = new URLSearchParams();
+    searchParams.set("lat", String(params.lat));
+    searchParams.set("lon", String(params.lon));
+
+    const res = await fetch(
+      `${API_URL}/house-prices/resolve-location?${searchParams}`
+    );
+    if (!res.ok) throw new Error("Failed to resolve location");
     return res.json();
   },
 

@@ -3,7 +3,7 @@
  * Collects property details and location for AI valuation.
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { cn } from "@/lib/utils";
 import {
   Home,
@@ -19,7 +19,11 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import type { PropertyUploadRequest } from "@/lib/api";
+import {
+  api,
+  type PropertyUploadRequest,
+  type ResolveLocationResponse,
+} from "@/lib/api";
 
 interface PropertyUploadFormProps {
   onSubmit: (data: PropertyUploadRequest) => void;
@@ -172,6 +176,12 @@ export function PropertyUploadForm({
   isSubmitting = false,
 }: PropertyUploadFormProps) {
   const [currentStep, setCurrentStep] = useState(1);
+  const lastAutoFillLocation = useRef<string | null>(null);
+  const [locationStatus, setLocationStatus] = useState<
+    "idle" | "resolving" | "resolved" | "failed"
+  >("idle");
+  const [resolvedLocation, setResolvedLocation] =
+    useState<ResolveLocationResponse | null>(null);
   const [formData, setFormData] = useState<FormData>({
     building_style: "",
     building_area: "",
@@ -184,6 +194,87 @@ export function PropertyUploadForm({
     asking_price: "",
   });
   const [errors, setErrors] = useState<Partial<FormData>>({});
+
+  const districtOptions = useMemo(() => {
+    const options = [...DISTRICTS];
+    const detected = resolvedLocation?.amphur;
+    if (detected && !options.includes(detected)) {
+      options.unshift(detected);
+    }
+    if (formData.amphur && !options.includes(formData.amphur)) {
+      options.unshift(formData.amphur);
+    }
+    return options;
+  }, [formData.amphur, resolvedLocation?.amphur]);
+
+  const hasDetectedLocationDiff = useMemo(() => {
+    if (!resolvedLocation) return false;
+    return (
+      (resolvedLocation.amphur && resolvedLocation.amphur !== formData.amphur) ||
+      (resolvedLocation.tumbon || "") !== (formData.tumbon || "") ||
+      (resolvedLocation.village || "") !== (formData.village || "")
+    );
+  }, [formData.amphur, formData.tumbon, formData.village, resolvedLocation]);
+
+  useEffect(() => {
+    if (!selectedLocation) {
+      setLocationStatus("idle");
+      setResolvedLocation(null);
+      lastAutoFillLocation.current = null;
+      return;
+    }
+
+    const locationKey = `${selectedLocation.lat}:${selectedLocation.lon}`;
+    if (lastAutoFillLocation.current === locationKey) return;
+    lastAutoFillLocation.current = locationKey;
+
+    const autoFillLocation = async () => {
+      try {
+        setLocationStatus("resolving");
+        const resolved = await api.resolveLocation({
+          lat: selectedLocation.lat,
+          lon: selectedLocation.lon,
+        });
+        setResolvedLocation(resolved);
+        setLocationStatus("resolved");
+
+        setFormData((prev) => {
+          return {
+            ...prev,
+            amphur: resolved.amphur,
+            tumbon: resolved.tumbon || "",
+            village: resolved.village || "",
+          };
+        });
+
+        setErrors((prev) => ({
+          ...prev,
+          amphur: resolved.amphur ? undefined : prev.amphur,
+          tumbon: resolved.tumbon ? undefined : prev.tumbon,
+        }));
+      } catch {
+        setLocationStatus("failed");
+        setResolvedLocation(null);
+      }
+    };
+
+    void autoFillLocation();
+  }, [selectedLocation]);
+
+  const handleApplyDetected = useCallback(() => {
+    if (!resolvedLocation) return;
+    setFormData((prev) => ({
+      ...prev,
+      amphur: resolvedLocation.amphur,
+      tumbon: resolvedLocation.tumbon || "",
+      village: resolvedLocation.village || "",
+    }));
+    setErrors((prev) => ({
+      ...prev,
+      amphur: undefined,
+      tumbon: undefined,
+    }));
+  }, [resolvedLocation]);
 
   const updateField = useCallback(
     (field: keyof FormData, value: string) => {
@@ -375,6 +466,75 @@ export function PropertyUploadForm({
             </h3>
 
             <div className="space-y-5">
+              {/* Location Status */}
+              <div className="rounded-lg border border-border bg-muted/40 px-4 py-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      Location details
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {selectedLocation
+                        ? `Pin set at ${selectedLocation.lat.toFixed(5)}, ${selectedLocation.lon.toFixed(5)}`
+                        : "Pick a location to auto-detect district"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    {locationStatus === "resolving" && (
+                      <span className="rounded-full bg-brand/20 px-2 py-1 text-brand">
+                        Detecting...
+                      </span>
+                    )}
+                    {locationStatus === "resolved" && (
+                      <span className="rounded-full bg-emerald-500/20 px-2 py-1 text-emerald-200">
+                        Detected
+                      </span>
+                    )}
+                    {locationStatus === "failed" && (
+                      <span className="rounded-full bg-rose-500/20 px-2 py-1 text-rose-200">
+                        Detect failed
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {resolvedLocation && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <span className="rounded-md border border-border bg-card px-2 py-1">
+                      District: {resolvedLocation.amphur}
+                    </span>
+                    {resolvedLocation.tumbon && (
+                      <span className="rounded-md border border-border bg-card px-2 py-1">
+                        Sub-district: {resolvedLocation.tumbon}
+                      </span>
+                    )}
+                    {resolvedLocation.village && (
+                      <span className="rounded-md border border-border bg-card px-2 py-1">
+                        Village: {resolvedLocation.village}
+                      </span>
+                    )}
+                    <span className="text-muted-foreground/70">
+                      ({resolvedLocation.distance_m.toLocaleString()}m away)
+                    </span>
+                  </div>
+                )}
+                {hasDetectedLocationDiff && resolvedLocation && (
+                  <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-brand/20 bg-brand/10 px-3 py-2">
+                    <p className="text-xs text-foreground">
+                      Detected location differs from current fields. Apply the
+                      detected values?
+                    </p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleApplyDetected}
+                      className="bg-brand hover:bg-brand/90 text-black"
+                    >
+                      Apply
+                    </Button>
+                  </div>
+                )}
+              </div>
+
               {/* District */}
               <InputField
                 label="District (เขต)"
@@ -389,7 +549,7 @@ export function PropertyUploadForm({
                   <option value="" className="bg-card text-foreground">
                     Select district...
                   </option>
-                  {DISTRICTS.map((district) => (
+                  {districtOptions.map((district) => (
                     <option
                       key={district}
                       value={district}
