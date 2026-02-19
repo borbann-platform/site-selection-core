@@ -5,6 +5,7 @@
  */
 
 import { Link, useLocation } from "@tanstack/react-router";
+import { cn } from "@/lib/utils";
 import {
   Map as MapIcon,
   BarChart2,
@@ -85,21 +86,28 @@ export function AppSidebar() {
                     : location.pathname.startsWith(item.to);
 
                 return (
-                  <SidebarMenuItem key={item.to}>
+                  <SidebarMenuItem key={item.to} className="relative">
+                    {isActive && (
+                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-brand rounded-full z-10" />
+                    )}
                     <SidebarMenuButton
                       asChild
                       isActive={isActive}
                       tooltip={item.label}
+                      className={cn(
+                        "transition-all duration-150",
+                        isActive && "glow-brand-sm"
+                      )}
                     >
                       {item.to === "/" ? (
                         <Link to={item.to} search={{ district: undefined }}>
-                          <item.icon />
-                          <span>{item.label}</span>
+                          <item.icon className={cn("w-4 h-4", isActive && "text-brand")} />
+                          <span className={cn(isActive && "font-semibold text-foreground")}>{item.label}</span>
                         </Link>
                       ) : (
                         <Link to={item.to}>
-                          <item.icon />
-                          <span>{item.label}</span>
+                          <item.icon className={cn("w-4 h-4", isActive && "text-brand")} />
+                          <span className={cn(isActive && "font-semibold text-foreground")}>{item.label}</span>
                         </Link>
                       )}
                     </SidebarMenuButton>
@@ -135,7 +143,7 @@ export function AppSidebar() {
                   className="data-[state=open]:bg-sidebar-accent"
                 >
                   <Avatar className="size-8">
-                    <AvatarFallback className="bg-brand/10 text-brand text-xs font-medium">
+                    <AvatarFallback className="bg-gradient-to-br from-brand/30 to-brand/10 text-brand text-xs font-semibold border border-brand/20">
                       {userInitials}
                     </AvatarFallback>
                   </Avatar>

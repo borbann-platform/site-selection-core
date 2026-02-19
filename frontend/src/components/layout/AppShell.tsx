@@ -18,7 +18,7 @@ interface AppShellProps {
 
 export function AppShell({ children, hideTopBar = false }: AppShellProps) {
   return (
-    <SidebarProvider>
+    <SidebarProvider className="bg-background">
       {/* Desktop sidebar - hidden on mobile via shadcn sidebar internals */}
       <AppSidebar />
 
@@ -27,7 +27,7 @@ export function AppShell({ children, hideTopBar = false }: AppShellProps) {
         {!hideTopBar && <TopBar />}
 
         {/* Main content area - pb-16 accounts for MobileTabBar height on mobile */}
-        <main className="flex-1 overflow-auto pb-16 md:pb-0">
+        <main className="flex-1 overflow-auto pb-16 md:pb-0 bg-background bg-noise">
           {children}
         </main>
       </SidebarInset>

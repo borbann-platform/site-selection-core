@@ -32,10 +32,10 @@ export function TopBar() {
   const title = getPageTitle(location.pathname);
 
   return (
-    <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border bg-background/95 backdrop-blur-sm px-4">
-      <SidebarTrigger className="-ml-1 hidden md:flex" />
-      <Separator orientation="vertical" className="mr-2 h-4 hidden md:block" />
-      <h1 className="text-sm font-medium truncate">{title}</h1>
+    <header className="flex h-10 shrink-0 items-center gap-2 border-b border-border/50 bg-background/80 backdrop-blur-xl px-4">
+      <SidebarTrigger className="-ml-1 hidden md:flex text-muted-foreground hover:text-foreground" />
+      <Separator orientation="vertical" className="mr-2 h-3.5 hidden md:block opacity-30" />
+      <h1 className="text-xs font-medium tracking-wide uppercase text-muted-foreground truncate">{title}</h1>
     </header>
   );
 }
