@@ -4,7 +4,6 @@ import { useAuth } from "../../contexts/AuthContext";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 
 export const Route = createFileRoute("/_public/login")({
   component: LoginPage,
@@ -47,99 +46,83 @@ function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col md:flex-row">
-      {/* Brand panel - top band on mobile, left half on desktop */}
-      <div className="bg-gradient-to-br from-brand to-brand/80 md:w-1/2 flex flex-col items-center justify-center relative overflow-hidden px-8 py-12 md:py-0">
-        {/* Decorative grid pattern */}
-        <div
-          className="absolute inset-0 opacity-10"
-          style={{
-            backgroundImage:
-              "radial-gradient(circle, white 1px, transparent 1px)",
-            backgroundSize: "24px 24px",
-          }}
-        />
-        <div className="relative z-10 text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-white/20 backdrop-blur-sm text-white text-3xl md:text-4xl font-bold mb-4 md:mb-6">
-            B
-          </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">
-            Borbann
-          </h1>
-          <p className="text-white/80 text-sm md:text-base">
-            AI-Powered Real Estate Intelligence
-          </p>
+    <div className="min-h-screen bg-background bg-noise relative flex flex-col items-center justify-center p-4">
+      {/* Ambient orbs */}
+      <div className="absolute top-1/4 left-1/3 w-96 h-96 bg-brand/[0.08] rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-1/4 right-1/3 w-80 h-80 bg-ai-accent/[0.06] rounded-full blur-3xl pointer-events-none" />
+
+      {/* Logo */}
+      <div className="mb-8 text-center z-10">
+        <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-gradient-to-br from-brand to-brand/70 text-brand-foreground text-2xl font-bold mb-4 glow-brand-sm mx-auto">
+          B
         </div>
+        <h1 className="text-xl font-semibold tracking-tight">Borbann</h1>
+        <p className="text-sm text-muted-foreground/60 mt-1">
+          AI-Powered Real Estate Intelligence
+        </p>
       </div>
 
-      {/* Form panel */}
-      <div className="md:w-1/2 flex items-center justify-center p-6 md:p-12">
-        <Card className="w-full max-w-sm bg-card border-border">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-bold text-foreground">
-              Welcome Back
-            </CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Sign in to your account
-            </p>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md text-destructive text-sm">
-                  {error}
-                </div>
-              )}
+      {/* Glass form card */}
+      <div className="glass-panel rounded-2xl p-6 w-full max-w-sm shadow-xl z-10">
+        <h2 className="text-xl font-semibold mb-1">Welcome back</h2>
+        <p className="text-sm text-muted-foreground/70 mb-6">
+          Sign in to your account
+        </p>
 
-              <div className="space-y-2">
-                <Label htmlFor={emailId} className="text-foreground">
-                  Email
-                </Label>
-                <Input
-                  id={emailId}
-                  name="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  required
-                  className="bg-input border-border text-foreground placeholder:text-muted-foreground"
-                  placeholder="john@example.com"
-                />
-              </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <div className="p-3 bg-destructive/[0.08] border border-destructive/25 rounded-lg text-destructive text-sm">
+              {error}
+            </div>
+          )}
 
-              <div className="space-y-2">
-                <Label htmlFor={passwordId} className="text-foreground">
-                  Password
-                </Label>
-                <Input
-                  id={passwordId}
-                  name="password"
-                  type="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  required
-                  className="bg-input border-border text-foreground placeholder:text-muted-foreground"
-                  placeholder="Enter your password"
-                />
-              </div>
+          <div className="space-y-2">
+            <Label htmlFor={emailId} className="text-foreground">
+              Email
+            </Label>
+            <Input
+              id={emailId}
+              name="email"
+              type="email"
+              value={formData.email}
+              onChange={handleChange}
+              required
+              className="bg-surface-2 border-white/[0.1] focus:border-brand/40 placeholder:text-muted-foreground/50"
+              placeholder="john@example.com"
+            />
+          </div>
 
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={isLoading}
-              >
-                {isLoading ? "Signing in..." : "Sign In"}
-              </Button>
+          <div className="space-y-2">
+            <Label htmlFor={passwordId} className="text-foreground">
+              Password
+            </Label>
+            <Input
+              id={passwordId}
+              name="password"
+              type="password"
+              value={formData.password}
+              onChange={handleChange}
+              required
+              className="bg-surface-2 border-white/[0.1] focus:border-brand/40 placeholder:text-muted-foreground/50"
+              placeholder="Enter your password"
+            />
+          </div>
 
-              <p className="text-center text-sm text-muted-foreground">
-                Don't have an account?{" "}
-                <Link to="/register" className="text-brand hover:text-brand/80 hover:underline">
-                  Sign up
-                </Link>
-              </p>
-            </form>
-          </CardContent>
-        </Card>
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={isLoading}
+          >
+            {isLoading ? "Signing in..." : "Sign In"}
+          </Button>
+
+          <p className="text-center text-sm text-muted-foreground">
+            Don't have an account?{" "}
+            <Link to="/register" className="text-brand hover:text-brand/80 hover:underline">
+              Sign up
+            </Link>
+          </p>
+        </form>
       </div>
     </div>
   );
