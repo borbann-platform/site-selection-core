@@ -157,8 +157,8 @@ export function FloatingPanel({
       ref={panelRef}
       style={positionStyle}
       className={cn(
-        "grid grid-rows-[auto_minmax(0,1fr)] overflow-y-scroll bg-card/95 backdrop-blur-xl border border-border rounded-2xl shadow-xl transition-shadow",
-        isDragging && "shadow-2xl ring-1 ring-brand/20",
+        "grid grid-rows-[auto_minmax(0,1fr)] overflow-y-auto glass-panel rounded-xl shadow-lg transition-all duration-200",
+        isDragging && "shadow-2xl ring-1 ring-brand/30 glow-brand-sm scale-[1.01]",
         className,
       )}
     >
@@ -168,7 +168,7 @@ export function FloatingPanel({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         className={cn(
-          "flex items-center justify-between gap-2 px-3 py-2 border-b border-border/50 rounded-t-2xl select-none shrink-0",
+          "flex items-center justify-between gap-2 px-3 py-1.5 border-b border-white/5 rounded-t-xl bg-white/[0.02] select-none shrink-0",
           draggable && "cursor-grab",
           isDragging && "cursor-grabbing",
         )}
@@ -190,7 +190,7 @@ export function FloatingPanel({
             <button
               type="button"
               onClick={() => setIsCollapsed(!isCollapsed)}
-              className="p-1 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+              className="p-1 rounded-md hover:bg-white/10 transition-colors text-muted-foreground/60 hover:text-foreground"
               title={isCollapsed ? "Expand" : "Collapse"}
             >
               {isCollapsed ? (
@@ -204,7 +204,7 @@ export function FloatingPanel({
             <button
               type="button"
               onClick={handleClose}
-              className="p-1 rounded-md hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive"
+              className="p-1 rounded-md hover:bg-white/10 transition-colors text-muted-foreground/60 hover:text-muted-foreground"
               title="Close"
             >
               <X className="h-3 w-3" />

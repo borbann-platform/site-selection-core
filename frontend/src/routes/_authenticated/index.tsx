@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Target, SlidersHorizontal, Home, MapPin, Layers } from "lucide-react";
+import { Target, SlidersHorizontal, Home, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MapContainer } from "@/components/MapContainer";
 import { AICommandBar, AIExpandedPanel } from "@/components/ai";
@@ -8,7 +8,6 @@ import { PropertyPopup } from "@/components/PropertyPopup";
 import { usePropertyExplorer } from "@/hooks/usePropertyExplorer";
 import { useMapLayers } from "@/hooks/useMapLayers";
 import { ExplorerPanel } from "@/components/explorer/ExplorerPanel";
-import { OverlayControls } from "@/components/explorer/OverlayControls";
 import { FloatingPanel } from "@/components/ui/floating-panel";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
@@ -44,7 +43,6 @@ function PropertyExplorer() {
   // Track which floating panels are visible
   const [panels, setPanels] = useState({
     explorer: true,
-    overlays: true,
     legends: true,
   });
 
@@ -97,7 +95,7 @@ function PropertyExplorer() {
             <SheetTrigger asChild>
               <button
                 type="button"
-                className="flex items-center gap-2 bg-card/95 backdrop-blur-xl border border-border rounded-full px-4 py-2.5 shadow-lg text-sm font-medium text-foreground"
+                className="flex items-center gap-2 glass-panel rounded-full px-4 py-2.5 shadow-lg text-sm font-medium text-foreground"
               >
                 <SlidersHorizontal className="h-4 w-4" />
                 Filters
@@ -121,43 +119,26 @@ function PropertyExplorer() {
           </Sheet>
         </div>
 
-        {/* Floating Overlay Controls */}
-        {panels.overlays && (
-          <FloatingPanel
-            title="Layers"
-            icon={<Layers className="h-3.5 w-3.5 text-muted-foreground" />}
-            defaultPosition={{ top: 16, right: 16 }}
-            collapsible={false}
-            className="hidden md:block"
-            contentClassName="px-2 py-1"
-            onClose={() => togglePanel("overlays")}
-          >
-            <OverlayControls
-              overlays={explorer.overlays}
-              setOverlays={explorer.setOverlays}
-            />
-          </FloatingPanel>
-        )}
-
         {/* Property Count Badge */}
-        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-40 bg-card/90 backdrop-blur-md border border-border rounded-full px-4 py-2 shadow-lg">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Home className="w-3 h-3" />
-            <span>
-              {explorer.housePrices?.count || 0} properties |{" "}
-              {explorer.housePrices?.items?.length || 0} shown
+        <div className="absolute bottom-20 left-4 z-40 hidden md:flex items-center gap-1.5 glass-panel rounded-full px-3 py-1.5 shadow-md">
+          <Home className="w-3 h-3 text-brand" />
+          <span className="text-[11px] font-medium text-foreground/80 tabular-nums">
+            {explorer.housePrices?.count || 0}
+            <span className="text-muted-foreground ml-1">
+              ({explorer.housePrices?.items?.length || 0} shown)
             </span>
-          </div>
+          </span>
         </div>
 
         {/* Floating Legends Panel */}
         {panels.legends && (
           <FloatingPanel
-            title="Legends"
-            icon={<MapPin className="h-3.5 w-3.5 text-muted-foreground" />}
-            defaultPosition={{ top: 96, right: 16 }}
+            title="Legend"
+            icon={<MapPin className="h-3.5 w-3.5 text-brand/60" />}
+            defaultPosition={{ bottom: 80, right: 16 }}
             draggable
             collapsible
+            defaultCollapsed={true}
             closable
             className="min-w-44 hidden md:block"
             contentClassName="p-3"
@@ -189,16 +170,16 @@ function PropertyExplorer() {
 
         {/* Restore hidden panels bar */}
         {hiddenPanels.length > 0 && (
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 hidden md:flex items-center gap-1 bg-card/95 backdrop-blur-xl border border-border rounded-full px-2 py-1.5 shadow-lg">
-            <span className="text-[10px] text-muted-foreground px-1">Show:</span>
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 hidden md:flex items-center gap-1 glass-panel rounded-full px-2 py-1.5 shadow-lg">
+            <span className="text-[10px] text-muted-foreground/60 px-1">Show:</span>
             {hiddenPanels.map(([key]) => (
               <button
                 key={key}
                 type="button"
                 onClick={() => togglePanel(key as keyof typeof panels)}
-                className="px-2.5 py-1 text-[10px] font-medium text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted rounded-full transition-colors capitalize"
+                className="px-2.5 py-1 text-[10px] font-medium text-muted-foreground hover:text-foreground bg-white/[0.04] hover:bg-white/[0.08] rounded-full transition-colors capitalize"
               >
-                {key === "legends" ? "Legends" : key}
+                {key === "legends" ? "Legend" : key}
               </button>
             ))}
           </div>
@@ -220,10 +201,10 @@ function PropertyExplorer() {
           <div className="pointer-events-none fixed inset-0 z-[100] flex items-center justify-center">
             <div
               className={cn(
-                "absolute top-24 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full font-bold shadow-2xl backdrop-blur-md border-2 animate-bounce-slight transition-colors",
+                "absolute top-20 left-1/2 -translate-x-1/2 px-5 py-2.5 rounded-full font-semibold shadow-2xl glass-panel animate-bounce-slight transition-all duration-200 border",
                 explorer.selectionMode === "location"
-                  ? "bg-brand border-brand/70 text-brand-foreground shadow-brand/30"
-                  : "bg-ai-accent border-ai-accent/70 text-ai-accent-foreground shadow-ai-accent/30"
+                  ? "border-brand/50 text-foreground glow-brand"
+                  : "border-ai-border text-foreground glow-ai"
               )}
             >
               <div className="flex items-center gap-2">

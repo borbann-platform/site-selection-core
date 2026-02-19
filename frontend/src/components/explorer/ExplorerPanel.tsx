@@ -4,7 +4,6 @@ import {
   EyeOff,
   ChevronDown,
   ChevronUp,
-  Home,
   BarChart3,
   Train,
 } from "lucide-react";
@@ -43,8 +42,8 @@ function LayerToggle({
       className={cn(
         "w-full flex items-center justify-between p-3 rounded-lg transition-all border",
         active
-          ? "bg-muted border-border"
-          : "bg-transparent border-transparent hover:bg-muted/50"
+          ? "bg-brand/10 border-brand/25"
+          : "bg-transparent border-transparent hover:bg-white/[0.05]"
       )}
     >
       <div className="flex items-center gap-3">
@@ -109,20 +108,7 @@ export function ExplorerPanel({
   setH3Metric,
 }: ExplorerPanelProps) {
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <div className="flex items-center gap-2 mb-1">
-          <Home className="w-5 h-5 text-brand" />
-          <h2 className="text-xl font-bold text-foreground">
-            Property Explorer
-          </h2>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Browse real estate prices in Bangkok
-        </p>
-      </div>
-
+    <div className="space-y-3">
       {/* Property Filters Section */}
       <Collapsible
         open={openSections.filters}
@@ -130,9 +116,9 @@ export function ExplorerPanel({
           setOpenSections((s) => ({ ...s, filters: open }))
         }
       >
-        <div className="border border-border rounded-lg overflow-hidden">
-          <CollapsibleTrigger className="w-full flex items-center justify-between p-3 bg-muted/50 hover:bg-muted transition-colors">
-            <h3 className="text-sm font-bold text-foreground">Filters</h3>
+        <div className="border border-white/[0.06] rounded-lg overflow-hidden">
+          <CollapsibleTrigger className="w-full flex items-center justify-between px-3 py-2 bg-white/[0.03] hover:bg-white/[0.06] rounded-lg transition-colors group">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground/80">Filters</h3>
             {openSections.filters ? (
               <ChevronUp className="w-4 h-4 text-muted-foreground" />
             ) : (
@@ -140,7 +126,7 @@ export function ExplorerPanel({
             )}
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <div className="p-3 bg-muted/30">
+            <div className="p-3 bg-white/[0.02]">
               <PropertyFilters
                 filters={propertyFilters}
                 onChange={setPropertyFilters}
@@ -157,9 +143,9 @@ export function ExplorerPanel({
           setOpenSections((s) => ({ ...s, stats: open }))
         }
       >
-        <div className="border border-border rounded-lg overflow-hidden">
-          <CollapsibleTrigger className="w-full flex items-center justify-between p-3 bg-muted/50 hover:bg-muted transition-colors">
-            <h3 className="text-sm font-bold text-foreground">
+        <div className="border border-white/[0.06] rounded-lg overflow-hidden">
+          <CollapsibleTrigger className="w-full flex items-center justify-between px-3 py-2 bg-white/[0.03] hover:bg-white/[0.06] rounded-lg transition-colors group">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground/80">
               Market Statistics
             </h3>
             {openSections.stats ? (
@@ -169,7 +155,7 @@ export function ExplorerPanel({
             )}
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <div className="p-3 bg-muted/30">
+            <div className="p-3 bg-white/[0.02]">
               <MarketStats
                 filters={{
                   district: propertyFilters.district,
@@ -188,9 +174,9 @@ export function ExplorerPanel({
           setOpenSections((s) => ({ ...s, overlays: open }))
         }
       >
-        <div className="border border-border rounded-lg overflow-hidden">
-          <CollapsibleTrigger className="w-full flex items-center justify-between p-3 bg-muted/50 hover:bg-muted transition-colors">
-            <h3 className="text-sm font-bold text-foreground">Map Overlays</h3>
+        <div className="border border-white/[0.06] rounded-lg overflow-hidden">
+          <CollapsibleTrigger className="w-full flex items-center justify-between px-3 py-2 bg-white/[0.03] hover:bg-white/[0.06] rounded-lg transition-colors group">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground/80">Map Overlays</h3>
             {openSections.overlays ? (
               <ChevronUp className="w-4 h-4 text-muted-foreground" />
             ) : (
@@ -280,7 +266,7 @@ export function ExplorerPanel({
       </Collapsible>
 
       {/* Info Section */}
-      <div className="p-3 bg-brand/10 border border-brand/20 rounded text-xs text-brand">
+      <div className="p-3 bg-brand-surface border border-brand-border rounded-lg text-xs text-brand/80">
         <span className="font-bold">Tip:</span> Click on a property to see full
         details. Zoom in past level 13 for MVT tiles.
       </div>
@@ -288,7 +274,7 @@ export function ExplorerPanel({
       {/* District Analysis Link */}
       <Link
         to="/districts"
-        className="flex items-center justify-center gap-2 w-full py-3 bg-muted/50 hover:bg-muted rounded-lg text-sm text-muted-foreground hover:text-foreground transition-colors border border-border"
+        className="flex items-center justify-center gap-2 w-full py-2.5 bg-white/[0.03] hover:bg-white/[0.07] rounded-lg text-xs font-medium text-muted-foreground/70 hover:text-foreground transition-colors border border-white/[0.06]"
       >
         <BarChart3 className="w-4 h-4" />
         View District Analysis
