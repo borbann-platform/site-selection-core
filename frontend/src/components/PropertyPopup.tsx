@@ -58,7 +58,7 @@ export function PropertyPopup({
         transform: "translate(-50%, -100%) translateY(-10px)",
       }}
     >
-      <div className="bg-card/95 border border-border rounded-xl shadow-2xl shadow-black/25 backdrop-blur-lg overflow-hidden min-w-64">
+      <div className="glass-panel rounded-xl shadow-2xl shadow-black/30 overflow-hidden min-w-64">
         {/* Header */}
         <div className="flex items-center gap-2 px-3 py-2 bg-amber-500/10 border-b border-border">
           <Home size={14} className="text-amber-500 dark:text-amber-400" />
@@ -68,7 +68,7 @@ export function PropertyPopup({
           <button
             type="button"
             onClick={onClose}
-            className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors"
+            className="p-1 hover:bg-white/[0.08] rounded text-muted-foreground hover:text-foreground transition-colors"
           >
             <X size={14} />
           </button>
@@ -76,7 +76,7 @@ export function PropertyPopup({
 
         {/* Content */}
         <div className="p-3">
-          <div className="text-lg font-bold text-foreground mb-2">
+          <div className="text-lg font-bold text-gradient-brand mb-2">
             {formatPrice(price)}
           </div>
           <div className="grid grid-cols-2 gap-1 text-[11px] text-muted-foreground">
@@ -123,7 +123,7 @@ export function PropertyPopup({
             <button
               type="button"
               onClick={handleAddToChat}
-              className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 border border-border hover:bg-muted text-muted-foreground hover:text-foreground text-xs font-medium rounded-lg transition-colors"
+              className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 border border-white/[0.08] hover:bg-white/[0.06] text-muted-foreground hover:text-foreground text-xs font-medium rounded-lg transition-colors"
             >
               <MessageSquarePlus size={14} />
               <span>Add to Chat</span>

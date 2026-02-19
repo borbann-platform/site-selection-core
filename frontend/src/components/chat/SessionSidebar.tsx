@@ -91,7 +91,7 @@ export function SessionSidebar({ onSelectSession }: SessionSidebarProps) {
           placeholder="Search conversations..."
           value={searchQuery}
           onChange={handleSearch}
-          className="w-full px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-brand/50"
+          className="w-full px-3 py-2 text-sm bg-surface-1 border border-white/[0.08] rounded-lg focus:outline-none focus:border-brand/40 placeholder:text-muted-foreground/50"
         />
       </div>
 
@@ -112,7 +112,7 @@ export function SessionSidebar({ onSelectSession }: SessionSidebarProps) {
           <div className="space-y-4 p-2">
             {activeGroups.map((group) => (
               <div key={group}>
-                <h3 className="px-2 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                <h3 className="px-2 py-1 text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest">
                   {SESSION_GROUP_LABELS[group]}
                 </h3>
                 <div className="space-y-0.5">
@@ -122,8 +122,8 @@ export function SessionSidebar({ onSelectSession }: SessionSidebarProps) {
                       className={cn(
                         "group relative rounded-lg transition-colors",
                         currentSessionId === session.id
-                          ? "bg-muted"
-                          : "hover:bg-muted/50"
+                          ? "bg-surface-2 border-l-2 border-brand pl-[10px]"
+                          : "hover:bg-white/[0.05]"
                       )}
                     >
                       {editingId === session.id ? (
@@ -137,7 +137,7 @@ export function SessionSidebar({ onSelectSession }: SessionSidebarProps) {
                             if (e.key === "Enter") handleSaveEdit(session.id);
                             if (e.key === "Escape") setEditingId(null);
                           }}
-                          className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/50"
+                          className="w-full px-3 py-2 text-sm bg-surface-2 border border-white/[0.1] rounded-lg focus:outline-none focus:border-brand/40"
                         />
                       ) : (
                         <button
@@ -168,20 +168,20 @@ export function SessionSidebar({ onSelectSession }: SessionSidebarProps) {
                                   menuOpenId === session.id ? null : session.id
                                 );
                               }}
-                              className="p-1.5 hover:bg-muted rounded-md"
+                              className="p-1.5 hover:bg-white/[0.06] rounded-md"
                             >
                               <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
                             </button>
 
                             {menuOpenId === session.id && (
-                              <div className="absolute right-0 top-full mt-1 bg-popover border border-border rounded-lg shadow-lg py-1 z-10 min-w-32">
+                              <div className="absolute right-0 top-full mt-1 glass-panel rounded-lg shadow-lg py-1 z-10 min-w-32">
                                 <button
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleStartEdit(session.id, session.title);
                                   }}
-                                  className="w-full px-3 py-1.5 text-left text-sm hover:bg-muted flex items-center gap-2"
+                                  className="w-full px-3 py-1.5 text-left text-sm hover:bg-white/[0.06] flex items-center gap-2"
                                 >
                                   <Pencil className="w-3.5 h-3.5" />
                                   Rename
