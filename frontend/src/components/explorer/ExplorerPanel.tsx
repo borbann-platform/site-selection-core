@@ -111,7 +111,7 @@ export function ExplorerPanel({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
+      <div className="rounded-xl border border-border/70 bg-card/60 p-3">
         <div className="flex items-center gap-2 mb-1">
           <Home className="w-5 h-5 text-brand" />
           <h2 className="text-xl font-bold text-foreground">
@@ -130,8 +130,8 @@ export function ExplorerPanel({
           setOpenSections((s) => ({ ...s, filters: open }))
         }
       >
-        <div className="border border-border rounded-lg overflow-hidden">
-          <CollapsibleTrigger className="w-full flex items-center justify-between p-3 bg-muted/50 hover:bg-muted transition-colors">
+        <div className="border border-border/80 rounded-xl overflow-hidden bg-card/70">
+          <CollapsibleTrigger className="w-full flex items-center justify-between p-3 bg-muted/45 hover:bg-muted/70 transition-colors">
             <h3 className="text-sm font-bold text-foreground">Filters</h3>
             {openSections.filters ? (
               <ChevronUp className="w-4 h-4 text-muted-foreground" />
@@ -140,7 +140,7 @@ export function ExplorerPanel({
             )}
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <div className="p-3 bg-muted/30">
+            <div className="p-3 bg-surface-2/50">
               <PropertyFilters
                 filters={propertyFilters}
                 onChange={setPropertyFilters}
@@ -157,8 +157,8 @@ export function ExplorerPanel({
           setOpenSections((s) => ({ ...s, stats: open }))
         }
       >
-        <div className="border border-border rounded-lg overflow-hidden">
-          <CollapsibleTrigger className="w-full flex items-center justify-between p-3 bg-muted/50 hover:bg-muted transition-colors">
+        <div className="border border-border/80 rounded-xl overflow-hidden bg-card/70">
+          <CollapsibleTrigger className="w-full flex items-center justify-between p-3 bg-muted/45 hover:bg-muted/70 transition-colors">
             <h3 className="text-sm font-bold text-foreground">
               Market Statistics
             </h3>
@@ -169,12 +169,9 @@ export function ExplorerPanel({
             )}
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <div className="p-3 bg-muted/30">
+            <div className="p-3 bg-surface-2/50">
               <MarketStats
-                filters={{
-                  district: propertyFilters.district,
-                  buildingStyle: propertyFilters.buildingStyle,
-                }}
+                district={propertyFilters.district}
               />
             </div>
           </CollapsibleContent>
@@ -188,8 +185,8 @@ export function ExplorerPanel({
           setOpenSections((s) => ({ ...s, overlays: open }))
         }
       >
-        <div className="border border-border rounded-lg overflow-hidden">
-          <CollapsibleTrigger className="w-full flex items-center justify-between p-3 bg-muted/50 hover:bg-muted transition-colors">
+        <div className="border border-border/80 rounded-xl overflow-hidden bg-card/70">
+          <CollapsibleTrigger className="w-full flex items-center justify-between p-3 bg-muted/45 hover:bg-muted/70 transition-colors">
             <h3 className="text-sm font-bold text-foreground">Map Overlays</h3>
             {openSections.overlays ? (
               <ChevronUp className="w-4 h-4 text-muted-foreground" />
@@ -198,7 +195,7 @@ export function ExplorerPanel({
             )}
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <div className="p-3 bg-muted/30 space-y-2">
+            <div className="p-3 bg-surface-2/50 space-y-2">
               <LayerToggle
                 label="Transit Lines (BTS/MRT)"
                 active={overlays.transitRail}
@@ -280,7 +277,7 @@ export function ExplorerPanel({
       </Collapsible>
 
       {/* Info Section */}
-      <div className="p-3 bg-brand/10 border border-brand/20 rounded text-xs text-brand">
+      <div className="p-3 bg-brand/10 border border-brand/25 rounded-xl text-xs text-brand">
         <span className="font-bold">Tip:</span> Click on a property to see full
         details. Zoom in past level 13 for MVT tiles.
       </div>
