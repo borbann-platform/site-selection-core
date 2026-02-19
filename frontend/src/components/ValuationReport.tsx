@@ -119,11 +119,11 @@ function FactorBar({
         </span>
       </div>
       <div className="flex items-center gap-2">
-        <div className="flex-1 h-5 bg-muted/50 rounded relative overflow-hidden">
+        <div className="flex-1 h-4 bg-surface-2 rounded-full relative overflow-hidden">
           <div
             className={cn(
-              "absolute h-full rounded transition-all",
-              isPositive ? "bg-success/70" : "bg-destructive/70"
+              "absolute h-full rounded-full transition-all",
+              isPositive ? "bg-gradient-to-r from-success/80 to-success" : "bg-gradient-to-r from-destructive/80 to-destructive"
             )}
             style={{ width: `${widthPercent}%` }}
           />
@@ -140,7 +140,7 @@ function ComparableCard({
   comp: ValuationResponse["comparable_properties"][0];
 }) {
   return (
-    <div className="bg-muted/50 rounded-lg p-3 border border-border">
+    <div className="bg-surface-2 rounded-lg border border-white/[0.06] hover:border-white/[0.12] transition-colors p-3">
       <div className="flex items-start justify-between mb-2">
         <div>
           <p className="text-sm font-medium text-foreground">
@@ -386,7 +386,7 @@ export function ValuationReport({
         <Button
           variant="ghost"
           onClick={onBack}
-          className="text-muted-foreground hover:text-foreground hover:bg-muted"
+          className="text-muted-foreground hover:text-foreground hover:bg-white/[0.06]"
         >
           <ArrowLeft size={16} className="mr-2" />
           Back to Form
@@ -394,7 +394,7 @@ export function ValuationReport({
         <div className="flex gap-2">
           <Button
             variant="outline"
-            className="border-border bg-muted/50 text-foreground hover:bg-muted"
+            className="border-white/[0.12] bg-surface-2 text-foreground hover:bg-surface-3 hover:border-white/[0.2]"
             onClick={handleDownloadPDF}
             disabled={isDownloading}
           >
@@ -407,7 +407,7 @@ export function ValuationReport({
           </Button>
           <Button
             variant="outline"
-            className="border-border bg-muted/50 text-foreground hover:bg-muted"
+            className="border-white/[0.12] bg-surface-2 text-foreground hover:bg-surface-3 hover:border-white/[0.2]"
             onClick={handleShare}
           >
             {shareState === "copied" ? (
@@ -426,7 +426,9 @@ export function ValuationReport({
       </div>
 
       {/* Main Valuation Card */}
-      <div className="bg-gradient-to-br from-brand/20 to-brand/5 border border-brand/30 rounded-2xl p-6">
+      <div className="relative bg-gradient-to-br from-brand-surface via-surface-1 to-background border border-brand-border rounded-2xl p-6 overflow-hidden">
+        <div className="absolute inset-0 bg-noise opacity-50 pointer-events-none" />
+        <div className="absolute top-0 right-0 w-64 h-64 bg-brand/5 rounded-full blur-3xl pointer-events-none" />
         <div className="flex items-center gap-2 mb-4">
           <Sparkles size={20} className="text-brand" />
           <h2 className="text-lg font-semibold text-foreground">
@@ -438,7 +440,7 @@ export function ValuationReport({
           {/* Estimated Price */}
           <div>
             <p className="text-sm text-muted-foreground mb-1">Estimated Value</p>
-            <p className="text-4xl font-bold text-brand">
+            <p className="text-5xl font-bold tracking-tight text-gradient-brand">
               {formatPrice(valuation.estimated_price)}
             </p>
             <p className="text-sm text-muted-foreground mt-1">
@@ -449,7 +451,7 @@ export function ValuationReport({
 
           {/* Price per sqm */}
           <div className="flex flex-col justify-center">
-            <div className="bg-card rounded-lg p-4">
+            <div className="bg-surface-2 rounded-xl p-4 border border-white/[0.06]">
               <div className="flex items-center gap-2 mb-2">
                 <DollarSign size={16} className="text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">Price per sqm</span>
@@ -512,7 +514,7 @@ export function ValuationReport({
       <ConfidenceBadge level={valuation.confidence} />
 
       {/* Property Summary */}
-      <div className="bg-card border border-border rounded-lg p-6">
+      <div className="bg-surface-1 border border-white/[0.07] rounded-xl p-6 transition-colors hover:border-white/[0.12]">
         <SectionHeader icon={Building2} title="Property Summary" />
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
           <SummaryItem
@@ -551,7 +553,7 @@ export function ValuationReport({
       </div>
 
       {/* Price Factors */}
-      <div className="bg-card border border-border rounded-lg p-6">
+      <div className="bg-surface-1 border border-white/[0.07] rounded-xl p-6 transition-colors hover:border-white/[0.12]">
         <SectionHeader
           icon={Scale}
           title="How We Calculated This"
@@ -580,7 +582,7 @@ export function ValuationReport({
 
       {/* Comparable Properties */}
       {valuation.comparable_properties.length > 0 && (
-        <div className="bg-card border border-border rounded-lg p-6">
+        <div className="bg-surface-1 border border-white/[0.07] rounded-xl p-6 transition-colors hover:border-white/[0.12]">
           <SectionHeader
             icon={Home}
             title={`Similar Properties (${valuation.comparable_properties.length})`}
@@ -599,7 +601,7 @@ export function ValuationReport({
       )}
 
       {/* Market Insights */}
-      <div className="bg-card border border-border rounded-lg p-6">
+      <div className="bg-surface-1 border border-white/[0.07] rounded-xl p-6 transition-colors hover:border-white/[0.12]">
         <SectionHeader
           icon={TrendingUp}
           title="Market Insights"
@@ -609,7 +611,7 @@ export function ValuationReport({
         />
         {showInsights && (
           <div className="mt-4 grid grid-cols-3 gap-4">
-            <div className="bg-muted/50 rounded-lg p-4 text-center">
+            <div className="bg-surface-2 rounded-xl p-4 text-center border border-white/[0.05]">
               <BarChart3
                 size={20}
                 className="text-brand mx-auto mb-2"
@@ -619,7 +621,7 @@ export function ValuationReport({
                 {formatPrice(valuation.market_insights.district_avg_price)}
               </p>
             </div>
-            <div className="bg-muted/50 rounded-lg p-4 text-center">
+            <div className="bg-surface-2 rounded-xl p-4 text-center border border-white/[0.05]">
               {valuation.market_insights.district_price_trend >= 0 ? (
                 <TrendingUp
                   size={20}
@@ -643,7 +645,7 @@ export function ValuationReport({
                 +{valuation.market_insights.district_price_trend.toFixed(1)}%
               </p>
             </div>
-            <div className="bg-muted/50 rounded-lg p-4 text-center">
+            <div className="bg-surface-2 rounded-xl p-4 text-center border border-white/[0.05]">
               <Calendar size={20} className="text-muted-foreground mx-auto mb-2" />
               <p className="text-xs text-muted-foreground mb-1">Avg. Days Listed</p>
               <p className="text-lg font-bold text-foreground">
@@ -656,7 +658,7 @@ export function ValuationReport({
 
       {/* Location Intelligence */}
       {locationIntelligence && (
-        <div className="bg-card border border-border rounded-lg p-6">
+        <div className="bg-surface-1 border border-white/[0.07] rounded-xl p-6 transition-colors hover:border-white/[0.12]">
           <LocationIntelligencePanel
             data={locationIntelligence}
             isLoading={false}
@@ -665,12 +667,12 @@ export function ValuationReport({
       )}
 
       {/* Call to Actions */}
-      <div className="bg-gradient-to-r from-brand/10 to-blue-500/10 border border-border rounded-lg p-6">
+      <div className="bg-gradient-to-br from-brand-surface to-ai-surface border border-white/[0.08] rounded-xl p-6">
         <h3 className="text-lg font-semibold text-foreground mb-4">
           What's Next?
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-card rounded-lg p-4 border border-border">
+          <div className="bg-surface-2 rounded-lg p-4 border border-white/[0.08]">
             <h4 className="font-medium text-foreground mb-2">
               Get Professional Appraisal
             </h4>
@@ -680,13 +682,13 @@ export function ValuationReport({
             </p>
             <Button
               variant="outline"
-              className="w-full border-border bg-muted/50 text-foreground hover:bg-muted"
+              className="w-full border-white/[0.12] bg-surface-2 text-foreground hover:bg-surface-3 hover:border-white/[0.2]"
               onClick={() => toast.info("Coming soon!")}
             >
               Request Appraisal
             </Button>
           </div>
-          <div className="bg-card rounded-lg p-4 border border-border">
+          <div className="bg-surface-2 rounded-lg p-4 border border-white/[0.08]">
             <h4 className="font-medium text-foreground mb-2">List Your Property</h4>
             <p className="text-sm text-muted-foreground mb-3">
               Ready to sell? List your property on our platform.
@@ -706,7 +708,7 @@ export function ValuationReport({
         <Button
           variant="outline"
           onClick={onNewValuation}
-          className="border-border bg-muted/50 text-foreground hover:bg-muted"
+          className="border-white/[0.12] bg-surface-2 text-foreground hover:bg-surface-3 hover:border-white/[0.2]"
         >
           <Sparkles size={14} className="mr-2" />
           Get Another Valuation
@@ -726,7 +728,7 @@ function SummaryItem({
   value: string;
 }) {
   return (
-    <div className="bg-muted/50 rounded-lg p-3">
+    <div className="bg-surface-2 rounded-lg p-3 border border-white/[0.04]">
       <div className="flex items-center gap-2 mb-1">
         <Icon size={12} className="text-muted-foreground" />
         <span className="text-xs text-muted-foreground">{label}</span>

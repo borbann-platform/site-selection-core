@@ -4,6 +4,7 @@
  */
 
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { cn } from "@/lib/utils";
 import { useState, useCallback, lazy, Suspense } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { PropertyUploadForm } from "@/components/PropertyUploadForm";
@@ -105,7 +106,7 @@ function ValuationPage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-muted-foreground hover:text-foreground hover:bg-muted"
+                  className="text-muted-foreground hover:text-foreground hover:bg-white/[0.06]"
                 >
                   <ArrowLeft size={16} className="mr-2" />
                   Back to Explorer
@@ -118,6 +119,33 @@ function ValuationPage() {
               title="AI Property Valuation"
               subtitle="Get an instant estimate of your property's value using our AI model"
             />
+          </div>
+
+          {/* Step Progress Indicator */}
+          <div className="max-w-3xl mx-auto flex items-center gap-3 mb-6 -mt-2">
+            <div className="flex items-center gap-2">
+              <div className={cn(
+                "w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold",
+                pageState === "form"
+                  ? "bg-brand text-brand-foreground glow-brand-sm"
+                  : "bg-surface-2 border border-white/[0.12] text-muted-foreground"
+              )}>1</div>
+              <span className={cn("text-xs font-medium", pageState !== "form" && "text-muted-foreground")}>
+                Property Details
+              </span>
+            </div>
+            <div className="flex-1 h-px bg-border/40" />
+            <div className={cn("flex items-center gap-2", pageState === "form" && "opacity-40")}>
+              <div className={cn(
+                "w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold",
+                pageState === "report"
+                  ? "bg-brand text-brand-foreground glow-brand-sm"
+                  : "bg-surface-2 border border-border text-muted-foreground"
+              )}>2</div>
+              <span className={cn("text-xs font-medium", pageState === "form" && "text-muted-foreground")}>
+                Valuation Report
+              </span>
+            </div>
           </div>
 
           {/* Content */}
