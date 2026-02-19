@@ -1,31 +1,25 @@
-// @ts-nocheck
-// TypeScript checks disabled due to complex DeckGL generic types
 import type * as React from "react";
+import type { DeckGLProps } from "@deck.gl/react";
+import type { MapViewState } from "@deck.gl/core";
 import MapView, { NavigationControl } from "react-map-gl/maplibre";
 import DeckGL from "@deck.gl/react";
 import { useTheme } from "../contexts/ThemeContext";
 
-interface ViewState {
-  longitude: number;
-  latitude: number;
-  zoom: number;
-  pitch?: number;
-  bearing?: number;
-}
+type ViewState = MapViewState;
+type DeckLayers = NonNullable<DeckGLProps["layers"]>;
+type DeckViewStateChangeHandler = NonNullable<DeckGLProps["onViewStateChange"]>;
+type DeckClickHandler = NonNullable<DeckGLProps["onClick"]>;
+type DeckTooltipHandler = NonNullable<DeckGLProps["getTooltip"]>;
 
 type SelectionMode = "none" | "location" | "bbox";
 
 interface MapContainerProps {
   viewState: ViewState;
-  // biome-ignore lint: DeckGL types are complex
-  onViewStateChange: (params: any) => void;
-  // biome-ignore lint: DeckGL layer types vary
-  layers: any[];
+  onViewStateChange: DeckViewStateChangeHandler;
+  layers: DeckLayers;
   children?: React.ReactNode;
-  // biome-ignore lint: DeckGL info types vary
-  onClick?: (info: any) => void;
-  // biome-ignore lint: DeckGL tooltip types vary
-  getTooltip?: (info: any) => any;
+  onClick?: DeckClickHandler;
+  getTooltip?: DeckTooltipHandler;
   selectionMode?: SelectionMode;
 }
 

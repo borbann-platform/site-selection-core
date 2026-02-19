@@ -4,6 +4,7 @@
  */
 
 import { useState, useCallback, useMemo, useEffect } from "react";
+import type { MapViewState, PickingInfo } from "@deck.gl/core";
 import { MapContainer } from "@/components/MapContainer";
 import { ScatterplotLayer } from "@deck.gl/layers";
 import { Button } from "@/components/ui/button";
@@ -35,7 +36,7 @@ export function LocationPicker({
     lon: number;
   } | null>(initialLocation || null);
 
-  const [viewState, setViewState] = useState({
+  const [viewState, setViewState] = useState<MapViewState>({
     ...DEFAULT_CENTER,
     latitude: initialLocation?.lat || DEFAULT_CENTER.latitude,
     longitude: initialLocation?.lon || DEFAULT_CENTER.longitude,
@@ -59,11 +60,12 @@ export function LocationPicker({
   }, [isOpen, initialLocation]);
 
   const handleMapClick = useCallback(
-    (info: { coordinate?: [number, number] }) => {
-      if (info.coordinate) {
+    (info: PickingInfo) => {
+      const coordinate = Array.isArray(info.coordinate) ? info.coordinate : null;
+      if (coordinate && coordinate.length >= 2) {
         setSelectedLocation({
-          lon: info.coordinate[0],
-          lat: info.coordinate[1],
+          lon: coordinate[0],
+          lat: coordinate[1],
         });
       }
     },

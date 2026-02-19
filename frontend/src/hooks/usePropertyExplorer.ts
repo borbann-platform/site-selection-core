@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import type { MapViewState, PickingInfo } from "@deck.gl/core";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import type {
@@ -18,14 +19,7 @@ import {
 
 // ---- Type definitions ----
 
-export interface ViewState {
-  longitude: number;
-  latitude: number;
-  zoom: number;
-  pitch: number;
-  bearing: number;
-  transitionDuration?: number;
-}
+export type ViewState = MapViewState;
 
 export interface OverlayState {
   pois: boolean;
@@ -382,13 +376,8 @@ export function usePropertyExplorer(districtFromUrl?: string) {
   );
 
   const handleMapClick = useCallback(
-    (info: {
-      coordinate?: [number, number];
-      object?: DeckGLObject;
-      x?: number;
-      y?: number;
-      viewport?: { width?: number; height?: number };
-    }) => {
+    (info: PickingInfo<DeckGLObject>) => {
+      const coordinate = Array.isArray(info.coordinate) ? info.coordinate : null;
       const viewport = buildViewportMetrics(
         info.viewport?.width,
         info.viewport?.height
@@ -405,8 +394,8 @@ export function usePropertyExplorer(districtFromUrl?: string) {
       }
 
       // Handle Location Selection Mode
-      if (selectionMode === "location" && info.coordinate) {
-        const [lon, lat] = info.coordinate;
+      if (selectionMode === "location" && coordinate && coordinate.length >= 2) {
+        const [lon, lat] = coordinate;
         const newAttachment = buildLocationAttachment(lat, lon, clickGrounding);
         if (!newAttachment) {
           toast.error("Invalid location selection. Please click again.");
@@ -418,8 +407,8 @@ export function usePropertyExplorer(districtFromUrl?: string) {
       }
 
       // Handle Bbox Selection Mode (4-click polygon)
-      if (selectionMode === "bbox" && info.coordinate) {
-        const [lon, lat] = info.coordinate;
+      if (selectionMode === "bbox" && coordinate && coordinate.length >= 2) {
+        const [lon, lat] = coordinate;
         const newCorners = [...bboxCorners, [lon, lat] as [number, number]];
 
         if (newCorners.length < 4) {
