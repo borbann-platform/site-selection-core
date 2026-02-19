@@ -6,6 +6,7 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import type { MapViewState, PickingInfo } from "@deck.gl/core";
 import { MapContainer } from "@/components/MapContainer";
+import { keepPreviousViewStateIfSame } from "@/lib/mapViewState";
 import { ScatterplotLayer } from "@deck.gl/layers";
 import { Button } from "@/components/ui/button";
 import { X, MapPin, Check, Navigation } from "lucide-react";
@@ -139,7 +140,11 @@ export function LocationPicker({
         <div className="flex-1 relative">
           <MapContainer
             viewState={viewState}
-            onViewStateChange={({ viewState: vs }) => setViewState(vs)}
+            onViewStateChange={({ viewState: next }) =>
+              setViewState((previous) =>
+                keepPreviousViewStateIfSame(previous, next)
+              )
+            }
             layers={layers}
             onClick={handleMapClick}
             getTooltip={() => null}

@@ -6,6 +6,7 @@ import type { MapViewState } from "@deck.gl/core";
 import { MapContainer } from "@/components/MapContainer";
 import { api } from "@/lib/api";
 import type { HousePriceItem } from "@/lib/api";
+import { keepPreviousViewStateIfSame } from "@/lib/mapViewState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LocationIntelligencePanel } from "@/components/LocationIntelligence";
 import { ScatterplotLayer } from "@deck.gl/layers";
@@ -358,7 +359,11 @@ function PropertyDetailPage() {
           {initialViewState ? (
             <MapContainer
               viewState={viewState || initialViewState}
-              onViewStateChange={({ viewState: vs }) => setViewState(vs)}
+              onViewStateChange={({ viewState: next }) =>
+                setViewState((previous) =>
+                  previous ? keepPreviousViewStateIfSame(previous, next) : next
+                )
+              }
               layers={layers}
               onClick={(info) => {
                 const clicked = info.object as MapPropertyItem | null | undefined;

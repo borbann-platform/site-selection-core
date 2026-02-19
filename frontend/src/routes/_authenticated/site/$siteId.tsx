@@ -8,6 +8,7 @@ import { MapContainer } from "../../../components/MapContainer";
 import { GeoJsonLayer, ScatterplotLayer } from "@deck.gl/layers";
 import { FlyToInterpolator } from "@deck.gl/core";
 import { api } from "../../../lib/api";
+import { keepPreviousViewStateIfSame } from "../../../lib/mapViewState";
 
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import {
@@ -418,7 +419,9 @@ function SiteInspector() {
     <div className="w-full h-[calc(100vh-4rem)] bg-background relative overflow-hidden">
         <MapContainer
           viewState={viewState}
-          onViewStateChange={(e) => setViewState(e.viewState)}
+          onViewStateChange={({ viewState: next }) =>
+            setViewState((previous) => keepPreviousViewStateIfSame(previous, next))
+          }
           layers={layers}
           getTooltip={getTooltip}
         />
