@@ -113,7 +113,7 @@ function DistrictsPage() {
   return (
     <div className="flex h-full flex-col overflow-hidden bg-background text-foreground">
         {/* Header */}
-        <div className="border-b border-border bg-background px-6 py-4">
+        <div className="border-b border-border/40 bg-background px-6 py-4">
           <PageHeader
             icon={Building2}
             title="District Analytics"
@@ -169,18 +169,18 @@ function DistrictsPage() {
                 placeholder="Search districts..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 max-w-sm"
+                className="pl-9 max-w-sm bg-surface-1 border-white/[0.1] focus:border-brand/40 placeholder:text-muted-foreground/50"
               />
             </div>
-            <div className="rounded-lg border border-border bg-card overflow-x-auto">
+            <div className="rounded-xl border border-white/[0.07] bg-surface-1 overflow-x-auto">
               <Table className="min-w-[600px]">
                 <TableHeader>
-                  <TableRow className="border-border">
+                  <TableRow className="border-white/[0.05] bg-white/[0.02]">
                     <TableHead className="w-50 text-muted-foreground">
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="-ml-3 h-8 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        className="-ml-3 h-8 text-muted-foreground hover:bg-white/[0.06] hover:text-foreground"
                         onClick={() => handleSort("amphur")}
                       >
                         District
@@ -195,7 +195,7 @@ function DistrictsPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="-mr-3 h-8 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        className="-mr-3 h-8 text-muted-foreground hover:bg-white/[0.06] hover:text-foreground"
                         onClick={() => handleSort("count")}
                       >
                         Properties
@@ -210,7 +210,7 @@ function DistrictsPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="-mr-3 h-8 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        className="-mr-3 h-8 text-muted-foreground hover:bg-white/[0.06] hover:text-foreground"
                         onClick={() => handleSort("avg_price")}
                       >
                         Avg Price
@@ -228,7 +228,7 @@ function DistrictsPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="-mr-3 h-8 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        className="-mr-3 h-8 text-muted-foreground hover:bg-white/[0.06] hover:text-foreground"
                         onClick={() => handleSort("avg_price_per_sqm")}
                       >
                         Avg ฿/sqm
@@ -245,13 +245,13 @@ function DistrictsPage() {
                   {filteredDistricts.map((district) => (
                     <TableRow
                       key={district.amphur}
-                      className="cursor-pointer border-border hover:bg-muted/50"
+                      className="cursor-pointer border-white/[0.04] hover:bg-white/[0.04] transition-colors duration-100"
                     >
                       <TableCell>
                         <Link
                           to="/"
                           search={{ district: district.amphur }}
-                          className="font-medium text-brand hover:text-brand hover:underline"
+                          className="font-medium text-brand hover:text-brand/80 hover:underline underline-offset-2 transition-colors"
                         >
                           {district.amphur}
                         </Link>
