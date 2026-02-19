@@ -85,11 +85,15 @@ export function AICommandBar({
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-3xl px-3 sm:px-4">
       <form
         onSubmit={handleSubmit}
-        className="bg-card/95 backdrop-blur-xl border border-border rounded-2xl shadow-2xl shadow-black/10 overflow-hidden focus-within:ring-1 focus-within:ring-emerald-500/20 focus-within:border-emerald-500/30 transition-all duration-200"
+        className={cn(
+          "glass-panel rounded-2xl shadow-2xl overflow-hidden transition-all duration-200",
+          "focus-within:ring-1 focus-within:ring-ai-accent/30 focus-within:border-ai-border",
+          isRunning && "animate-ai-pulse"
+        )}
       >
         {/* Selection Mode Indicator */}
         {selectionMode !== "none" && (
-          <div className="px-4 py-2 bg-brand/10 border-b border-brand/30 flex items-center justify-between">
+          <div className="px-4 py-2 bg-brand-surface border-b border-brand-border/50 flex items-center justify-between">
             <div className="flex items-center gap-2 text-xs text-brand">
               {selectionMode === "location" ? (
                 <>
@@ -108,7 +112,7 @@ export function AICommandBar({
 
         {/* Attachments */}
         {attachments.length > 0 && (
-          <div className="px-4 py-2 border-b border-border flex flex-wrap gap-2">
+          <div className="px-4 py-2 border-b border-white/[0.06] flex flex-wrap gap-2">
             {attachments.map((att) => (
               <AttachmentBadge
                 key={att.id}
@@ -130,8 +134,8 @@ export function AICommandBar({
               className={cn(
                 "p-2 rounded-lg transition-all duration-150 active:scale-95",
                 selectionMode === "location"
-                  ? "bg-brand/20 text-brand border border-brand/30"
-                  : "bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                  ? "bg-brand/15 text-brand border border-brand/30"
+                  : "bg-white/[0.04] hover:bg-white/[0.08] text-muted-foreground hover:text-foreground disabled:opacity-30"
               )}
               title="Pick point location"
             >
@@ -144,8 +148,8 @@ export function AICommandBar({
               className={cn(
                 "p-2 rounded-lg transition-all duration-150 active:scale-95",
                 selectionMode === "bbox"
-                  ? "bg-brand/20 text-brand border border-brand/30"
-                  : "bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                  ? "bg-brand/15 text-brand border border-brand/30"
+                  : "bg-white/[0.04] hover:bg-white/[0.08] text-muted-foreground hover:text-foreground disabled:opacity-30"
               )}
               title="Draw area on map"
             >
@@ -173,14 +177,19 @@ export function AICommandBar({
             }
             disabled={isRunning || selectionMode !== "none"}
             rows={1}
-            className="flex-1 resize-none overflow-y-auto max-h-36 min-h-10 bg-muted/40 border border-border/60 rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-emerald-500/40 disabled:opacity-50"
+            className="flex-1 resize-none overflow-y-auto max-h-36 min-h-10 bg-white/[0.05] border border-white/[0.08] rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-ai-accent/40 focus:bg-white/[0.08] disabled:opacity-40 transition-all duration-150"
           />
 
           {/* Send Button */}
           <button
             type="submit"
             disabled={!input.trim() || isRunning || selectionMode !== "none"}
-            className="p-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 enabled:shadow-md enabled:shadow-emerald-500/20"
+            className={cn(
+              "p-2 rounded-lg transition-all duration-150 active:scale-95 disabled:cursor-not-allowed",
+              input.trim() && !isRunning && selectionMode === "none"
+                ? "bg-ai-accent text-ai-accent-foreground glow-ai-sm"
+                : "bg-white/[0.05] text-muted-foreground/40 opacity-50"
+            )}
             title="Send message"
           >
             <Send size={18} />
@@ -190,7 +199,7 @@ export function AICommandBar({
           <button
             type="button"
             onClick={onToggleExpanded}
-            className="p-2 rounded-lg bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
+            className="p-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-muted-foreground/60 hover:text-foreground transition-colors"
             title={isExpanded ? "Collapse panel" : "Expand panel"}
           >
             {isExpanded ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
@@ -205,8 +214,8 @@ export function AICommandBar({
 
         {/* Example Prompts */}
         {showExamples && (
-          <div className="px-4 pb-3 border-t border-border">
-            <div className="text-[10px] text-muted-foreground mb-2 mt-2">
+          <div className="px-4 pb-3 border-t border-white/[0.05]">
+            <div className="text-[10px] text-muted-foreground/50 mb-2 mt-2">
               Try asking:
             </div>
             <div className="flex flex-wrap gap-2">
@@ -215,7 +224,7 @@ export function AICommandBar({
                   key={prompt}
                   type="button"
                   onClick={() => onInputChange(prompt)}
-                  className="px-2 py-1 text-[11px] bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground hover:border-emerald-500/30 rounded border border-border transition-all duration-150"
+                  className="px-2.5 py-1 text-[11px] bg-white/[0.04] hover:bg-white/[0.08] text-muted-foreground/70 hover:text-foreground border border-white/[0.08] hover:border-ai-accent/30 rounded-full transition-all duration-150"
                 >
                   {prompt}
                 </button>

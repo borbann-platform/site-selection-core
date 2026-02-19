@@ -51,10 +51,10 @@ export function AIExpandedPanel({
 
   return (
     <div className="fixed inset-x-0 bottom-28 z-40 mx-auto w-full max-w-3xl px-3 sm:px-4">
-      <div className="bg-card/95 backdrop-blur-xl border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[64vh]">
-        <div className="flex items-center justify-between px-4 py-2 border-b border-border/80">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Agent Session
+      <div className="glass-panel rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[64vh]">
+        <div className="flex items-center justify-between px-4 py-2 border-b border-white/[0.06] bg-white/[0.02]">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+            AI Agent
           </p>
           <span className="text-[11px] text-muted-foreground/80">
             {messages.length} {messages.length === 1 ? "message" : "messages"}
@@ -63,7 +63,7 @@ export function AIExpandedPanel({
 
         <div className="flex-1 overflow-y-auto px-3 py-3 sm:px-4 sm:py-4 space-y-4 custom-scrollbar">
           {messages.length === 0 && (
-            <div className="rounded-xl border border-dashed border-border/70 bg-muted/40 p-4 text-sm text-muted-foreground">
+            <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-4 text-sm text-muted-foreground/60">
               Start with a prompt below. Use map attachments when you need the
               agent to ground analysis to a location, area, or selected property.
             </div>
@@ -92,11 +92,11 @@ function UserMessage({ message }: { message: AgentMessage }) {
   return (
     <div className="flex gap-2 justify-end">
       <div className="flex-1 min-w-0 flex justify-end">
-        <div className="max-w-[85%] rounded-xl px-3 py-2 text-sm bg-brand text-brand-foreground">
+        <div className="max-w-[85%] rounded-xl px-3.5 py-2.5 text-sm bg-gradient-to-br from-brand to-brand/80 text-brand-foreground shadow-sm">
           <div className="whitespace-pre-wrap break-words">{message.content}</div>
         </div>
       </div>
-      <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 bg-brand">
+      <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 bg-gradient-to-br from-brand to-brand/70 shadow-sm">
         <User size={12} className="text-white" />
       </div>
     </div>
@@ -127,8 +127,8 @@ function AssistantMessage({ message, onPropertyClick }: AssistantMessageProps) {
 
   return (
     <div className="flex gap-2">
-      <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 bg-brand/20">
-        <Bot size={12} className="text-brand" />
+      <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 bg-ai-surface border border-ai-border">
+        <Bot size={12} className="text-ai-accent" />
       </div>
       <div className="flex-1 space-y-2 min-w-0">
         {/* Thinking indicator with rich animation */}
@@ -202,7 +202,7 @@ function AssistantMessage({ message, onPropertyClick }: AssistantMessageProps) {
         {message.error && <AgentErrorCard error={message.error} />}
 
         {cleanContent && (
-          <div className="max-w-full rounded-xl px-3 py-2 text-sm bg-muted">
+          <div className="max-w-full rounded-xl px-3.5 py-2.5 text-sm bg-surface-1 border border-white/[0.06]">
             <StreamingMarkdown content={cleanContent} isStreaming={message.isStreaming} />
           </div>
         )}

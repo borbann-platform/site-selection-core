@@ -69,10 +69,10 @@ export function ChatArea() {
   if (!currentSessionId) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-        <div className="w-16 h-16 rounded-full bg-brand/10 flex items-center justify-center mb-4">
-          <Sparkles className="w-8 h-8 text-brand" />
+        <div className="w-16 h-16 rounded-2xl bg-ai-surface border border-ai-border flex items-center justify-center mb-4 glow-ai-sm">
+          <Sparkles className="w-8 h-8 text-ai-accent" />
         </div>
-        <h2 className="text-xl font-semibold mb-2">Welcome to Bangkok Real Estate AI</h2>
+        <h2 className="text-xl font-semibold mb-2 text-gradient-ai">Bangkok Real Estate AI</h2>
         <p className="text-muted-foreground max-w-md mb-6">
           Ask me anything about Bangkok real estate - property prices, market trends,
           neighborhood analysis, and more.
@@ -87,7 +87,7 @@ export function ChatArea() {
               key={suggestion}
               type="button"
               onClick={() => setInput(suggestion)}
-              className="px-3 py-2 text-sm bg-muted hover:bg-muted/80 rounded-lg transition-colors text-left"
+              className="px-3.5 py-2 text-sm bg-white/[0.04] hover:bg-white/[0.08] rounded-xl border border-white/[0.07] hover:border-ai-accent/30 transition-all duration-150 text-left text-muted-foreground/80 hover:text-foreground"
             >
               {suggestion}
             </button>
@@ -126,9 +126,9 @@ export function ChatArea() {
       </div>
 
       {/* Input Area */}
-      <div className="border-t border-border p-4">
+      <div className="border-t border-border/40 bg-background/50 backdrop-blur-sm p-4">
         <div className="max-w-3xl mx-auto">
-          <div className="relative flex items-end bg-muted rounded-2xl border border-border focus-within:ring-2 focus-within:ring-brand/50">
+          <div className="relative flex items-end bg-surface-1 rounded-2xl border border-white/[0.08] focus-within:ring-1 focus-within:ring-ai-accent/30 focus-within:border-ai-accent/30 transition-all duration-150">
             <textarea
               ref={inputRef}
               value={input}
@@ -147,8 +147,8 @@ export function ChatArea() {
               className={cn(
                 "p-2 m-1.5 rounded-xl transition-colors",
                 input.trim() && !isStreaming
-                  ? "bg-brand text-brand-foreground hover:bg-brand/90"
-                  : "bg-muted-foreground/20 text-muted-foreground cursor-not-allowed"
+                  ? "bg-ai-accent text-ai-accent-foreground hover:bg-ai-accent/90 glow-ai-sm"
+                  : "bg-white/[0.05] text-muted-foreground/40 cursor-not-allowed"
               )}
             >
               {isStreaming ? (
@@ -172,10 +172,10 @@ function MessageBubble({ message }: { message: LocalMessage }) {
   if (message.role === "user") {
     return (
       <div className="flex gap-3 justify-end">
-        <div className="max-w-[85%] rounded-2xl px-4 py-2.5 bg-brand text-brand-foreground">
+        <div className="max-w-[85%] rounded-2xl px-4 py-2.5 bg-gradient-to-br from-brand to-brand/75 text-brand-foreground shadow-sm">
           <p className="text-sm whitespace-pre-wrap">{message.content}</p>
         </div>
-        <div className="w-8 h-8 rounded-full bg-brand flex items-center justify-center flex-shrink-0">
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand to-brand/70 flex items-center justify-center flex-shrink-0 shadow-sm">
           <User className="w-4 h-4 text-white" />
         </div>
       </div>
@@ -198,8 +198,8 @@ function AssistantMessage({ message }: { message: LocalMessage }) {
 
   return (
     <div className="flex gap-3">
-      <div className="w-8 h-8 rounded-full bg-brand/20 flex items-center justify-center flex-shrink-0">
-        <Bot className="w-4 h-4 text-brand" />
+      <div className="w-8 h-8 rounded-full bg-ai-surface border border-ai-border flex items-center justify-center flex-shrink-0">
+        <Bot className="w-4 h-4 text-ai-accent" />
       </div>
       <div className="flex-1 space-y-2 min-w-0 max-w-[85%]">
         {/* Thinking indicator */}
@@ -265,7 +265,7 @@ function AssistantMessage({ message }: { message: LocalMessage }) {
         {message.error && <AgentErrorCard error={message.error} />}
 
         {message.content && (
-          <div className="rounded-2xl px-4 py-2.5 bg-muted">
+          <div className="rounded-2xl px-4 py-2.5 bg-surface-1 border border-white/[0.06]">
             <StreamingMarkdown
               content={message.content}
               isStreaming={message.isStreaming}

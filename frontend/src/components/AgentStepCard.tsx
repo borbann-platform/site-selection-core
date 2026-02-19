@@ -64,16 +64,19 @@ export function AgentStepCard({ step, className }: AgentStepCardProps) {
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <div
         className={cn(
-          "rounded-lg border border-border bg-muted/50 overflow-hidden",
-          step.status === "running" && "border-amber-500/30",
-          step.status === "error" && "border-red-500/30",
+          "rounded-lg border overflow-hidden transition-all duration-150",
+          "border-white/[0.06] bg-white/[0.03]",
+          step.status === "running" && "border-amber-400/40 bg-amber-500/[0.04] shadow-[inset_2px_0_0_oklch(0.75_0.18_80)]",
+          step.status === "error" && "border-red-500/40 bg-red-500/[0.04] shadow-[inset_2px_0_0_oklch(0.55_0.22_25)]",
+          step.status === "complete" && step.type === "tool_call" && "shadow-[inset_2px_0_0_oklch(0.62_0.17_155)]",
+          step.type === "thinking" && step.status !== "error" && "shadow-[inset_2px_0_0_oklch(0.65_0.22_285)]",
           className
         )}
       >
         <CollapsibleTrigger asChild>
           <button
             type="button"
-            className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted/50 transition-colors"
+            className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-white/[0.04] transition-colors"
           >
             {/* Expand/collapse indicator */}
             {hasDetails ? (
@@ -105,14 +108,14 @@ export function AgentStepCard({ step, className }: AgentStepCardProps) {
         </CollapsibleTrigger>
 
         <CollapsibleContent>
-          <div className="px-3 pb-2 space-y-2 border-t border-border">
+          <div className="px-3 pb-2 space-y-2 border-t border-white/[0.04]">
             {/* Input parameters */}
             {step.input && Object.keys(step.input).length > 0 && (
               <div className="pt-2">
                 <div className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">
                   Input
                 </div>
-                <div className="text-xs text-muted-foreground font-mono bg-popover rounded px-2 py-1.5 overflow-x-auto">
+                <div className="text-xs text-muted-foreground/80 font-mono bg-surface-0 border border-white/[0.04] rounded px-2 py-1.5 overflow-x-auto">
                   <pre className="whitespace-pre-wrap break-all">
                     {JSON.stringify(step.input, null, 2)}
                   </pre>
@@ -127,7 +130,7 @@ export function AgentStepCard({ step, className }: AgentStepCardProps) {
                   Result
                 </div>
                 {step.type === "thinking" ? (
-                  <div className="text-xs bg-popover rounded px-2 py-1.5 max-h-40 overflow-y-auto custom-scrollbar">
+                  <div className="text-xs bg-surface-0 border border-white/[0.04] rounded px-2 py-1.5 max-h-40 overflow-y-auto custom-scrollbar">
                     <StreamingMarkdown
                       content={step.output}
                       isStreaming={step.status === "running"}
@@ -136,8 +139,8 @@ export function AgentStepCard({ step, className }: AgentStepCardProps) {
                 ) : (
                   <div
                     className={cn(
-                      "text-xs font-mono bg-popover rounded px-2 py-1.5 overflow-x-auto max-h-32 overflow-y-auto custom-scrollbar",
-                      step.status === "error" ? "text-red-300" : "text-muted-foreground"
+                      "text-xs font-mono bg-surface-0 border border-white/[0.04] rounded px-2 py-1.5 overflow-x-auto max-h-32 overflow-y-auto custom-scrollbar",
+                      step.status === "error" ? "text-red-300" : "text-muted-foreground/80"
                     )}
                   >
                     <pre className="whitespace-pre-wrap break-all">
@@ -166,10 +169,11 @@ export function AgentStepBadge({ step, onClick }: AgentStepBadgeProps) {
       type="button"
       onClick={onClick}
       className={cn(
-        "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-medium transition-colors",
-        "bg-muted/50 border border-border hover:bg-muted",
-        step.status === "running" && "border-amber-500/30 bg-amber-500/10",
-        step.status === "error" && "border-red-500/30 bg-red-500/10"
+        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium transition-colors border",
+        "bg-white/[0.04] border-white/[0.08] hover:bg-white/[0.08]",
+        step.status === "running" && "border-amber-500/30 bg-amber-500/[0.08] text-amber-400",
+        step.status === "error" && "border-red-500/30 bg-red-500/[0.08] text-red-400",
+        step.type === "thinking" && step.status !== "error" && step.status !== "running" && "border-ai-border bg-ai-surface text-ai-accent"
       )}
     >
       {getStepIcon(step.type)}
