@@ -2,10 +2,10 @@ import { useState, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
-import {
-  type Attachment,
-  type SelectionMode,
-  type AgentMessage,
+import type {
+  Attachment,
+  SelectionMode,
+  AgentMessage,
 } from "@/components/ai";
 import type { PropertyFiltersState } from "@/components/PropertyFilters";
 import {

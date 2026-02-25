@@ -20,6 +20,7 @@ interface HousePricesData {
 }
 
 interface SchoolsData {
+  // biome-ignore lint/suspicious/noExplicitAny: GeoJSON school features have variable property shapes
   features: any[];
 }
 
