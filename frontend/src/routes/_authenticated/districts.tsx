@@ -89,6 +89,11 @@ function DistrictsPage() {
     );
   }, [sortedDistricts, searchQuery]);
 
+  const maxAvgPrice = useMemo(
+    () => Math.max(...(stats?.by_district.map((d) => d.avg_price) ?? [1])),
+    [stats?.by_district]
+  );
+
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
       setSortOrder(sortOrder === "asc" ? "desc" : "asc");
@@ -220,7 +225,7 @@ function DistrictsPage() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {filteredDistricts.map((district) => (
-                <DistrictCard key={district.amphur} district={district} />
+                <DistrictCard key={district.amphur} district={district} maxAvgPrice={maxAvgPrice} />
               ))}
             </div>
           )}
@@ -232,6 +237,7 @@ function DistrictsPage() {
 
 function DistrictCard({
   district,
+  maxAvgPrice,
 }: {
   district: {
     amphur: string;
@@ -241,6 +247,7 @@ function DistrictCard({
     max_price: number;
     avg_price_per_sqm: number | null;
   };
+  maxAvgPrice: number;
 }) {
   return (
     <div className="glass rounded-xl p-5 border border-border hover:ring-2 hover:ring-primary/30 transition-all group">
@@ -299,7 +306,7 @@ function DistrictCard({
           <div
             className="h-full rounded-full bg-gradient-to-r from-primary to-sky-300"
             style={{
-              width: `${Math.min(100, Math.max(10, (district.avg_price / 20_000_000) * 100))}%`,
+              width: `${Math.min(100, Math.max(10, (district.avg_price / maxAvgPrice) * 100))}%`,
             }}
           />
         </div>

@@ -5,7 +5,7 @@
 
 import { useEffect, useCallback } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { PanelLeftClose, PanelLeft, Plus, Search, MessageSquare } from "lucide-react";
+import { PanelLeftClose, PanelLeft, Plus, Search, MessageSquare, Sparkles } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useChatStore } from "../../stores/chatStore";
 import { SessionSidebar } from "./SessionSidebar";
@@ -26,7 +26,13 @@ export function ChatLayout({ sessionId }: ChatLayoutProps) {
     createSession,
     selectSession,
     currentSessionId,
+    groupedSessions,
   } = useChatStore();
+
+  const currentSession = Object.values(groupedSessions)
+    .flat()
+    .find((s) => s.id === currentSessionId);
+  const sessionTitle = currentSession?.title || null;
 
   // Load sessions on mount
   useEffect(() => {
@@ -79,34 +85,37 @@ export function ChatLayout({ sessionId }: ChatLayoutProps) {
       {/* Sidebar */}
       <div
         className={cn(
-          "flex flex-col border-r border-border bg-muted/30 transition-all duration-300",
+          "flex flex-col border-r border-border glass transition-all duration-300",
           sidebarOpen ? "w-72" : "w-0 overflow-hidden"
         )}
       >
         {/* Sidebar Header */}
-        <div className="flex items-center justify-between p-3 border-b border-border">
+        <div className="flex items-center justify-between px-3 pt-3 pb-2">
           <div className="flex items-center gap-2">
-            <MessageSquare className="w-5 h-5 text-brand" />
+            <MessageSquare className="w-4 h-4 text-primary" />
             <span className="font-semibold text-sm">Chats</span>
           </div>
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => setSearchOpen(true)}
-              className="p-2 hover:bg-muted rounded-lg transition-colors"
-              title="Search (Cmd+K)"
-            >
-              <Search className="w-4 h-4 text-muted-foreground" />
-            </button>
-            <button
-              type="button"
-              onClick={handleNewSession}
-              className="p-2 hover:bg-muted rounded-lg transition-colors"
-              title="New chat (Cmd+N)"
-            >
-              <Plus className="w-4 h-4 text-muted-foreground" />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setSearchOpen(true)}
+            className="p-1.5 hover:bg-muted rounded-lg transition-colors"
+            title="Search (Cmd+K)"
+          >
+            <Search className="w-4 h-4 text-muted-foreground" />
+          </button>
+        </div>
+
+        {/* New Chat Button */}
+        <div className="px-3 pb-2">
+          <button
+            type="button"
+            onClick={handleNewSession}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+            title="New chat (Cmd+N)"
+          >
+            <Plus className="w-4 h-4" />
+            New Chat
+          </button>
         </div>
 
         {/* Session List */}
@@ -116,11 +125,11 @@ export function ChatLayout({ sessionId }: ChatLayoutProps) {
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Chat Header */}
-        <div className="flex items-center gap-2 p-3 border-b border-border">
+        <div className="flex items-center gap-2 px-3 py-2 border-b border-border glass-strong">
           <button
             type="button"
             onClick={toggleSidebar}
-            className="p-2 hover:bg-muted rounded-lg transition-colors"
+            className="p-2 hover:bg-muted rounded-lg transition-colors shrink-0"
             title={sidebarOpen ? "Hide sidebar (Cmd+B)" : "Show sidebar (Cmd+B)"}
           >
             {sidebarOpen ? (
@@ -129,16 +138,26 @@ export function ChatLayout({ sessionId }: ChatLayoutProps) {
               <PanelLeft className="w-4 h-4 text-muted-foreground" />
             )}
           </button>
-          
+
           {!sidebarOpen && (
             <button
               type="button"
               onClick={handleNewSession}
-              className="p-2 hover:bg-muted rounded-lg transition-colors"
+              className="p-2 hover:bg-muted rounded-lg transition-colors shrink-0"
               title="New chat (Cmd+N)"
             >
               <Plus className="w-4 h-4 text-muted-foreground" />
             </button>
+          )}
+
+          {sessionTitle && (
+            <>
+              <span className="font-semibold text-sm truncate flex-1">{sessionTitle}</span>
+              <div className="flex items-center gap-1.5 shrink-0 px-2 py-1 rounded-full bg-success/10 border border-success/20">
+                <Sparkles className="w-3 h-3 text-success" />
+                <span className="text-xs font-medium text-success">AI Active</span>
+              </div>
+            </>
           )}
         </div>
 
