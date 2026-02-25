@@ -1,6 +1,6 @@
 /**
- * MobileTabBar - Bottom navigation bar for mobile devices.
- * Shows 5 primary nav items with active indicator.
+ * MobileTabBar — Fixed bottom navigation for mobile devices.
+ * Shows 5 primary nav items with electric-blue active indicator.
  * Only visible on screens < 768px.
  */
 
@@ -15,38 +15,36 @@ import {
 import { cn } from "@/lib/utils";
 
 const TAB_ITEMS = [
-  { to: "/", icon: MapIcon, label: "Explorer" },
-  { to: "/districts", icon: BarChart2, label: "Districts" },
-  { to: "/valuation", icon: Sparkles, label: "Valuation" },
-  { to: "/chat", icon: MessageSquare, label: "Chat" },
-  { to: "/settings", icon: Settings, label: "Settings" },
+  { to: "/", icon: MapIcon, label: "Explorer", exact: true },
+  { to: "/districts", icon: BarChart2, label: "Districts", exact: false },
+  { to: "/valuation", icon: Sparkles, label: "Valuation", exact: false },
+  { to: "/chat", icon: MessageSquare, label: "Chat", exact: false },
+  { to: "/settings", icon: Settings, label: "Settings", exact: false },
 ] as const;
 
 export function MobileTabBar() {
   const location = useLocation();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/95 backdrop-blur-sm md:hidden pb-[env(safe-area-inset-bottom)]">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border glass-strong md:hidden pb-[env(safe-area-inset-bottom)]">
       <div className="flex items-center justify-around h-16 px-2">
         {TAB_ITEMS.map((item) => {
-          const isActive =
-            item.to === "/"
-              ? location.pathname === "/"
-              : location.pathname.startsWith(item.to);
+          const active = item.exact
+            ? location.pathname === item.to
+            : location.pathname.startsWith(item.to);
 
           return (
             <Link
               key={item.to}
               to={item.to}
+              {...(item.to === "/" ? { search: { district: undefined } } : {})}
               className={cn(
                 "flex flex-col items-center justify-center gap-1 flex-1 min-h-[44px] min-w-[44px] py-2 transition-colors relative",
-                isActive
-                  ? "text-brand"
-                  : "text-muted-foreground"
+                active ? "text-primary" : "text-muted-foreground"
               )}
             >
-              {isActive && (
-                <div className="absolute -top-[1px] left-1/2 -translate-x-1/2 w-8 h-0.5 bg-brand rounded-full" />
+              {active && (
+                <div className="absolute -top-[1px] left-1/2 -translate-x-1/2 w-8 h-0.5 bg-primary rounded-full" />
               )}
               <item.icon className="size-5" />
               <span className="text-[10px] font-medium leading-none">{item.label}</span>
