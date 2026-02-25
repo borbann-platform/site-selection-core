@@ -56,7 +56,7 @@ function PropertyExplorer() {
 
   return (
     <>
-      <div className="w-full h-full bg-background relative overflow-hidden">
+      <div className="w-full h-[calc(100vh-4rem)] bg-background relative overflow-hidden">
         {/* Full-screen Map */}
         <MapContainer
           viewState={explorer.viewState}
@@ -71,7 +71,7 @@ function PropertyExplorer() {
         {panels.explorer && (
           <FloatingPanel
             title="Property Explorer"
-            icon={<Home className="h-3.5 w-3.5 text-brand" />}
+            icon={<Home className="h-3.5 w-3.5 text-primary" />}
             defaultPosition={{ top: 16, left: 16 }}
             className="hidden md:block w-80"
             maxHeight="calc(100vh - 120px)"
@@ -222,7 +222,7 @@ function PropertyExplorer() {
               className={cn(
                 "absolute top-24 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full font-bold shadow-2xl backdrop-blur-md border-2 animate-bounce-slight transition-colors",
                 explorer.selectionMode === "location"
-                  ? "bg-brand border-brand/70 text-brand-foreground shadow-brand/30"
+                  ? "bg-primary border-primary/70 text-primary-foreground shadow-primary/30"
                   : "bg-ai-accent border-ai-accent/70 text-ai-accent-foreground shadow-ai-accent/30"
               )}
             >
