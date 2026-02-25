@@ -96,7 +96,7 @@ function ValuationPage() {
 
   return (
     <>
-      <div className="flex h-full bg-background text-foreground overflow-auto">
+      <div className="flex min-h-[calc(100vh-4rem)] bg-background text-foreground overflow-auto">
         <div className="flex-1 p-6 md:p-8">
           {/* Header */}
           <div className="max-w-3xl mx-auto mb-8">
