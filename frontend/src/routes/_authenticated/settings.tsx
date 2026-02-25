@@ -253,7 +253,7 @@ function SettingsPage() {
   const maskedKey = maskApiKey(runtimeConfig.api_key) || savedApiKeyMask;
 
   return (
-    <div className="h-full w-full bg-background text-foreground overflow-y-auto custom-scrollbar">
+    <div className="min-h-[calc(100vh-4rem)] w-full bg-background text-foreground overflow-y-auto custom-scrollbar">
       <div className="max-w-4xl mx-auto py-12 px-6">
         <PageHeader
           icon={SettingsIcon}
