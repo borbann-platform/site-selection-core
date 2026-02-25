@@ -422,7 +422,7 @@ function SiteInspector() {
   );
 
   return (
-    <div className="w-full h-full bg-background relative overflow-hidden">
+    <div className="w-full h-[calc(100vh-4rem)] bg-background relative overflow-hidden">
         <MapContainer
           viewState={viewState}
           onViewStateChange={(e) => setViewState(e.viewState)}
