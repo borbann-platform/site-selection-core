@@ -139,7 +139,7 @@ function PropertyDetailPage() {
 
   if (isPropertyError) {
     return (
-      <div className="flex h-full flex-col items-center justify-center bg-background text-foreground">
+      <div className="flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center bg-background text-foreground">
         <ErrorState
           title="Property not found"
           message="The property you are looking for could not be loaded."
@@ -158,7 +158,7 @@ function PropertyDetailPage() {
   }
 
   return (
-    <div className="flex h-full flex-col md:flex-row bg-background text-foreground">
+    <div className="flex h-[calc(100vh-4rem)] flex-col md:flex-row bg-background text-foreground">
         {/* Left Panel - Property Details */}
         <div className="w-full md:w-100 md:shrink-0 overflow-auto border-b md:border-b-0 md:border-r border-border bg-background">
           {/* Back button */}
