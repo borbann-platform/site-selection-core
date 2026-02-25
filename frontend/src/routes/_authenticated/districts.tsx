@@ -3,15 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  ArrowUpDown,
   ArrowUp,
   ArrowDown,
   Building2,
@@ -19,13 +10,20 @@ import {
   Home,
   Search,
   BarChart3,
+  ChevronDown,
+  MapPin,
 } from "lucide-react";
 import { useState, useMemo } from "react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ErrorState } from "@/components/ui/error-state";
-import { PageHeader } from "@/components/layout/PageHeader";
 import { StatCard } from "@/components/ui/stat-card";
+import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export const Route = createFileRoute("/_authenticated/districts")({
   component: DistrictsPage,
@@ -34,22 +32,12 @@ export const Route = createFileRoute("/_authenticated/districts")({
 type SortKey = "amphur" | "count" | "avg_price" | "avg_price_per_sqm";
 type SortOrder = "asc" | "desc";
 
-function SortIcon({
-  columnKey,
-  sortKey,
-  sortOrder,
-}: {
-  columnKey: SortKey;
-  sortKey: SortKey;
-  sortOrder: SortOrder;
-}) {
-  if (sortKey !== columnKey) return <ArrowUpDown className="ml-1 h-3 w-3" />;
-  return sortOrder === "asc" ? (
-    <ArrowUp className="ml-1 h-3 w-3" />
-  ) : (
-    <ArrowDown className="ml-1 h-3 w-3" />
-  );
-}
+const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: "count", label: "Property Count" },
+  { key: "avg_price", label: "Average Price" },
+  { key: "avg_price_per_sqm", label: "Price / sqm" },
+  { key: "amphur", label: "Name" },
+];
 
 const formatPrice = (price: number): string => {
   if (price >= 1_000_000) return `฿${(price / 1_000_000).toFixed(1)}M`;
@@ -110,19 +98,28 @@ function DistrictsPage() {
     }
   };
 
+  const activeSortLabel = SORT_OPTIONS.find((o) => o.key === sortKey)?.label;
+
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-background text-foreground">
-        {/* Header */}
-        <div className="border-b border-border bg-background px-6 py-4">
-          <PageHeader
-            icon={Building2}
-            title="District Analytics"
-            subtitle="Property market statistics by Bangkok district"
-          />
+    <div className="min-h-full bg-background">
+      {/* Page Header */}
+      <div className="border-b border-border bg-background/95 backdrop-blur-sm px-6 py-6">
+        <div className="max-w-screen-xl mx-auto">
+          <div className="flex items-center gap-3 mb-1">
+            <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Building2 className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-xl font-semibold">District Analytics</h1>
+              <p className="text-sm text-muted-foreground">
+                Property market statistics by Bangkok district
+              </p>
+            </div>
+          </div>
 
           {/* Summary Stats */}
           {stats && (
-            <div className="mt-4 flex gap-4 overflow-x-auto pb-2 sm:grid sm:grid-cols-3 sm:overflow-x-visible sm:pb-0">
+            <div className="mt-5 grid grid-cols-3 gap-4">
               <StatCard
                 icon={Home}
                 label="Total Properties"
@@ -144,16 +141,71 @@ function DistrictsPage() {
             </div>
           )}
         </div>
+      </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-auto p-6">
+      {/* Toolbar */}
+      <div className="sticky top-16 z-10 bg-background/95 backdrop-blur-sm border-b border-border px-6 py-3">
+        <div className="max-w-screen-xl mx-auto flex items-center gap-3">
+          {/* Search */}
+          <div className="relative flex-1 max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search districts..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 bg-background"
+            />
+          </div>
+
+          {/* Sort dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-background text-sm font-medium hover:bg-muted/50 transition-colors">
+                Sort: {activeSortLabel}
+                {sortOrder === "desc" ? (
+                  <ArrowDown className="h-3.5 w-3.5 text-muted-foreground" />
+                ) : (
+                  <ArrowUp className="h-3.5 w-3.5 text-muted-foreground" />
+                )}
+                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {SORT_OPTIONS.map((opt) => (
+                <DropdownMenuItem
+                  key={opt.key}
+                  onClick={() => handleSort(opt.key)}
+                  className={cn(
+                    "cursor-pointer",
+                    sortKey === opt.key && "text-primary font-medium"
+                  )}
+                >
+                  {opt.label}
+                  {sortKey === opt.key && (
+                    sortOrder === "desc"
+                      ? <ArrowDown className="ml-auto h-3.5 w-3.5" />
+                      : <ArrowUp className="ml-auto h-3.5 w-3.5" />
+                  )}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {filteredDistricts.length > 0 && (
+            <span className="text-sm text-muted-foreground ml-1">
+              {filteredDistricts.length} districts
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="px-6 py-6">
+        <div className="max-w-screen-xl mx-auto">
           {isLoading ? (
-            <div className="space-y-3">
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
-                <Skeleton
-                  key={`district-skeleton-row-${n}`}
-                  className="h-12 w-full"
-                />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {Array.from({ length: 12 }).map((_, i) => (
+                <Skeleton key={`skeleton-${i}`} className="h-48 w-full rounded-xl" />
               ))}
             </div>
           ) : isError ? (
@@ -161,122 +213,108 @@ function DistrictsPage() {
               title="Failed to load"
               message="Failed to load district statistics"
             />
+          ) : filteredDistricts.length === 0 ? (
+            <div className="text-center py-20 text-muted-foreground">
+              No districts match "{searchQuery}"
+            </div>
           ) : (
-            <>
-            <div className="mb-4 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search districts..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 max-w-sm"
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {filteredDistricts.map((district) => (
+                <DistrictCard key={district.amphur} district={district} />
+              ))}
             </div>
-            <div className="rounded-lg border border-border bg-card overflow-x-auto">
-              <Table className="min-w-[600px]">
-                <TableHeader>
-                  <TableRow className="border-border">
-                    <TableHead className="w-50 text-muted-foreground">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="-ml-3 h-8 text-muted-foreground hover:bg-muted hover:text-foreground"
-                        onClick={() => handleSort("amphur")}
-                      >
-                        District
-                    <SortIcon
-                      columnKey="amphur"
-                      sortKey={sortKey}
-                      sortOrder={sortOrder}
-                    />
-                      </Button>
-                    </TableHead>
-                    <TableHead className="text-right text-muted-foreground">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="-mr-3 h-8 text-muted-foreground hover:bg-muted hover:text-foreground"
-                        onClick={() => handleSort("count")}
-                      >
-                        Properties
-                    <SortIcon
-                      columnKey="count"
-                      sortKey={sortKey}
-                      sortOrder={sortOrder}
-                    />
-                      </Button>
-                    </TableHead>
-                    <TableHead className="text-right text-muted-foreground">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="-mr-3 h-8 text-muted-foreground hover:bg-muted hover:text-foreground"
-                        onClick={() => handleSort("avg_price")}
-                      >
-                        Avg Price
-                    <SortIcon
-                      columnKey="avg_price"
-                      sortKey={sortKey}
-                      sortOrder={sortOrder}
-                    />
-                      </Button>
-                    </TableHead>
-                    <TableHead className="text-right text-muted-foreground">
-                      Price Range
-                    </TableHead>
-                    <TableHead className="text-right text-muted-foreground">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="-mr-3 h-8 text-muted-foreground hover:bg-muted hover:text-foreground"
-                        onClick={() => handleSort("avg_price_per_sqm")}
-                      >
-                        Avg ฿/sqm
-                    <SortIcon
-                      columnKey="avg_price_per_sqm"
-                      sortKey={sortKey}
-                      sortOrder={sortOrder}
-                    />
-                      </Button>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredDistricts.map((district) => (
-                    <TableRow
-                      key={district.amphur}
-                      className="cursor-pointer border-border hover:bg-muted/50"
-                    >
-                      <TableCell>
-                        <Link
-                          to="/"
-                          search={{ district: district.amphur }}
-                          className="font-medium text-brand hover:text-brand hover:underline"
-                        >
-                          {district.amphur}
-                        </Link>
-                      </TableCell>
-                      <TableCell className="text-right text-foreground/80">
-                        {district.count.toLocaleString()}
-                      </TableCell>
-                      <TableCell className="text-right font-medium text-foreground">
-                        {formatPrice(district.avg_price)}
-                      </TableCell>
-                      <TableCell className="text-right text-sm text-muted-foreground">
-                        {formatPrice(district.min_price)} –{" "}
-                        {formatPrice(district.max_price)}
-                      </TableCell>
-                      <TableCell className="text-right text-foreground/80">
-                        {formatPricePerSqm(district.avg_price_per_sqm)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-            </>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function DistrictCard({
+  district,
+}: {
+  district: {
+    amphur: string;
+    count: number;
+    avg_price: number;
+    min_price: number;
+    max_price: number;
+    avg_price_per_sqm: number | null;
+  };
+}) {
+  return (
+    <div className="glass rounded-xl p-5 border border-border hover:ring-2 hover:ring-primary/30 transition-all group">
+      {/* District name + link */}
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex-1 min-w-0">
+          <Link
+            to="/"
+            search={{ district: district.amphur }}
+            className="font-semibold text-lg text-foreground hover:text-primary transition-colors line-clamp-2 leading-tight"
+          >
+            {district.amphur}
+          </Link>
+          <div className="flex items-center gap-1 mt-1">
+            <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
+            <span className="text-xs text-muted-foreground">
+              {district.count.toLocaleString()} properties
+            </span>
+          </div>
+        </div>
+        <div className="ml-2 shrink-0">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
+            {district.count.toLocaleString()}
+          </span>
+        </div>
+      </div>
+
+      {/* Price stats */}
+      <div className="space-y-3">
+        <div>
+          <div className="text-xs text-muted-foreground mb-0.5">Avg Price</div>
+          <div className="text-xl font-bold text-foreground">
+            {formatPrice(district.avg_price)}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <div className="text-xs text-muted-foreground mb-0.5">฿/sqm</div>
+            <div className="text-sm font-semibold text-foreground">
+              {formatPricePerSqm(district.avg_price_per_sqm)}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-muted-foreground mb-0.5">Range</div>
+            <div className="text-xs text-foreground/80 leading-tight">
+              {formatPrice(district.min_price)}
+              <span className="text-muted-foreground mx-0.5">–</span>
+              {formatPrice(district.max_price)}
+            </div>
+          </div>
+        </div>
+
+        {/* Price range bar */}
+        <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-primary to-sky-300"
+            style={{
+              width: `${Math.min(100, Math.max(10, (district.avg_price / 20_000_000) * 100))}%`,
+            }}
+          />
+        </div>
+      </div>
+
+      {/* View on map link */}
+      <div className="mt-4 pt-3 border-t border-border/50">
+        <Link
+          to="/"
+          search={{ district: district.amphur }}
+          className="text-xs font-medium text-primary hover:text-primary-hover transition-colors"
+        >
+          View on map →
+        </Link>
+      </div>
     </div>
   );
 }
