@@ -1,10 +1,11 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useId, useMemo, useState } from "react";
+import { Building2 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
+import { ThemeToggle } from "../../components/ThemeToggle";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 
 export const Route = createFileRoute("/_public/register")({
   component: RegisterPage,
@@ -20,7 +21,7 @@ function getPasswordStrength(password: string) {
 
   if (score <= 1) return { level: "Weak", color: "bg-destructive", width: "w-1/4" } as const;
   if (score <= 2) return { level: "Fair", color: "bg-warning", width: "w-2/4" } as const;
-  if (score <= 3) return { level: "Good", color: "bg-brand", width: "w-3/4" } as const;
+  if (score <= 3) return { level: "Good", color: "bg-primary", width: "w-3/4" } as const;
   return { level: "Strong", color: "bg-success", width: "w-full" } as const;
 }
 
@@ -53,36 +54,27 @@ function RegisterPage() {
     e.preventDefault();
     setError(null);
 
-    // Validation guards
     if (formData.password !== formData.confirmPassword) {
       setError("Passwords do not match");
       return;
     }
-
     if (formData.password.length < 8) {
       setError("Password must be at least 8 characters");
       return;
     }
-
-    // Password strength check (uppercase, lowercase, number)
-    const hasUppercase = /[A-Z]/.test(formData.password);
-    const hasLowercase = /[a-z]/.test(formData.password);
-    const hasNumber = /[0-9]/.test(formData.password);
-
-    if (!hasUppercase || !hasLowercase || !hasNumber) {
+    if (!/[A-Z]/.test(formData.password) || !/[a-z]/.test(formData.password) || !/[0-9]/.test(formData.password)) {
       setError("Password must contain uppercase, lowercase, and a number");
       return;
     }
 
     setIsLoading(true);
-
     try {
       await register(
         formData.email,
         formData.password,
         formData.confirmPassword,
         formData.firstName,
-        formData.lastName
+        formData.lastName,
       );
       navigate({ to: "/", search: { district: undefined } });
     } catch (err) {
@@ -93,172 +85,153 @@ function RegisterPage() {
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
-    }));
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col md:flex-row">
-      {/* Brand panel - top band on mobile, left half on desktop */}
-      <div className="bg-gradient-to-br from-brand to-brand/80 md:w-1/2 flex flex-col items-center justify-center relative overflow-hidden px-8 py-12 md:py-0">
-        {/* Decorative grid pattern */}
-        <div
-          className="absolute inset-0 opacity-10"
-          style={{
-            backgroundImage:
-              "radial-gradient(circle, white 1px, transparent 1px)",
-            backgroundSize: "24px 24px",
-          }}
-        />
-        <div className="relative z-10 text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-white/20 backdrop-blur-sm text-white text-3xl md:text-4xl font-bold mb-4 md:mb-6">
-            B
-          </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">
-            Borbann
-          </h1>
-          <p className="text-white/80 text-sm md:text-base">
-            AI-Powered Real Estate Intelligence
-          </p>
-        </div>
+    <div className="min-h-screen bg-background relative overflow-hidden flex items-center justify-center p-4">
+      {/* Theme toggle */}
+      <div className="absolute top-6 right-6 z-10">
+        <ThemeToggle />
       </div>
 
-      {/* Form panel */}
-      <div className="md:w-1/2 flex items-center justify-center p-6 md:p-12">
-        <Card className="w-full max-w-sm bg-card border-border">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-bold text-foreground">
-              Create Account
-            </CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Sign up to access the Real Estate Platform
-            </p>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md text-destructive text-sm">
-                  {error}
+      {/* Animated background blobs */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 -left-20 w-96 h-96 bg-primary/20 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl animate-pulse [animation-delay:1s]" />
+      </div>
+
+      {/* Card */}
+      <div className="relative w-full max-w-md animate-scale-in my-8">
+        <div className="glass-strong rounded-2xl p-8 border border-border">
+          {/* Logo */}
+          <div className="flex flex-col items-center gap-4 mb-8">
+            <div className="h-16 w-16 rounded-2xl bg-primary flex items-center justify-center">
+              <Building2 className="h-9 w-9 text-primary-foreground" />
+            </div>
+            <div className="text-center">
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-sky-300 bg-clip-text text-transparent">
+                Create Account
+              </h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                Join Site Selection today
+              </p>
+            </div>
+          </div>
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm">
+                {error}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor={firstNameId}>First Name</Label>
+                <Input
+                  id={firstNameId}
+                  name="firstName"
+                  type="text"
+                  value={formData.firstName}
+                  onChange={handleChange}
+                  required
+                  placeholder="John"
+                  className="bg-input-background border-border"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor={lastNameId}>Last Name</Label>
+                <Input
+                  id={lastNameId}
+                  name="lastName"
+                  type="text"
+                  value={formData.lastName}
+                  onChange={handleChange}
+                  required
+                  placeholder="Doe"
+                  className="bg-input-background border-border"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor={emailId}>Email</Label>
+              <Input
+                id={emailId}
+                name="email"
+                type="email"
+                value={formData.email}
+                onChange={handleChange}
+                required
+                placeholder="you@example.com"
+                className="bg-input-background border-border"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor={passwordId}>Password</Label>
+              <Input
+                id={passwordId}
+                name="password"
+                type="password"
+                value={formData.password}
+                onChange={handleChange}
+                required
+                minLength={8}
+                placeholder="Min 8 characters"
+                className="bg-input-background border-border"
+              />
+              {formData.password.length > 0 && (
+                <div className="space-y-1">
+                  <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${passwordStrength.color} ${passwordStrength.width}`}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Strength: {passwordStrength.level}
+                  </p>
                 </div>
               )}
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor={firstNameId} className="text-foreground">
-                    First Name
-                  </Label>
-                  <Input
-                    id={firstNameId}
-                    name="firstName"
-                    type="text"
-                    value={formData.firstName}
-                    onChange={handleChange}
-                    required
-                    className="bg-input border-border text-foreground placeholder:text-muted-foreground"
-                    placeholder="John"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor={lastNameId} className="text-foreground">
-                    Last Name
-                  </Label>
-                  <Input
-                    id={lastNameId}
-                    name="lastName"
-                    type="text"
-                    value={formData.lastName}
-                    onChange={handleChange}
-                    required
-                    className="bg-input border-border text-foreground placeholder:text-muted-foreground"
-                    placeholder="Doe"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor={emailId} className="text-foreground">
-                  Email
-                </Label>
-                <Input
-                  id={emailId}
-                  name="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  required
-                  className="bg-input border-border text-foreground placeholder:text-muted-foreground"
-                  placeholder="john@example.com"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor={passwordId} className="text-foreground">
-                  Password
-                </Label>
-                <Input
-                  id={passwordId}
-                  name="password"
-                  type="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  required
-                  minLength={8}
-                  className="bg-input border-border text-foreground placeholder:text-muted-foreground"
-                  placeholder="Min 8 characters"
-                />
-                {/* Password strength indicator */}
-                {formData.password.length > 0 && (
-                  <div className="space-y-1">
-                    <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all duration-300 ${passwordStrength.color} ${passwordStrength.width}`}
-                      />
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Strength: {passwordStrength.level}
-                    </p>
-                  </div>
-                )}
-                <p className="text-xs text-muted-foreground">
-                  Must contain uppercase, lowercase, and a number
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor={confirmPasswordId} className="text-foreground">
-                  Confirm Password
-                </Label>
-                <Input
-                  id={confirmPasswordId}
-                  name="confirmPassword"
-                  type="password"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  required
-                  className="bg-input border-border text-foreground placeholder:text-muted-foreground"
-                  placeholder="Repeat your password"
-                />
-              </div>
-
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={isLoading}
-              >
-                {isLoading ? "Creating account..." : "Create Account"}
-              </Button>
-
-              <p className="text-center text-sm text-muted-foreground">
-                Already have an account?{" "}
-                <Link to="/login" className="text-brand hover:text-brand/80 hover:underline">
-                  Sign in
-                </Link>
+              <p className="text-xs text-muted-foreground">
+                Must contain uppercase, lowercase, and a number
               </p>
-            </form>
-          </CardContent>
-        </Card>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor={confirmPasswordId}>Confirm Password</Label>
+              <Input
+                id={confirmPasswordId}
+                name="confirmPassword"
+                type="password"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                required
+                placeholder="Repeat your password"
+                className="bg-input-background border-border"
+              />
+            </div>
+
+            <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
+              {isLoading ? "Creating account…" : "Create Account"}
+            </Button>
+          </form>
+
+          {/* Login link */}
+          <div className="mt-6 text-center">
+            <p className="text-sm text-muted-foreground">
+              Already have an account?{" "}
+              <Link
+                to="/login"
+                className="text-primary hover:text-primary-hover font-medium transition-colors"
+              >
+                Sign In
+              </Link>
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
