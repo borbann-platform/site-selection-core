@@ -165,7 +165,7 @@ function DistrictsPage() {
           {/* Sort dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-background text-sm font-medium hover:bg-muted/50 transition-colors">
+              <button type="button" className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-background text-sm font-medium hover:bg-muted/50 transition-colors">
                 Sort: {activeSortLabel}
                 {sortOrder === "desc" ? (
                   <ArrowDown className="h-3.5 w-3.5 text-muted-foreground" />
@@ -209,8 +209,8 @@ function DistrictsPage() {
         <div className="max-w-screen-xl mx-auto">
           {isLoading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {Array.from({ length: 12 }).map((_, i) => (
-                <Skeleton key={`skeleton-${i}`} className="h-48 w-full rounded-xl" />
+              {["a","b","c","d","e","f","g","h","i","j","k","l"].map((id) => (
+                <Skeleton key={`skeleton-${id}`} className="h-48 w-full rounded-xl" />
               ))}
             </div>
           ) : isError ? (
