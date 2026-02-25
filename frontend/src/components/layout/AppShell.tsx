@@ -1,39 +1,30 @@
 /**
- * AppShell - Main application layout wrapping all authenticated routes.
- * Combines AppSidebar (desktop) + MobileTabBar (mobile) + TopBar + main content.
- * Uses shadcn SidebarProvider for state management.
+ * AppShell — Main layout wrapper for all authenticated routes.
+ * Horizontal TopBar (sticky) + main content + MobileTabBar (mobile).
+ * Matches the Figma design system: no sidebar, horizontal nav.
  */
 
 import type { ReactNode } from "react";
-import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
-import { AppSidebar } from "./AppSidebar";
 import { MobileTabBar } from "./MobileTabBar";
 import { TopBar } from "./TopBar";
 
 interface AppShellProps {
   children: ReactNode;
-  /** If true, hides the TopBar (useful for full-screen map pages) */
+  /** When true, hides the TopBar (used for full-screen pages like the map) */
   hideTopBar?: boolean;
 }
 
 export function AppShell({ children, hideTopBar = false }: AppShellProps) {
   return (
-    <SidebarProvider>
-      {/* Desktop sidebar - hidden on mobile via shadcn sidebar internals */}
-      <AppSidebar />
+    <div className="min-h-screen flex flex-col bg-background">
+      {!hideTopBar && <TopBar />}
 
-      <SidebarInset>
-        {/* Top bar with breadcrumb */}
-        {!hideTopBar && <TopBar />}
+      {/* Main content — pb-16 reserves space for the MobileTabBar on mobile */}
+      <main className="flex-1 relative pb-16 md:pb-0">
+        {children}
+      </main>
 
-        {/* Main content area - pb-16 accounts for MobileTabBar height on mobile */}
-        <main className="flex-1 overflow-auto pb-16 md:pb-0">
-          {children}
-        </main>
-      </SidebarInset>
-
-      {/* Mobile bottom tab bar */}
       <MobileTabBar />
-    </SidebarProvider>
+    </div>
   );
 }
