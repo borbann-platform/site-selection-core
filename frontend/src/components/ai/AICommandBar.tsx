@@ -66,7 +66,6 @@ export function AICommandBar({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: input prop change triggers textarea resize via DOM ref
   useEffect(() => {
     if (!inputRef.current) return;
     inputRef.current.style.height = "0px";
