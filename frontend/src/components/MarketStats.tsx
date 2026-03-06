@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, type HousePriceStatsResponse } from "../lib/api";
 import { TrendingUp, Home, MapPin, Loader2 } from "lucide-react";
@@ -12,10 +13,7 @@ import {
 import { useTheme } from "@/contexts/ThemeContext";
 
 interface MarketStatsProps {
-  filters?: {
-    district: string | null;
-    buildingStyle: string | null;
-  };
+  district?: string | null;
 }
 
 const formatPriceShort = (value: number): string => {
@@ -25,7 +23,9 @@ const formatPriceShort = (value: number): string => {
   return `${(value / 1_000).toFixed(0)}K`;
 };
 
-export function MarketStats({ filters }: MarketStatsProps) {
+export const MarketStats = memo(function MarketStats({
+  district,
+}: MarketStatsProps) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
 
@@ -46,12 +46,10 @@ export function MarketStats({ filters }: MarketStatsProps) {
   if (!stats) return null;
 
   // Filter stats if district is selected
-  const filteredStats: HousePriceStatsResponse = filters?.district
+  const filteredStats: HousePriceStatsResponse = district
     ? {
         ...stats,
-        by_district: stats.by_district.filter(
-          (d) => d.amphur === filters.district
-        ),
+        by_district: stats.by_district.filter((d) => d.amphur === district),
       }
     : stats;
 
@@ -85,22 +83,22 @@ export function MarketStats({ filters }: MarketStatsProps) {
     <div className="space-y-4">
       {/* Summary Stats */}
       <div className="grid grid-cols-3 gap-2">
-        <div className="bg-gradient-to-br from-emerald-500/10 to-transparent rounded-lg p-3 text-center border border-border/50 hover:-translate-y-0.5 hover:shadow-sm transition-all duration-200">
-          <Home className="w-5 h-5 mx-auto mb-1 text-emerald-500 dark:text-emerald-400" />
+        <div className="bg-gradient-to-br from-brand/16 to-transparent rounded-lg p-3 text-center border border-border/60 hover:-translate-y-0.5 hover:shadow-sm transition-all duration-200">
+          <Home className="w-5 h-5 mx-auto mb-1 text-brand" />
           <div className="text-lg font-bold text-foreground">
             {totalCount.toLocaleString()}
           </div>
           <div className="text-[10px] text-muted-foreground">Properties</div>
         </div>
-        <div className="bg-gradient-to-br from-amber-500/10 to-transparent rounded-lg p-3 text-center border border-border/50 hover:-translate-y-0.5 hover:shadow-sm transition-all duration-200">
-          <TrendingUp className="w-5 h-5 mx-auto mb-1 text-amber-500 dark:text-amber-400" />
+        <div className="bg-gradient-to-br from-ai-accent/14 to-transparent rounded-lg p-3 text-center border border-border/60 hover:-translate-y-0.5 hover:shadow-sm transition-all duration-200">
+          <TrendingUp className="w-5 h-5 mx-auto mb-1 text-ai-accent" />
           <div className="text-lg font-bold text-foreground">
             {formatPriceShort(avgPrice)}
           </div>
           <div className="text-[10px] text-muted-foreground">Avg Price</div>
         </div>
-        <div className="bg-gradient-to-br from-blue-500/10 to-transparent rounded-lg p-3 text-center border border-border/50 hover:-translate-y-0.5 hover:shadow-sm transition-all duration-200">
-          <MapPin className="w-5 h-5 mx-auto mb-1 text-blue-500 dark:text-blue-400" />
+        <div className="bg-gradient-to-br from-cyan-500/14 to-transparent rounded-lg p-3 text-center border border-border/60 hover:-translate-y-0.5 hover:shadow-sm transition-all duration-200">
+          <MapPin className="w-5 h-5 mx-auto mb-1 text-cyan-500" />
           <div className="text-lg font-bold text-foreground">
             {formatPriceShort(avgPricePerSqm)}
           </div>
@@ -109,13 +107,18 @@ export function MarketStats({ filters }: MarketStatsProps) {
       </div>
 
       {/* Top Districts Chart */}
-      {!filters?.district && (
+      {!district && (
         <div className="space-y-2">
           <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
             Top Districts by Count
           </div>
           <div className="h-32 bg-muted/20 rounded-lg p-2">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer
+              width="100%"
+              height="100%"
+              minWidth={0}
+              minHeight={100}
+            >
               <BarChart
                 data={topDistricts}
                 layout="vertical"
@@ -173,4 +176,4 @@ export function MarketStats({ filters }: MarketStatsProps) {
       </div>
     </div>
   );
-}
+});

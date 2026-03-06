@@ -44,6 +44,36 @@ type SidebarContextType = {
 
 const SidebarContext = React.createContext<SidebarContextType | null>(null)
 
+type CookieStoreLike = {
+  set: (options: {
+    name: string
+    value: string
+    path?: string
+    expires?: number
+  }) => Promise<void>
+}
+
+function persistSidebarState(openState: boolean) {
+  if (typeof window === "undefined") {
+    return
+  }
+
+  const cookieStore = (window as Window & { cookieStore?: CookieStoreLike })
+    .cookieStore
+
+  if (cookieStore) {
+    void cookieStore.set({
+      name: SIDEBAR_COOKIE_NAME,
+      value: String(openState),
+      path: "/",
+      expires: Date.now() + SIDEBAR_COOKIE_MAX_AGE * 1000,
+    })
+    return
+  }
+
+  window.localStorage.setItem(SIDEBAR_COOKIE_NAME, String(openState))
+}
+
 function useSidebar() {
   const context = React.useContext(SidebarContext)
   if (!context) {
@@ -81,9 +111,8 @@ function SidebarProvider({
         _setOpen(openState)
       }
 
-      // This sets the cookie to keep the sidebar state.
-      // biome-ignore lint/suspicious/noDocumentCookie: Cookie Store API not yet widely supported
-      document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
+      // Persist sidebar state when supported by the runtime.
+      persistSidebarState(openState)
     },
     [setOpenProp, open]
   )

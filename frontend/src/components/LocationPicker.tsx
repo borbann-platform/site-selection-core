@@ -4,7 +4,9 @@
  */
 
 import { useState, useCallback, useMemo, useEffect } from "react";
+import type { MapViewState, PickingInfo } from "@deck.gl/core";
 import { MapContainer } from "@/components/MapContainer";
+import { keepPreviousViewStateIfSame } from "@/lib/mapViewState";
 import { ScatterplotLayer } from "@deck.gl/layers";
 import { Button } from "@/components/ui/button";
 import { X, MapPin, Check, Navigation } from "lucide-react";
@@ -35,7 +37,7 @@ export function LocationPicker({
     lon: number;
   } | null>(initialLocation || null);
 
-  const [viewState, setViewState] = useState({
+  const [viewState, setViewState] = useState<MapViewState>({
     ...DEFAULT_CENTER,
     latitude: initialLocation?.lat || DEFAULT_CENTER.latitude,
     longitude: initialLocation?.lon || DEFAULT_CENTER.longitude,
@@ -59,11 +61,12 @@ export function LocationPicker({
   }, [isOpen, initialLocation]);
 
   const handleMapClick = useCallback(
-    (info: { coordinate?: [number, number] }) => {
-      if (info.coordinate) {
+    (info: PickingInfo) => {
+      const coordinate = Array.isArray(info.coordinate) ? info.coordinate : null;
+      if (coordinate && coordinate.length >= 2) {
         setSelectedLocation({
-          lon: info.coordinate[0],
-          lat: info.coordinate[1],
+          lon: coordinate[0],
+          lat: coordinate[1],
         });
       }
     },
@@ -137,7 +140,11 @@ export function LocationPicker({
         <div className="flex-1 relative">
           <MapContainer
             viewState={viewState}
-            onViewStateChange={({ viewState: vs }) => setViewState(vs)}
+            onViewStateChange={({ viewState: next }) =>
+              setViewState((previous) =>
+                keepPreviousViewStateIfSame(previous, next)
+              )
+            }
             layers={layers}
             onClick={handleMapClick}
             getTooltip={() => null}

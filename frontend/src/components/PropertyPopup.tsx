@@ -1,3 +1,4 @@
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { X, Home, MessageSquarePlus, ArrowRight } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
@@ -29,7 +30,9 @@ export function PropertyPopup({
   onClose,
   onAddToChat,
 }: PropertyPopupProps) {
-  if (!property || !position) return null;
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const [panelSize, setPanelSize] = useState({ width: 288, height: 320 });
+  const hasActivePopup = Boolean(property && position);
 
   const formatPrice = (p: number) =>
     new Intl.NumberFormat("th-TH", {
@@ -38,31 +41,104 @@ export function PropertyPopup({
       maximumFractionDigits: 0,
     }).format(p);
 
-  const price = property.total_price || 0;
+  const price =
+    typeof property?.total_price === "number" && property.total_price > 0
+      ? property.total_price
+      : undefined;
   const pricePerSqm =
-    property.building_area && price
+    property?.building_area && price !== undefined
       ? formatPrice(price / property.building_area)
       : "N/A";
+  const propertyReference =
+    property?.house_ref ||
+    (property?.id !== undefined ? `house:${property.id}` : undefined);
 
   const handleAddToChat = () => {
+    if (!property) return;
     onAddToChat?.(property);
     onClose();
   };
 
+  useLayoutEffect(() => {
+    if (!hasActivePopup || !panelRef.current) return;
+    const rect = panelRef.current.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+    setPanelSize((prev) => {
+      if (
+        Math.abs(prev.width - rect.width) < 1 &&
+        Math.abs(prev.height - rect.height) < 1
+      ) {
+        return prev;
+      }
+      return { width: rect.width, height: rect.height };
+    });
+  });
+
+  const popupPlacement = useMemo(() => {
+    if (!position) {
+      return {
+        left: 0,
+        top: 0,
+        transform: "translate(-50%, -100%) translateY(-10px)",
+        placeAbove: true,
+      };
+    }
+
+    const margin = 12;
+    const offset = 10;
+    const viewportWidth =
+      typeof window !== "undefined" ? window.innerWidth : 0;
+    const viewportHeight =
+      typeof window !== "undefined" ? window.innerHeight : 0;
+
+    const boundedWidth = Math.min(
+      panelSize.width,
+      Math.max(1, viewportWidth - margin * 2)
+    );
+    const halfWidth = boundedWidth / 2;
+    const minX = margin + halfWidth;
+    const maxX = Math.max(minX, viewportWidth - margin - halfWidth);
+    const clampedX =
+      viewportWidth > 0 ? Math.min(maxX, Math.max(minX, position.x)) : position.x;
+
+    const spaceAbove = position.y - margin - offset;
+    const spaceBelow = viewportHeight - position.y - margin - offset;
+    const fitsAbove = spaceAbove >= panelSize.height;
+    const fitsBelow = spaceBelow >= panelSize.height;
+    const placeAbove = fitsAbove || (!fitsBelow && spaceAbove >= spaceBelow);
+
+    const top = placeAbove ? position.y : position.y;
+    const transform = placeAbove
+      ? "translate(-50%, -100%) translateY(-10px)"
+      : "translate(-50%, 0%) translateY(10px)";
+
+    return {
+      left: clampedX,
+      top,
+      transform,
+      placeAbove,
+    };
+  }, [panelSize.height, panelSize.width, position]);
+
+  if (!property || !position) return null;
+
   return (
     <div
-      className="fixed z-100 pointer-events-auto animate-fade-in"
+      className="fixed z-[100] pointer-events-auto animate-fade-in"
       style={{
-        left: position.x,
-        top: position.y,
-        transform: "translate(-50%, -100%) translateY(-10px)",
+        left: popupPlacement.left,
+        top: popupPlacement.top,
+        transform: popupPlacement.transform,
       }}
     >
-      <div className="bg-card/95 border border-border rounded-xl shadow-2xl shadow-black/25 backdrop-blur-lg overflow-hidden min-w-64">
+      <div
+        ref={panelRef}
+        className="bg-card/95 border border-border rounded-xl shadow-2xl shadow-black/25 backdrop-blur-lg overflow-hidden min-w-72 max-w-80"
+      >
         {/* Header */}
-        <div className="flex items-center gap-2 px-3 py-2 bg-amber-500/10 border-b border-border">
-          <Home size={14} className="text-amber-500 dark:text-amber-400" />
-          <span className="flex-1 font-bold text-sm text-amber-600 dark:text-amber-400 truncate">
+        <div className="flex items-center gap-2 px-3 py-2 bg-brand/10 border-b border-border">
+          <Home size={14} className="text-brand" />
+          <span className="flex-1 font-bold text-sm text-brand truncate">
             {property.building_style_desc || "Property"}
           </span>
           <button
@@ -77,7 +153,7 @@ export function PropertyPopup({
         {/* Content */}
         <div className="p-3">
           <div className="text-lg font-bold text-foreground mb-2">
-            {formatPrice(price)}
+            {price !== undefined ? formatPrice(price) : "Price unavailable"}
           </div>
           <div className="grid grid-cols-2 gap-1 text-[11px] text-muted-foreground">
             <div>District:</div>
@@ -105,6 +181,11 @@ export function PropertyPopup({
               {property.building_age ? `${property.building_age} yrs` : "N/A"}
             </div>
           </div>
+          {propertyReference && (
+            <div className="mt-2 rounded-md border border-border/60 bg-muted/40 px-2 py-1 text-[10px] text-muted-foreground">
+              Ref: <span className="font-mono text-foreground/80">{propertyReference}</span>
+            </div>
+          )}
 
           {/* View Details button - only show if property has ID */}
           {property.id && (
@@ -123,7 +204,7 @@ export function PropertyPopup({
             <button
               type="button"
               onClick={handleAddToChat}
-              className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 border border-border hover:bg-muted text-muted-foreground hover:text-foreground text-xs font-medium rounded-lg transition-colors"
+              className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 border border-border bg-muted/35 hover:bg-muted text-muted-foreground hover:text-foreground text-xs font-medium rounded-lg transition-colors"
             >
               <MessageSquarePlus size={14} />
               <span>Add to Chat</span>
@@ -133,8 +214,18 @@ export function PropertyPopup({
       </div>
 
       {/* Pointer arrow */}
-      <div className="absolute left-1/2 -translate-x-1/2 bottom-0 translate-y-full">
-        <div className="w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-border" />
+      <div
+        className={`absolute left-1/2 -translate-x-1/2 ${
+          popupPlacement.placeAbove
+            ? "bottom-0 translate-y-full"
+            : "top-0 -translate-y-full"
+        }`}
+      >
+        {popupPlacement.placeAbove ? (
+          <div className="w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-border" />
+        ) : (
+          <div className="w-0 h-0 border-l-8 border-r-8 border-b-8 border-l-transparent border-r-transparent border-b-border" />
+        )}
       </div>
     </div>
   );
@@ -154,14 +245,14 @@ export function PropertyMiniCard({
   onRemove?: () => void;
 }) {
   return (
-    <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-lg px-2 py-1.5">
-      <Home size={12} className="text-amber-500 dark:text-amber-400" />
+    <div className="flex items-center gap-2 bg-brand/10 border border-brand/25 rounded-lg px-2 py-1.5">
+      <Home size={12} className="text-brand" />
       <div className="flex-1 min-w-0">
         <div className="text-xs font-medium text-foreground truncate">
           {property.name || "Property"}
         </div>
         {property.price && (
-          <div className="text-[10px] text-amber-600 dark:text-amber-300">
+          <div className="text-[10px] text-brand/90">
             ฿{(property.price / 1000000).toFixed(1)}M
             {property.area && ` • ${property.area}sqm`}
           </div>

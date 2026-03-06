@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Target, SlidersHorizontal, Home, MapPin, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { keepPreviousViewStateIfSame } from "@/lib/mapViewState";
 import { MapContainer } from "@/components/MapContainer";
 import { AICommandBar, AIExpandedPanel } from "@/components/ai";
 import { PropertyPopup } from "@/components/PropertyPopup";
@@ -60,7 +61,11 @@ function PropertyExplorer() {
         {/* Full-screen Map */}
         <MapContainer
           viewState={explorer.viewState}
-          onViewStateChange={(e) => explorer.setViewState(e.viewState)}
+          onViewStateChange={({ viewState: next }) =>
+            explorer.setViewState((previous) =>
+              keepPreviousViewStateIfSame(previous, next)
+            )
+          }
           layers={layers}
           getTooltip={getTooltip}
           onClick={explorer.handleMapClick}

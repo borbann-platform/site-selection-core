@@ -1,10 +1,12 @@
-// @ts-nocheck
-// TypeScript checks disabled due to complex DeckGL generic types
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo, lazy, Suspense } from "react";
+import type { ComponentType } from "react";
+import type { MapViewState } from "@deck.gl/core";
 import { MapContainer } from "@/components/MapContainer";
 import { api } from "@/lib/api";
+import type { HousePriceItem } from "@/lib/api";
+import { keepPreviousViewStateIfSame } from "@/lib/mapViewState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LocationIntelligencePanel } from "@/components/LocationIntelligence";
 import { ScatterplotLayer } from "@deck.gl/layers";
@@ -41,6 +43,11 @@ const formatArea = (area: number | null): string => {
   if (area === null) return "-";
   return `${area.toLocaleString("th-TH")} sqm`;
 };
+
+type NearbyProperty = Awaited<
+  ReturnType<typeof api.getNearbyProperties>
+>["items"][number];
+type MapPropertyItem = HousePriceItem | NearbyProperty;
 
 function PropertyDetailPage() {
   const { propertyId } = Route.useParams();
@@ -108,10 +115,10 @@ function PropertyDetailPage() {
   const layers = useMemo(() => {
     if (!property) return [];
 
-    const propertyLayer = new ScatterplotLayer({
+    const propertyLayer = new ScatterplotLayer<MapPropertyItem>({
       id: "current-property",
       data: [property],
-      getPosition: (d) => [d.lon, d.lat],
+      getPosition: (d) => [d.lon, d.lat] as [number, number],
       // Brand accent (emerald)
       getFillColor: [16, 185, 129, 255],
       getRadius: 40,
@@ -121,10 +128,10 @@ function PropertyDetailPage() {
     });
 
     const nearbyLayer = nearbyData
-      ? new ScatterplotLayer({
+      ? new ScatterplotLayer<MapPropertyItem>({
           id: "nearby-properties",
           data: nearbyData.items.filter((p) => p.id !== id),
-          getPosition: (d) => [d.lon, d.lat],
+          getPosition: (d) => [d.lon, d.lat] as [number, number],
           // Subtle white markers on dark map
           getFillColor: [255, 255, 255, 140],
           getRadius: 25,
@@ -352,20 +359,25 @@ function PropertyDetailPage() {
           {initialViewState ? (
             <MapContainer
               viewState={viewState || initialViewState}
-              onViewStateChange={({ viewState: vs }) => setViewState(vs)}
+              onViewStateChange={({ viewState: next }) =>
+                setViewState((previous) =>
+                  previous ? keepPreviousViewStateIfSame(previous, next) : next
+                )
+              }
               layers={layers}
               onClick={(info) => {
+                const clicked = info.object as MapPropertyItem | null | undefined;
                 // Navigate to clicked nearby property (not current property)
-                if (info.object?.id && info.object.id !== id) {
+                if (clicked?.id !== undefined && clicked.id !== id) {
                   navigate({
                     to: "/property/$propertyId",
-                    params: { propertyId: String(info.object.id) },
+                    params: { propertyId: String(clicked.id) },
                   });
                 }
               }}
               getTooltip={(info) => {
-                if (!info.object) return null;
-                const p = info.object;
+                const p = info.object as MapPropertyItem | null | undefined;
+                if (!p) return null;
                 if (p.id === id) return null; // Skip tooltip for current property
                 return {
                   html: `<div style="padding: 8px; background: rgba(0,0,0,0.9); border-radius: 4px;">
@@ -393,7 +405,7 @@ function DetailRow({
   label,
   value,
 }: {
-  icon: React.ComponentType<{ className?: string }>;
+  icon: ComponentType<{ className?: string }>;
   label: string;
   value: string;
 }) {

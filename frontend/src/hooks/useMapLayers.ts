@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useRef } from "react";
+import { useMemo, useCallback } from "react";
 import {
   PathLayer,
   IconLayer,
@@ -56,11 +56,6 @@ export function useMapLayers({
   bboxCorners,
   h3Metric,
 }: UseMapLayersParams) {
-  // Keep a ref for the current viewState so layers can read the latest zoom
-  // without triggering a rebuild on every pan/zoom frame.
-  const viewStateRef = useRef(viewState);
-  viewStateRef.current = viewState;
-
   // Derived zoom tier – only changes when crossing the threshold,
   // so useMemo below won't re-run on every fractional zoom change.
   const zoomTier = viewState.zoom < 13 ? "low" : "high";
@@ -432,40 +427,6 @@ export function useMapLayers({
   const getTooltip = useCallback(
     ({ object }: { object?: DeckGLObject | null }) => {
       if (!object) return null;
-
-      // House Price Tooltip
-      const price = object.total_price || object.properties?.total_price;
-      if (price !== undefined) {
-        const formatPrice = (p: number) =>
-          new Intl.NumberFormat("th-TH", {
-            style: "currency",
-            currency: "THB",
-            maximumFractionDigits: 0,
-          }).format(p);
-
-        const data = object.properties || object;
-        const buildingArea = Number(data.building_area) || 0;
-        const numericPrice = Number(price) || 0;
-        const pricePerSqm =
-          buildingArea && numericPrice
-            ? formatPrice(numericPrice / buildingArea)
-            : "N/A";
-
-        return {
-          html: `<div class="p-3 bg-zinc-900/90 border border-zinc-700 text-white rounded-lg shadow-xl backdrop-blur-md min-w-55">
-          <div class="font-bold text-sm mb-1 text-amber-400">${String.fromCodePoint(0x1f3e0)} ${data.building_style_desc || "Property"}</div>
-          <div class="text-lg font-bold text-white mb-2">${formatPrice(numericPrice)}</div>
-          <div class="grid grid-cols-2 gap-1 text-[11px] text-zinc-300">
-            <div>District:</div><div class="text-right font-medium">${data.amphur || "N/A"}</div>
-            <div>Sub-district:</div><div class="text-right font-medium">${data.tumbon || "N/A"}</div>
-            <div>Area:</div><div class="text-right font-medium">${data.building_area ? `${data.building_area} sqm` : "N/A"}</div>
-            <div>Price/sqm:</div><div class="text-right font-medium text-brand">${pricePerSqm}</div>
-            <div>Floors:</div><div class="text-right font-medium">${data.no_of_floor || "N/A"}</div>
-            <div>Age:</div><div class="text-right font-medium">${data.building_age ? `${data.building_age} yrs` : "N/A"}</div>
-          </div>
-        </div>`,
-        };
-      }
 
       // POI Tooltip
       if (object.properties?.type) {

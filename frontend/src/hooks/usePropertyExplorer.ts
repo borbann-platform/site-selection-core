@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import type { MapViewState, PickingInfo } from "@deck.gl/core";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import type {
@@ -14,19 +15,11 @@ import {
   buildLocationAttachment,
   buildViewportMetrics,
   resolveHouseReference,
-  verifyHouseReferencePresence,
 } from "@/lib/uiGrounding";
 
 // ---- Type definitions ----
 
-export interface ViewState {
-  longitude: number;
-  latitude: number;
-  zoom: number;
-  pitch: number;
-  bearing: number;
-  transitionDuration?: number;
-}
+export type ViewState = MapViewState;
 
 export interface OverlayState {
   pois: boolean;
@@ -78,6 +71,11 @@ export interface DeckGLObject {
 
 export const BANGKOK_LAT = 13.7563;
 export const BANGKOK_LON = 100.5018;
+
+function toFiniteNumber(value: unknown): number | undefined {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : undefined;
+}
 
 // ---- Hook ----
 
@@ -194,11 +192,24 @@ export function usePropertyExplorer(districtFromUrl?: string) {
 
   const { data: h3Data } = useQuery({
     queryKey: ["h3Hexagons", h3Metric, h3Resolution],
-    queryFn: () =>
-      api.getH3Hexagons({
+    queryFn: async () => {
+      const primary = await api.getH3Hexagons({
         metric: h3Metric,
         resolution: h3Resolution,
-      }),
+        limit: 10000,
+      });
+
+      // Some environments only have complete data at resolution 9.
+      if (primary.hexagons.length > 0 || h3Resolution === 9) {
+        return primary;
+      }
+
+      return api.getH3Hexagons({
+        metric: h3Metric,
+        resolution: 9,
+        limit: 10000,
+      });
+    },
     enabled: overlays.h3Hexagons,
     staleTime: 1000 * 60 * 5,
   });
@@ -365,13 +376,8 @@ export function usePropertyExplorer(districtFromUrl?: string) {
   );
 
   const handleMapClick = useCallback(
-    (info: {
-      coordinate?: [number, number];
-      object?: DeckGLObject;
-      x?: number;
-      y?: number;
-      viewport?: { width?: number; height?: number };
-    }) => {
+    (info: PickingInfo<DeckGLObject>) => {
+      const coordinate = Array.isArray(info.coordinate) ? info.coordinate : null;
       const viewport = buildViewportMetrics(
         info.viewport?.width,
         info.viewport?.height
@@ -388,8 +394,8 @@ export function usePropertyExplorer(districtFromUrl?: string) {
       }
 
       // Handle Location Selection Mode
-      if (selectionMode === "location" && info.coordinate) {
-        const [lon, lat] = info.coordinate;
+      if (selectionMode === "location" && coordinate && coordinate.length >= 2) {
+        const [lon, lat] = coordinate;
         const newAttachment = buildLocationAttachment(lat, lon, clickGrounding);
         if (!newAttachment) {
           toast.error("Invalid location selection. Please click again.");
@@ -401,8 +407,8 @@ export function usePropertyExplorer(districtFromUrl?: string) {
       }
 
       // Handle Bbox Selection Mode (4-click polygon)
-      if (selectionMode === "bbox" && info.coordinate) {
-        const [lon, lat] = info.coordinate;
+      if (selectionMode === "bbox" && coordinate && coordinate.length >= 2) {
+        const [lon, lat] = coordinate;
         const newCorners = [...bboxCorners, [lon, lat] as [number, number]];
 
         if (newCorners.length < 4) {
@@ -427,40 +433,62 @@ export function usePropertyExplorer(districtFromUrl?: string) {
         const obj = info.object;
         const props = obj.properties || {};
         const coords = obj.geometry?.coordinates;
-        const coordLon = Number(coords?.[0]);
-        const coordLat = Number(coords?.[1]);
+        const coordLon = toFiniteNumber(coords?.[0]);
+        const coordLat = toFiniteNumber(coords?.[1]);
+        const totalPrice =
+          toFiniteNumber(obj.total_price) ?? toFiniteNumber(props.total_price);
+        const buildingArea =
+          toFiniteNumber(obj.building_area) ?? toFiniteNumber(props.building_area);
+        const floors =
+          toFiniteNumber(obj.no_of_floor) ?? toFiniteNumber(props.no_of_floor);
+        const buildingAge =
+          toFiniteNumber(obj.building_age) ?? toFiniteNumber(props.building_age);
 
-        const rawId = obj.id || props.id;
+        // Guard against non-property map layers (POIs, transit, H3).
+        const isPoiFeature = props.type !== undefined;
+        const isTransitFeature = props.route_short_name !== undefined;
+        const isH3Feature = typeof obj.h3_index === "string";
+        if (isPoiFeature || isTransitFeature || isH3Feature) {
+          setSelectedProperty(null);
+          setPopupPosition(null);
+          return;
+        }
+
+        // Prefer feature properties id; MVT object id can be an internal deck id.
+        const rawId = props.id ?? obj.id;
+        const hasValidId =
+          typeof rawId === "string" || typeof rawId === "number";
+        const hasPropertySignals =
+          totalPrice !== undefined ||
+          props.building_style_desc !== undefined ||
+          props.amphur !== undefined ||
+          props.tumbon !== undefined;
+        if (!hasValidId && !hasPropertySignals) {
+          setSelectedProperty(null);
+          setPopupPosition(null);
+          return;
+        }
+
         const houseRef = resolveHouseReference(
-          typeof rawId === "string" || typeof rawId === "number" ? rawId : undefined,
-          Number.isFinite(coordLat) ? coordLat : undefined,
-          Number.isFinite(coordLon) ? coordLon : undefined
+          hasValidId ? rawId : undefined,
+          coordLat,
+          coordLon
         );
         const propertyData: SelectedProperty = {
-          id:
-            typeof rawId === "string" || typeof rawId === "number"
-              ? rawId
-              : undefined,
+          id: hasValidId ? rawId : undefined,
           house_ref: houseRef,
-          locator:
-            typeof rawId === "string" || typeof rawId === "number"
-              ? `house:${rawId}`
-              : undefined,
-          total_price:
-            obj.total_price || Number(props.total_price) || undefined,
-          building_area:
-            obj.building_area || Number(props.building_area) || undefined,
+          locator: hasValidId ? `house:${rawId}` : undefined,
+          total_price: totalPrice,
+          building_area: buildingArea,
           amphur: obj.amphur || String(props.amphur || ""),
           tumbon: obj.tumbon || String(props.tumbon || ""),
           building_style_desc:
             obj.building_style_desc ||
             String(props.building_style_desc || ""),
-          no_of_floor:
-            obj.no_of_floor || Number(props.no_of_floor) || undefined,
-          building_age:
-            obj.building_age || Number(props.building_age) || undefined,
-          lat: obj.lat ?? (Number.isFinite(coordLat) ? coordLat : undefined),
-          lon: obj.lon ?? (Number.isFinite(coordLon) ? coordLon : undefined),
+          no_of_floor: floors,
+          building_age: buildingAge,
+          lat: obj.lat ?? coordLat,
+          lon: obj.lon ?? coordLon,
         };
 
         if (propertyData.total_price || propertyData.id || propertyData.house_ref) {
@@ -489,16 +517,9 @@ export function usePropertyExplorer(districtFromUrl?: string) {
       const houseRef =
         property.house_ref ||
         resolveHouseReference(property.id, property.lat, property.lon);
-      const visibleProperties =
-        housePrices?.items?.map((item) => ({
-          id: item.id,
-          lat: item.lat,
-          lon: item.lon,
-        })) || [];
-
-      if (!verifyHouseReferencePresence(houseRef, visibleProperties)) {
+      if (!houseRef) {
         toast.error(
-          "Selected property is no longer grounded in the visible results. Please reselect it."
+          "Unable to reference this property. Please pick another listing."
         );
         setSelectedProperty(null);
         setPopupPosition(null);
@@ -527,7 +548,7 @@ export function usePropertyExplorer(districtFromUrl?: string) {
       setSelectedProperty(null);
       setPopupPosition(null);
     },
-    [housePrices?.items, sanitizePropertyData]
+    [sanitizePropertyData]
   );
 
   const handleKeyDown = useCallback(

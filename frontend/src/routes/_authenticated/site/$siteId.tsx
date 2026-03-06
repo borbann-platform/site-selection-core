@@ -1,12 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import type React from "react";
+import type { MapViewState, PickingInfo } from "@deck.gl/core";
 import type { Feature, GeoJsonProperties, Point } from "geojson";
 import { useState, useMemo, useEffect } from "react";
 import { MapContainer } from "../../../components/MapContainer";
 import { GeoJsonLayer, ScatterplotLayer } from "@deck.gl/layers";
 import { FlyToInterpolator } from "@deck.gl/core";
 import { api } from "../../../lib/api";
+import { keepPreviousViewStateIfSame } from "../../../lib/mapViewState";
 
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import {
@@ -30,15 +32,7 @@ interface SiteSearch {
   lon: number;
 }
 
-interface ViewState {
-  longitude: number;
-  latitude: number;
-  zoom: number;
-  pitch?: number;
-  bearing?: number;
-  transitionDuration?: number;
-  transitionInterpolator?: FlyToInterpolator;
-}
+type ViewState = MapViewState;
 
 type GeoPointFeature = Feature<
   Point,
@@ -223,7 +217,7 @@ function SiteInspector() {
     ].filter(Boolean);
   }, [isochrone, lat, lon, competitors, magnets, showCompetitors, showMagnets]);
 
-  const getTooltip = ({ object }: { object?: GeoPointFeature | null }) => {
+  const getTooltip = ({ object }: PickingInfo<GeoPointFeature>) => {
     if (!object) return null;
     if (object.properties?.name) {
       return {
@@ -425,7 +419,9 @@ function SiteInspector() {
     <div className="w-full h-[calc(100vh-4rem)] bg-background relative overflow-hidden">
         <MapContainer
           viewState={viewState}
-          onViewStateChange={(e) => setViewState(e.viewState)}
+          onViewStateChange={({ viewState: next }) =>
+            setViewState((previous) => keepPreviousViewStateIfSame(previous, next))
+          }
           layers={layers}
           getTooltip={getTooltip}
         />

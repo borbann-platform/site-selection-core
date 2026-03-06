@@ -15,7 +15,12 @@ __pycache__
 *.pyc
 .DS_Store
 
-/data/
+# Data files are tracked via Git LFS (see root .gitattributes)
+# Only ignore cache and temporary data files
+/data/**/cache/
+/data/**/*.tmp
+/data/**/*.temp
+/data/distance_checkpoints/
 
 # S2-HGT Model Artifacts (use Git LFS or separate storage)
 models/s2hgt/
