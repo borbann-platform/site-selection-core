@@ -8,8 +8,10 @@ import {
   Volume2,
   MapPin,
 } from "lucide-react";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { SourceTooltip } from "@/components/ui/source-tooltip";
 import { DATA_SOURCES } from "@/lib/dataSources";
+import { SCORE_METHODOLOGY } from "@/lib/scoreMethodology";
 
 interface LocationScoreCardProps {
   label: string;
@@ -119,6 +121,10 @@ export function LocationIntelligencePanel({
         <div className="flex items-center gap-2">
           <MapPin className="h-5 w-5 text-brand" />
           <h2 className="font-semibold text-foreground">Location Intelligence</h2>
+          <InfoTooltip
+            title="Composite score"
+            description={SCORE_METHODOLOGY.composite}
+          />
         </div>
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Overall</span>
@@ -162,6 +168,7 @@ export function LocationIntelligencePanel({
           icon={
             <Train className={`h-4 w-4 ${getScoreColor(data.transit.score)}`} />
           }
+          description="Rail + bus + ferry accessibility"
         />
         <LocationScoreCard
           label="Walkability"
@@ -171,6 +178,7 @@ export function LocationIntelligencePanel({
               className={`h-4 w-4 ${getScoreColor(data.walkability.score)}`}
             />
           }
+          description="Daily amenities within walking range"
         />
         <LocationScoreCard
           label="Schools"
@@ -180,13 +188,56 @@ export function LocationIntelligencePanel({
               className={`h-4 w-4 ${getScoreColor(data.schools.score)}`}
             />
           }
+          description="School count and level diversity"
         />
+      </div>
+
+      <div className="grid grid-cols-3 gap-3 text-[10px] text-muted-foreground">
+        <div className="inline-flex items-center gap-1">
+          <span>Transit method</span>
+          <InfoTooltip
+            title="Transit scoring"
+            description={SCORE_METHODOLOGY.transit}
+          />
+        </div>
+        <div className="inline-flex items-center gap-1">
+          <span>Walkability method</span>
+          <InfoTooltip
+            title="Walkability scoring"
+            description={SCORE_METHODOLOGY.walkability}
+          />
+        </div>
+        <div className="inline-flex items-center gap-1">
+          <span>Schools method</span>
+          <InfoTooltip
+            title="Schools scoring"
+            description={SCORE_METHODOLOGY.schools}
+          />
+        </div>
       </div>
 
       {/* Risk badges */}
       <div className="grid grid-cols-2 gap-3">
-        <RiskBadge level={data.flood_risk.level} label="Flood Risk" />
-        <RiskBadge level={data.noise.level} label="Noise Level" />
+        <div className="space-y-1">
+          <div className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+            <span>Flood method</span>
+            <InfoTooltip
+              title="Flood risk method"
+              description={SCORE_METHODOLOGY.floodRisk}
+            />
+          </div>
+          <RiskBadge level={data.flood_risk.level} label="Flood Risk" />
+        </div>
+        <div className="space-y-1">
+          <div className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+            <span>Noise method</span>
+            <InfoTooltip
+              title="Noise method"
+              description={SCORE_METHODOLOGY.noise}
+            />
+          </div>
+          <RiskBadge level={data.noise.level} label="Noise Level" />
+        </div>
       </div>
 
       {/* Details */}
