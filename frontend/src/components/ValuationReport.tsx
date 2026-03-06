@@ -29,6 +29,7 @@ import {
   Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { SourceTooltip } from "@/components/ui/source-tooltip";
 import type {
   ValuationResponse,
@@ -37,6 +38,7 @@ import type {
 } from "@/lib/api";
 import { LocationIntelligencePanel } from "@/components/LocationIntelligence";
 import { DATA_SOURCES } from "@/lib/dataSources";
+import { SCORE_METHODOLOGY } from "@/lib/scoreMethodology";
 
 interface ValuationReportProps {
   valuation: ValuationResponse;
@@ -657,6 +659,10 @@ export function ValuationReport({
               <p className="text-xs text-muted-foreground mb-1 inline-flex items-center justify-center gap-1">
                 Price Trend
                 <SourceTooltip source={DATA_SOURCES.districtTrend} />
+                <InfoTooltip
+                  title="Price trend method"
+                  description={SCORE_METHODOLOGY.districtTrend}
+                />
               </p>
               <p
                 className={cn(
