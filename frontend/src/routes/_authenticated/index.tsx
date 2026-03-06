@@ -12,6 +12,8 @@ import { ExplorerPanel } from "@/components/explorer/ExplorerPanel";
 import { OverlayControls } from "@/components/explorer/OverlayControls";
 import { FloatingPanel } from "@/components/ui/floating-panel";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { SourceTooltip } from "@/components/ui/source-tooltip";
+import { DATA_SOURCES } from "@/lib/dataSources";
 
 export const Route = createFileRoute("/_authenticated/")({
   component: PropertyExplorer,
@@ -186,7 +188,41 @@ function PropertyExplorer() {
                 <MapLegendContent
                   showHouses={true}
                   showPOIs={explorer.overlays.pois}
+                  showTransit={explorer.overlays.transitRail}
                 />
+              </div>
+              {explorer.overlays.h3Hexagons && explorer.h3Data && (
+                <>
+                  <div className="h-px bg-border/60" />
+                  <div className="space-y-2">
+                    <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                      H3 Heatmap
+                    </div>
+                    <H3LegendContent
+                      metric={explorer.h3Metric}
+                      minValue={explorer.h3Data.min_value}
+                      maxValue={explorer.h3Data.max_value}
+                    />
+                  </div>
+                </>
+              )}
+              <div className="h-px bg-border/60" />
+              <div className="space-y-2">
+                <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  Sources
+                </div>
+                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                  <span>House prices</span>
+                  <SourceTooltip source={DATA_SOURCES.housePrices} />
+                </div>
+                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                  <span>POIs</span>
+                  <SourceTooltip source={DATA_SOURCES.osmPoi} />
+                </div>
+                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                  <span>Transit</span>
+                  <SourceTooltip source={DATA_SOURCES.railGtfs} />
+                </div>
               </div>
             </div>
           </FloatingPanel>
@@ -333,11 +369,13 @@ function PriceLegendContent({
 function MapLegendContent({
   showHouses,
   showPOIs,
+  showTransit,
 }: {
   showHouses: boolean;
   showPOIs: boolean;
+  showTransit: boolean;
 }) {
-  if (!showHouses && !showPOIs) return null;
+  if (!showHouses && !showPOIs && !showTransit) return null;
 
   const POI_TYPES = [
     { color: "#8B5CF6", label: "School" },
@@ -386,6 +424,65 @@ function MapLegendContent({
           </div>
         </div>
       )}
+      {showTransit && (
+        <div className="space-y-1.5">
+          <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+            Transit Lines
+          </div>
+          <div className="space-y-1 text-[9px] text-muted-foreground">
+            <div className="flex items-center justify-between">
+              <span className="inline-flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-lime-500" />BTS
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-blue-600" />MRT
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="inline-flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-red-600" />Rail/ARL
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-zinc-500" />Other
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function H3LegendContent({
+  metric,
+  minValue,
+  maxValue,
+}: {
+  metric: string;
+  minValue: number;
+  maxValue: number;
+}) {
+  const metricLabel = metric
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+
+  const source = metric.startsWith("poi_")
+    ? DATA_SOURCES.osmPoi
+    : metric.startsWith("transit_")
+      ? DATA_SOURCES.railGtfs
+      : DATA_SOURCES.housePrices;
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+        <span className="uppercase tracking-wider font-medium">{metricLabel}</span>
+        <SourceTooltip source={source} />
+      </div>
+      <div className="h-2 rounded-full bg-gradient-to-r from-blue-500 via-yellow-400 to-red-500" />
+      <div className="flex justify-between text-[9px] text-muted-foreground">
+        <span>{minValue.toLocaleString("th-TH", { maximumFractionDigits: 2 })}</span>
+        <span>{maxValue.toLocaleString("th-TH", { maximumFractionDigits: 2 })}</span>
+      </div>
     </div>
   );
 }

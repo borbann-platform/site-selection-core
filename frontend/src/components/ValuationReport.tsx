@@ -29,12 +29,14 @@ import {
   Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SourceTooltip } from "@/components/ui/source-tooltip";
 import type {
   ValuationResponse,
   PropertyUploadRequest,
   LocationIntelligenceResponse,
 } from "@/lib/api";
 import { LocationIntelligencePanel } from "@/components/LocationIntelligence";
+import { DATA_SOURCES } from "@/lib/dataSources";
 
 interface ValuationReportProps {
   valuation: ValuationResponse;
@@ -608,13 +610,34 @@ export function ValuationReport({
           onToggle={() => setShowInsights(!showInsights)}
         />
         {showInsights && (
-          <div className="mt-4 grid grid-cols-3 gap-4">
+          <div className="mt-4 space-y-3">
+            <div className="rounded-lg border border-border bg-muted/40 p-2">
+              <div className="text-[11px] font-medium text-muted-foreground mb-1">
+                Trend color legend
+              </div>
+              <div className="flex items-center gap-4 text-[10px] text-muted-foreground">
+                <span className="inline-flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" />Uptrend
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-red-500" />Downtrend
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-brand" />District benchmark
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
             <div className="bg-muted/50 rounded-lg p-4 text-center">
               <BarChart3
                 size={20}
                 className="text-brand mx-auto mb-2"
               />
-              <p className="text-xs text-muted-foreground mb-1">District Avg.</p>
+              <p className="text-xs text-muted-foreground mb-1 inline-flex items-center justify-center gap-1">
+                District Avg.
+                <SourceTooltip source={DATA_SOURCES.housePrices} />
+              </p>
               <p className="text-lg font-bold text-foreground">
                 {formatPrice(valuation.market_insights.district_avg_price)}
               </p>
@@ -631,7 +654,10 @@ export function ValuationReport({
                   className="text-destructive mx-auto mb-2"
                 />
               )}
-              <p className="text-xs text-muted-foreground mb-1">Price Trend</p>
+              <p className="text-xs text-muted-foreground mb-1 inline-flex items-center justify-center gap-1">
+                Price Trend
+                <SourceTooltip source={DATA_SOURCES.districtTrend} />
+              </p>
               <p
                 className={cn(
                   "text-lg font-bold",
@@ -649,6 +675,7 @@ export function ValuationReport({
               <p className="text-lg font-bold text-foreground">
                 {valuation.market_insights.days_on_market_avg}
               </p>
+            </div>
             </div>
           </div>
         )}
