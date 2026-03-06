@@ -8,6 +8,8 @@ import {
   Volume2,
   MapPin,
 } from "lucide-react";
+import { SourceTooltip } from "@/components/ui/source-tooltip";
+import { DATA_SOURCES } from "@/lib/dataSources";
 
 interface LocationScoreCardProps {
   label: string;
@@ -128,6 +130,30 @@ export function LocationIntelligencePanel({
         </div>
       </div>
 
+      <div className="rounded-lg border border-border bg-muted/40 p-2">
+        <div className="text-[11px] font-medium text-muted-foreground mb-1">
+          Score color legend
+        </div>
+        <div className="grid grid-cols-2 gap-1 text-[10px] text-muted-foreground">
+          <span className="inline-flex items-center gap-1">
+            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            80-100 strong
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <span className="h-2 w-2 rounded-full bg-amber-500" />
+            60-79 moderate
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <span className="h-2 w-2 rounded-full bg-orange-500" />
+            40-59 watch
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <span className="h-2 w-2 rounded-full bg-red-500" />
+            0-39 limited
+          </span>
+        </div>
+      </div>
+
       {/* Score cards grid */}
       <div className="grid grid-cols-3 gap-3">
         <LocationScoreCard
@@ -175,6 +201,7 @@ export function LocationIntelligencePanel({
               {data.transit.nearest_rail.name} -{" "}
               {Math.round(data.transit.nearest_rail.distance_m)}m
             </span>
+            <SourceTooltip source={DATA_SOURCES.railGtfs} />
           </div>
         )}
 
@@ -194,6 +221,7 @@ export function LocationIntelligencePanel({
             <span className="text-muted-foreground">
               {data.schools.total_within_2km} schools within 2km
             </span>
+            <SourceTooltip source={DATA_SOURCES.osmPoi} />
           </div>
         )}
 
@@ -215,6 +243,7 @@ export function LocationIntelligencePanel({
               {data.flood_risk.district_warnings.length} flood warning zones in
               district
             </span>
+            <SourceTooltip source={DATA_SOURCES.floodRisk} />
           </div>
         )}
 
@@ -225,6 +254,7 @@ export function LocationIntelligencePanel({
             <span className="text-muted-foreground">
               Major road {Math.round(data.noise.nearest_major_road_m)}m away
             </span>
+            <SourceTooltip source={DATA_SOURCES.noiseRoads} />
           </div>
         )}
       </div>

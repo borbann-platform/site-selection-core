@@ -20,6 +20,8 @@ import {
   CollapsibleContent,
 } from "@/components/ui/collapsible";
 import type { OverlayState, OpenSections } from "@/hooks/usePropertyExplorer";
+import { SourceTooltip } from "@/components/ui/source-tooltip";
+import { DATA_SOURCES } from "@/lib/dataSources";
 
 // ---- LayerToggle (local to this module) ----
 
@@ -233,43 +235,67 @@ export function ExplorerPanel({
                 }
               />
               {overlays.h3Hexagons && (
-                <select
-                  value={h3Metric}
-                  onChange={(e) => setH3Metric(e.target.value)}
-                  className="w-full px-2 py-2 min-h-[44px] text-xs bg-muted rounded text-foreground border border-border mt-1"
-                >
-                  <optgroup label="POI Counts">
-                    <option value="poi_total">Total POIs</option>
-                    <option value="poi_school">Schools</option>
-                    <option value="poi_transit_stop">Transit Stops</option>
-                    <option value="poi_restaurant">Restaurants</option>
-                    <option value="poi_hospital">Hospitals</option>
-                    <option value="poi_cafe">Cafes</option>
-                    <option value="poi_bank">Banks</option>
-                    <option value="poi_mall">Malls</option>
-                    <option value="poi_park">Parks</option>
-                    <option value="poi_temple">Temples</option>
-                  </optgroup>
-                  <optgroup label="Property">
-                    <option value="avg_price">Avg Price</option>
-                    <option value="median_price">Median Price</option>
-                    <option value="property_count">Property Count</option>
-                    <option value="avg_building_area">
-                      Avg Building Area
-                    </option>
-                    <option value="avg_land_area">Avg Land Area</option>
-                    <option value="avg_building_age">
-                      Avg Building Age
-                    </option>
-                  </optgroup>
-                  <optgroup label="Transit">
-                    <option value="transit_total">
-                      Transit Accessibility
-                    </option>
-                    <option value="transit_bangkok_gtfs">Bangkok GTFS</option>
-                    <option value="transit_longdomap_bus">Bus Routes</option>
-                  </optgroup>
-                </select>
+                <div className="space-y-2 mt-1">
+                  <select
+                    value={h3Metric}
+                    onChange={(e) => setH3Metric(e.target.value)}
+                    className="w-full px-2 py-2 min-h-[44px] text-xs bg-muted rounded text-foreground border border-border"
+                  >
+                    <optgroup label="POI Counts">
+                      <option value="poi_total">Total POIs</option>
+                      <option value="poi_school">Schools</option>
+                      <option value="poi_transit_stop">Transit Stops</option>
+                      <option value="poi_restaurant">Restaurants</option>
+                      <option value="poi_hospital">Hospitals</option>
+                      <option value="poi_cafe">Cafes</option>
+                      <option value="poi_bank">Banks</option>
+                      <option value="poi_mall">Malls</option>
+                      <option value="poi_park">Parks</option>
+                      <option value="poi_temple">Temples</option>
+                    </optgroup>
+                    <optgroup label="Property">
+                      <option value="avg_price">Avg Price</option>
+                      <option value="median_price">Median Price</option>
+                      <option value="property_count">Property Count</option>
+                      <option value="avg_building_area">
+                        Avg Building Area
+                      </option>
+                      <option value="avg_land_area">Avg Land Area</option>
+                      <option value="avg_building_age">
+                        Avg Building Age
+                      </option>
+                    </optgroup>
+                    <optgroup label="Transit">
+                      <option value="transit_total">
+                        Transit Accessibility
+                      </option>
+                      <option value="transit_bangkok_gtfs">Bangkok GTFS</option>
+                      <option value="transit_longdomap_bus">Bus Routes</option>
+                    </optgroup>
+                  </select>
+                  <div className="rounded-md border border-border bg-muted/30 p-2">
+                    <div className="text-[10px] font-medium text-muted-foreground mb-1">
+                      Heatmap color legend
+                    </div>
+                    <div className="h-2 rounded-full bg-gradient-to-r from-blue-500 via-yellow-400 to-red-500" />
+                    <div className="mt-1 flex items-center justify-between text-[9px] text-muted-foreground">
+                      <span>Low</span>
+                      <span>High</span>
+                    </div>
+                    <div className="mt-1 flex items-center gap-1 text-[9px] text-muted-foreground">
+                      <span>Source:</span>
+                      <SourceTooltip
+                        source={
+                          h3Metric.startsWith("poi_")
+                            ? DATA_SOURCES.osmPoi
+                            : h3Metric.startsWith("transit_")
+                              ? DATA_SOURCES.railGtfs
+                              : DATA_SOURCES.housePrices
+                        }
+                      />
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
           </CollapsibleContent>
