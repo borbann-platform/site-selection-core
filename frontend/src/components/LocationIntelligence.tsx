@@ -17,8 +17,7 @@ interface LocationScoreCardProps {
   label: string;
   score: number;
   icon: React.ReactNode;
-  description?: string;
-  color?: string;
+  methodology: string;
 }
 
 const getScoreColor = (score: number): string => {
@@ -39,7 +38,7 @@ export function LocationScoreCard({
   label,
   score,
   icon,
-  description,
+  methodology,
 }: LocationScoreCardProps) {
   const colorClass = getScoreColor(score);
   const bgClass = getScoreBg(score);
@@ -48,10 +47,10 @@ export function LocationScoreCard({
     <div className="flex flex-col items-center gap-2 rounded-lg border border-border bg-muted/50 p-3">
       <div className={`rounded-full p-2 ${bgClass}`}>{icon}</div>
       <div className={`text-2xl font-bold ${colorClass}`}>{score}</div>
-      <div className="text-xs font-medium text-muted-foreground">{label}</div>
-      {description && (
-        <div className="text-center text-xs text-muted-foreground">{description}</div>
-      )}
+      <div className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
+        <span>{label}</span>
+        <InfoTooltip title={`${label} scoring`} description={methodology} />
+      </div>
     </div>
   );
 }
@@ -168,7 +167,7 @@ export function LocationIntelligencePanel({
           icon={
             <Train className={`h-4 w-4 ${getScoreColor(data.transit.score)}`} />
           }
-          description="Rail + bus + ferry accessibility"
+          methodology={SCORE_METHODOLOGY.transit}
         />
         <LocationScoreCard
           label="Walkability"
@@ -178,7 +177,7 @@ export function LocationIntelligencePanel({
               className={`h-4 w-4 ${getScoreColor(data.walkability.score)}`}
             />
           }
-          description="Daily amenities within walking range"
+          methodology={SCORE_METHODOLOGY.walkability}
         />
         <LocationScoreCard
           label="Schools"
@@ -188,53 +187,23 @@ export function LocationIntelligencePanel({
               className={`h-4 w-4 ${getScoreColor(data.schools.score)}`}
             />
           }
-          description="School count and level diversity"
+          methodology={SCORE_METHODOLOGY.schools}
         />
-      </div>
-
-      <div className="grid grid-cols-3 gap-3 text-[10px] text-muted-foreground">
-        <div className="inline-flex items-center gap-1">
-          <span>Transit method</span>
-          <InfoTooltip
-            title="Transit scoring"
-            description={SCORE_METHODOLOGY.transit}
-          />
-        </div>
-        <div className="inline-flex items-center gap-1">
-          <span>Walkability method</span>
-          <InfoTooltip
-            title="Walkability scoring"
-            description={SCORE_METHODOLOGY.walkability}
-          />
-        </div>
-        <div className="inline-flex items-center gap-1">
-          <span>Schools method</span>
-          <InfoTooltip
-            title="Schools scoring"
-            description={SCORE_METHODOLOGY.schools}
-          />
-        </div>
       </div>
 
       {/* Risk badges */}
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
           <div className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
-            <span>Flood method</span>
-            <InfoTooltip
-              title="Flood risk method"
-              description={SCORE_METHODOLOGY.floodRisk}
-            />
+            <span>Flood Risk</span>
+            <InfoTooltip title="Flood risk method" description={SCORE_METHODOLOGY.floodRisk} />
           </div>
           <RiskBadge level={data.flood_risk.level} label="Flood Risk" />
         </div>
         <div className="space-y-1">
           <div className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
-            <span>Noise method</span>
-            <InfoTooltip
-              title="Noise method"
-              description={SCORE_METHODOLOGY.noise}
-            />
+            <span>Noise Level</span>
+            <InfoTooltip title="Noise method" description={SCORE_METHODOLOGY.noise} />
           </div>
           <RiskBadge level={data.noise.level} label="Noise Level" />
         </div>
