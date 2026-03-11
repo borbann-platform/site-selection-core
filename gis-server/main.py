@@ -13,6 +13,7 @@ from src.routes.hgt_prediction import router as hgt_prediction_router
 from src.routes.house_prices import router as house_prices_router
 from src.routes.invitations import router as invitations_router
 from src.routes.location_intelligence import router as location_intelligence_router
+from src.routes.listings import router as listings_router
 from src.routes.organizations import router as organizations_router
 from src.routes.price_prediction import router as price_prediction_router
 from src.routes.projects import router as projects_router
@@ -57,6 +58,7 @@ app.include_router(catchment_router, prefix="/api/v1", tags=["Catchment Analysis
 app.include_router(projects_router, prefix="/api/v1", tags=["Projects"])
 app.include_router(analytics_router, prefix="/api/v1", tags=["Analytics"])
 app.include_router(house_prices_router, prefix="/api/v1", tags=["House Prices"])
+app.include_router(listings_router, prefix="/api/v1", tags=["Listings"])
 app.include_router(chat_router, prefix="/api/v1", tags=["Chat"])
 app.include_router(chat_sessions_router, prefix="/api/v1", tags=["Chat Sessions"])
 app.include_router(
