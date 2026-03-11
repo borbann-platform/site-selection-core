@@ -16,6 +16,14 @@ export const DATA_SOURCES = {
     url: "https://github.com/borbann-platform/site-selection-core/blob/main/gis-server/data/DATA_CATALOG.md",
     status: "linked",
   },
+  scrapedListings: {
+    id: "scraped-listings",
+    label: "Scraped listings",
+    citation:
+      "Baania/Hipflat scraped project listings with optional MinIO image sync",
+    url: "https://github.com/borbann-platform/site-selection-core/blob/main/gis-server/docs/data_processing.md",
+    status: "linked",
+  },
   osmPoi: {
     id: "osm-poi",
     label: "OSM POIs",

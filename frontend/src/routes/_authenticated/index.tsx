@@ -216,6 +216,10 @@ function PropertyExplorer() {
                   <SourceTooltip source={DATA_SOURCES.housePrices} />
                 </div>
                 <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                  <span>Scraped listings</span>
+                  <SourceTooltip source={DATA_SOURCES.scrapedListings} />
+                </div>
+                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                   <span>POIs</span>
                   <SourceTooltip source={DATA_SOURCES.osmPoi} />
                 </div>
