@@ -1,11 +1,21 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
-import { X, Home, MessageSquarePlus, ArrowRight, MapPinned } from "lucide-react";
+import {
+  X,
+  Home,
+  MessageSquarePlus,
+  ArrowRight,
+  MapPinned,
+  ImageOff,
+} from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
 interface PropertyData {
+  listing_key?: string;
+  source_type?: "house_price" | "scraped_project";
   id?: string | number;
   house_ref?: string;
   locator?: string;
+  title?: string;
   total_price?: number;
   building_area?: number;
   amphur?: string;
@@ -15,6 +25,8 @@ interface PropertyData {
   building_age?: number;
   lat?: number;
   lon?: number;
+  image_url?: string;
+  detail_url?: string;
 }
 
 interface PropertyPopupProps {
@@ -139,15 +151,15 @@ export function PropertyPopup({
         transform: popupPlacement.transform,
       }}
     >
-      <div
-        ref={panelRef}
-        className="bg-card/95 border border-border rounded-xl shadow-2xl shadow-black/25 backdrop-blur-lg overflow-hidden min-w-72 max-w-80"
-      >
+        <div
+          ref={panelRef}
+          className="bg-card/95 border border-border rounded-xl shadow-2xl shadow-black/25 backdrop-blur-lg overflow-hidden min-w-72 max-w-80"
+        >
         {/* Header */}
         <div className="flex items-center gap-2 px-3 py-2 bg-brand/10 border-b border-border">
           <Home size={14} className="text-brand" />
           <span className="flex-1 font-bold text-sm text-brand truncate">
-            {property.building_style_desc || "Property"}
+            {property.title || property.building_style_desc || "Property"}
           </span>
           <button
             type="button"
@@ -160,6 +172,29 @@ export function PropertyPopup({
 
         {/* Content */}
         <div className="p-3">
+          {property.image_url ? (
+            <img
+              src={property.image_url}
+              alt={property.title || property.building_style_desc || "Property"}
+              className="mb-3 h-28 w-full rounded-md border border-border/60 object-cover"
+              onError={(event) => {
+                event.currentTarget.onerror = null;
+                event.currentTarget.src =
+                  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='240'%3E%3Crect width='100%25' height='100%25' fill='%231f2937'/%3E%3Ctext x='50%25' y='50%25' fill='%23d1d5db' font-size='18' text-anchor='middle' dominant-baseline='middle'%3EImage unavailable%3C/text%3E%3C/svg%3E";
+              }}
+            />
+          ) : property.source_type === "scraped_project" ? (
+            <div className="mb-3 flex h-28 w-full items-center justify-center rounded-md border border-dashed border-border/60 bg-muted/40 text-xs text-muted-foreground">
+              <ImageOff size={14} className="mr-1" />
+              Image unavailable
+            </div>
+          ) : null}
+
+          {property.source_type && (
+            <div className="mb-2 inline-flex rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              {property.source_type === "scraped_project" ? "Scraped Listing" : "Appraisal"}
+            </div>
+          )}
           <div className="text-lg font-bold text-foreground mb-2">
             {price !== undefined ? formatPrice(price) : "Price unavailable"}
           </div>
@@ -196,7 +231,7 @@ export function PropertyPopup({
           )}
 
           {/* View Details button - only show if property has ID */}
-          {property.id && (
+          {property.id && property.source_type !== "scraped_project" && (
             <Link
               to="/property/$propertyId"
               params={{ propertyId: String(property.id) }}

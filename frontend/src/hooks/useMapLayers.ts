@@ -30,7 +30,7 @@ interface TransitLinesData {
 }
 
 interface UseMapLayersParams {
-  housePrices: HousePricesData | undefined;
+  listings: HousePricesData | undefined;
   schools: SchoolsData | undefined;
   transitLines: TransitLinesData | undefined;
   h3Data: H3HexagonResponse | undefined;
@@ -44,7 +44,7 @@ interface UseMapLayersParams {
 }
 
 export function useMapLayers({
-  housePrices,
+  listings,
   schools,
   transitLines,
   h3Data,
@@ -74,11 +74,11 @@ export function useMapLayers({
     const layerList = [];
 
     // Primary: House Prices Layer (always shown when data available)
-    if (housePrices && zoomTier === "low") {
+    if (listings && zoomTier === "low") {
       layerList.push(
         new IconLayer({
           id: "house-prices-icon",
-          data: housePrices.items,
+          data: listings.items,
           iconAtlas: iconAtlas.atlas,
           iconMapping: iconAtlas.mapping,
           getIcon: () => "home",
@@ -130,8 +130,8 @@ export function useMapLayers({
 
       layerList.push(
         new MVTLayer({
-          id: "house-prices-mvt",
-          data: `${API_URL}/house-prices/tile/{z}/{x}/{y}${mvtQueryString}`,
+          id: "listings-mvt",
+          data: `${API_URL}/listings/tile/{z}/{x}/{y}${mvtQueryString}`,
           minZoom: 13,
           maxZoom: 20,
           pickable: true,
@@ -411,7 +411,7 @@ export function useMapLayers({
 
     return layerList;
   }, [
-    housePrices,
+    listings,
     schools,
     transitLines,
     h3Data,
