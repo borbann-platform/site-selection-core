@@ -1,5 +1,5 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
-import { X, Home, MessageSquarePlus, ArrowRight } from "lucide-react";
+import { X, Home, MessageSquarePlus, ArrowRight, MapPinned } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
 interface PropertyData {
@@ -52,6 +52,14 @@ export function PropertyPopup({
   const propertyReference =
     property?.house_ref ||
     (property?.id !== undefined ? `house:${property.id}` : undefined);
+  const hasCoordinates =
+    typeof property?.lat === "number" &&
+    Number.isFinite(property.lat) &&
+    typeof property?.lon === "number" &&
+    Number.isFinite(property.lon);
+  const googleMapsUrl = hasCoordinates
+    ? `https://www.google.com/maps/search/?api=1&query=${property.lat},${property.lon}`
+    : null;
 
   const handleAddToChat = () => {
     if (!property) return;
@@ -197,6 +205,18 @@ export function PropertyPopup({
               <ArrowRight size={14} />
               <span>View Details</span>
             </Link>
+          )}
+
+          {googleMapsUrl && (
+            <a
+              href={googleMapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 border border-border bg-background hover:bg-muted text-foreground text-xs font-medium rounded-lg transition-colors"
+            >
+              <MapPinned size={14} />
+              <span>Open in Google Maps</span>
+            </a>
           )}
 
           {/* Add to Chat button */}
