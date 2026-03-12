@@ -213,6 +213,9 @@ uv run python -m scripts.etl.load_scraped_projects --include-raw
 # Sync pending/failed image URLs to MinIO object storage
 # (requires minio Python client: `uv add minio` once)
 uv run python -m scripts.etl.sync_images_to_minio
+
+# Optional: run in repeated batches until queue is reduced
+uv run python -m scripts.etl.sync_images_to_minio_pipeline --with-minio-dep --batch-limit 1000 --max-rounds 20
 ```
 
 ### Demographics
