@@ -30,7 +30,7 @@ interface TransitLinesData {
 }
 
 interface UseMapLayersParams {
-  housePrices: HousePricesData | undefined;
+  listings: HousePricesData | undefined;
   schools: SchoolsData | undefined;
   transitLines: TransitLinesData | undefined;
   h3Data: H3HexagonResponse | undefined;
@@ -44,7 +44,7 @@ interface UseMapLayersParams {
 }
 
 export function useMapLayers({
-  housePrices,
+  listings,
   schools,
   transitLines,
   h3Data,
@@ -74,11 +74,11 @@ export function useMapLayers({
     const layerList = [];
 
     // Primary: House Prices Layer (always shown when data available)
-    if (housePrices && zoomTier === "low") {
+    if (listings && zoomTier === "low") {
       layerList.push(
         new IconLayer({
           id: "house-prices-icon",
-          data: housePrices.items,
+          data: listings.items,
           iconAtlas: iconAtlas.atlas,
           iconMapping: iconAtlas.mapping,
           getIcon: () => "home",
@@ -120,18 +120,20 @@ export function useMapLayers({
         mvtParams.set("min_price", String(propertyFilters.minPrice));
       if (propertyFilters.maxPrice !== undefined)
         mvtParams.set("max_price", String(propertyFilters.maxPrice));
-      if (propertyFilters.minArea !== undefined)
+      if (propertyFilters.minArea !== undefined) {
         mvtParams.set("min_area", String(propertyFilters.minArea));
-      if (propertyFilters.maxArea !== undefined)
+      }
+      if (propertyFilters.maxArea !== undefined) {
         mvtParams.set("max_area", String(propertyFilters.maxArea));
+      }
       const mvtQueryString = mvtParams.toString()
         ? `?${mvtParams.toString()}`
         : "";
 
       layerList.push(
         new MVTLayer({
-          id: "house-prices-mvt",
-          data: `${API_URL}/house-prices/tile/{z}/{x}/{y}${mvtQueryString}`,
+          id: "listings-mvt",
+          data: `${API_URL}/listings/tile/{z}/{x}/{y}${mvtQueryString}`,
           minZoom: 13,
           maxZoom: 20,
           pickable: true,
@@ -143,7 +145,13 @@ export function useMapLayers({
               id: `${props.id}-icon`,
               iconAtlas: iconAtlas.atlas,
               iconMapping: iconAtlas.mapping,
-              getIcon: () => "home",
+              getIcon: (d: DeckGLObject) => {
+                const sourceType =
+                  typeof d.properties?.source_type === "string"
+                    ? d.properties.source_type
+                    : "house_price";
+                return sourceType === "condo_project" ? "building" : "home";
+              },
               getPosition: (d: DeckGLObject) => {
                 const coords = d.geometry?.coordinates;
                 return [Number(coords?.[0] ?? 0), Number(coords?.[1] ?? 0)] as [
@@ -411,7 +419,7 @@ export function useMapLayers({
 
     return layerList;
   }, [
-    housePrices,
+    listings,
     schools,
     transitLines,
     h3Data,

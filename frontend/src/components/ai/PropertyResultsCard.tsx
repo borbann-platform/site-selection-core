@@ -12,6 +12,8 @@ import { cn } from "@/lib/utils";
 
 export interface PropertyResult {
   id: string | number;
+  listing_key?: string;
+  source_type?: "house_price" | "scraped_project" | "market_listing" | "condo_project";
   price: number;
   district: string;
   area?: number;
@@ -174,15 +176,27 @@ function PropertyMiniCard({
       </div>
 
       {/* View link - appears on hover */}
-      <Link
-        to="/property/$propertyId"
-        params={{ propertyId: String(property.id) }}
-        onClick={(e) => e.stopPropagation()}
-        className="mt-1 flex items-center gap-1 text-[10px] text-brand opacity-0 group-hover:opacity-100 transition-opacity"
-      >
-        View details
-        <ExternalLink size={10} />
-      </Link>
+      {property.source_type && property.source_type !== "house_price" && property.listing_key ? (
+        <Link
+          to="/listing/$listingKey"
+          params={{ listingKey: property.listing_key }}
+          onClick={(e) => e.stopPropagation()}
+          className="mt-1 flex items-center gap-1 text-[10px] text-brand opacity-0 group-hover:opacity-100 transition-opacity"
+        >
+          View details
+          <ExternalLink size={10} />
+        </Link>
+      ) : (
+        <Link
+          to="/property/$propertyId"
+          params={{ propertyId: String(property.id) }}
+          onClick={(e) => e.stopPropagation()}
+          className="mt-1 flex items-center gap-1 text-[10px] text-brand opacity-0 group-hover:opacity-100 transition-opacity"
+        >
+          View details
+          <ExternalLink size={10} />
+        </Link>
+      )}
     </button>
   );
 }
@@ -207,6 +221,14 @@ export function parsePropertyResults(content: string): PropertyResult[] | null {
     if (Array.isArray(data)) {
       return data.map((item) => ({
         id: item.id || `prop-${Math.random().toString(36).slice(2, 8)}`,
+        listing_key:
+          typeof item.listing_key === "string" ? item.listing_key : undefined,
+        source_type:
+          item.source_type === "scraped_project" ||
+          item.source_type === "market_listing" ||
+          item.source_type === "condo_project"
+            ? item.source_type
+            : "house_price",
         price: Number(item.price) || Number(item.total_price) || 0,
         district: item.district || item.amphur || "Unknown",
         area: item.area || item.building_area,

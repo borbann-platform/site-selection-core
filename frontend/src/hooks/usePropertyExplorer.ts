@@ -36,9 +36,16 @@ export interface OpenSections {
 }
 
 export interface SelectedProperty {
+  listing_key?: string;
+  source_type?:
+    | "house_price"
+    | "scraped_project"
+    | "market_listing"
+    | "condo_project";
   id?: string | number;
   house_ref?: string;
   locator?: string;
+  title?: string;
   total_price?: number;
   building_area?: number;
   amphur?: string;
@@ -48,11 +55,24 @@ export interface SelectedProperty {
   building_age?: number;
   lat?: number;
   lon?: number;
+  image_url?: string;
+  detail_url?: string;
 }
 
 export interface DeckGLObject {
+  listing_key?: string;
+  source_type?:
+    | "house_price"
+    | "scraped_project"
+    | "market_listing"
+    | "condo_project";
+  source?: string;
+  source_id?: string;
   lon?: number;
   lat?: number;
+  title?: string | null;
+  image_url?: string | null;
+  detail_url?: string | null;
   total_price?: number | null;
   building_area?: number | null;
   amphur?: string | null;
@@ -143,10 +163,10 @@ export function usePropertyExplorer(districtFromUrl?: string) {
 
   // ---- Data fetching ----
 
-  const { data: housePrices } = useQuery({
-    queryKey: ["housePrices", propertyFilters],
+  const { data: listings } = useQuery({
+    queryKey: ["listings", propertyFilters],
     queryFn: () =>
-      api.getHousePrices({
+      api.getListings({
         amphur: propertyFilters.district || undefined,
         building_style: propertyFilters.buildingStyle || undefined,
         min_price: propertyFilters.minPrice,
@@ -433,6 +453,24 @@ export function usePropertyExplorer(districtFromUrl?: string) {
         const obj = info.object;
         const props = obj.properties || {};
         const coords = obj.geometry?.coordinates;
+        const sourceTypeRaw =
+          typeof obj.source_type === "string"
+            ? obj.source_type
+            : typeof props.source_type === "string"
+              ? props.source_type
+              : "house_price";
+        const sourceType =
+          sourceTypeRaw === "scraped_project" ||
+          sourceTypeRaw === "market_listing" ||
+          sourceTypeRaw === "condo_project"
+            ? sourceTypeRaw
+            : "house_price";
+        const listingKey =
+          typeof obj.listing_key === "string"
+            ? obj.listing_key
+            : typeof props.listing_key === "string"
+              ? props.listing_key
+              : undefined;
         const coordLon = toFiniteNumber(coords?.[0]);
         const coordLat = toFiniteNumber(coords?.[1]);
         const totalPrice =
@@ -455,7 +493,7 @@ export function usePropertyExplorer(districtFromUrl?: string) {
         }
 
         // Prefer feature properties id; MVT object id can be an internal deck id.
-        const rawId = props.id ?? obj.id;
+        const rawId = props.id || obj.id;
         const hasValidId =
           typeof rawId === "string" || typeof rawId === "number";
         const hasPropertySignals =
@@ -469,15 +507,30 @@ export function usePropertyExplorer(districtFromUrl?: string) {
           return;
         }
 
-        const houseRef = resolveHouseReference(
-          hasValidId ? rawId : undefined,
-          coordLat,
-          coordLon
-        );
+        const houseRef =
+          sourceType === "house_price"
+            ? resolveHouseReference(
+                hasValidId ? rawId : undefined,
+                coordLat,
+                coordLon
+              )
+            : undefined;
         const propertyData: SelectedProperty = {
+          listing_key: listingKey,
+          source_type: sourceType,
           id: hasValidId ? rawId : undefined,
           house_ref: houseRef,
-          locator: hasValidId ? `house:${rawId}` : undefined,
+          locator: listingKey
+            ? `listing:${listingKey}`
+            : sourceType === "house_price" && hasValidId
+              ? `house:${rawId}`
+              : undefined,
+          title:
+            typeof obj.title === "string"
+              ? obj.title
+              : typeof props.title === "string"
+                ? String(props.title)
+                : undefined,
           total_price: totalPrice,
           building_area: buildingArea,
           amphur: obj.amphur || String(props.amphur || ""),
@@ -489,9 +542,26 @@ export function usePropertyExplorer(districtFromUrl?: string) {
           building_age: buildingAge,
           lat: obj.lat ?? coordLat,
           lon: obj.lon ?? coordLon,
+          image_url:
+            typeof obj.image_url === "string"
+              ? obj.image_url
+              : typeof props.image_url === "string"
+                ? String(props.image_url)
+                : undefined,
+          detail_url:
+            typeof obj.detail_url === "string"
+              ? obj.detail_url
+              : typeof props.detail_url === "string"
+                ? String(props.detail_url)
+                : undefined,
         };
 
-        if (propertyData.total_price || propertyData.id || propertyData.house_ref) {
+        if (
+          propertyData.total_price ||
+          propertyData.id ||
+          propertyData.house_ref ||
+          propertyData.listing_key
+        ) {
           setSelectedProperty(propertyData);
           setPopupPosition({
             x: info.x || 0,
@@ -506,18 +576,30 @@ export function usePropertyExplorer(districtFromUrl?: string) {
   const handleAddPropertyToChat = useCallback(
     (property: {
       id?: string | number;
+      listing_key?: string;
+      source_type?:
+        | "house_price"
+        | "scraped_project"
+        | "market_listing"
+        | "condo_project";
       house_ref?: string;
       locator?: string;
+      title?: string;
       total_price?: number;
       building_style_desc?: string;
       amphur?: string;
       lat?: number;
       lon?: number;
+      image_url?: string;
+      detail_url?: string;
     }) => {
-      const houseRef =
-        property.house_ref ||
-        resolveHouseReference(property.id, property.lat, property.lon);
-      if (!houseRef) {
+      const isHouse = property.source_type === "house_price";
+      const houseRef = isHouse
+        ? property.house_ref ||
+          resolveHouseReference(property.id, property.lat, property.lon)
+        : undefined;
+      const listingRef = property.listing_key || houseRef;
+      if (!listingRef) {
         toast.error(
           "Unable to reference this property. Please pick another listing."
         );
@@ -529,7 +611,7 @@ export function usePropertyExplorer(districtFromUrl?: string) {
       const price = property.total_price
         ? `฿${(property.total_price / 1_000_000).toFixed(1)}M`
         : "";
-      const name = property.building_style_desc || "Property";
+      const name = property.title || property.building_style_desc || "Property";
       const district = property.amphur || "";
 
       const attachment: Attachment = {
@@ -540,7 +622,11 @@ export function usePropertyExplorer(districtFromUrl?: string) {
           house_ref: houseRef,
           locator:
             property.locator ||
-            (property.id !== undefined ? `house:${property.id}` : undefined),
+            (property.listing_key
+              ? `listing:${property.listing_key}`
+              : property.id !== undefined
+                ? `house:${property.id}`
+                : undefined),
         } as Record<string, unknown>),
         label: `${name}${price ? ` - ${price}` : ""}${district ? ` (${district})` : ""}`,
       };
@@ -610,7 +696,7 @@ export function usePropertyExplorer(districtFromUrl?: string) {
     setOpenSections,
 
     // Data
-    housePrices,
+    listings,
     schools,
     transitLines,
     h3Data,

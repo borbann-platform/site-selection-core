@@ -31,7 +31,7 @@ function PropertyExplorer() {
   const explorer = usePropertyExplorer(districtFromUrl);
 
   const { layers, getTooltip } = useMapLayers({
-    housePrices: explorer.housePrices,
+    listings: explorer.listings,
     schools: explorer.schools,
     transitLines: explorer.transitLines,
     h3Data: explorer.h3Data,
@@ -151,8 +151,8 @@ function PropertyExplorer() {
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Home className="w-3 h-3" />
             <span>
-              {explorer.housePrices?.count || 0} properties |{" "}
-              {explorer.housePrices?.items?.length || 0} shown
+              {explorer.listings?.count || 0} properties |{" "}
+              {explorer.listings?.items?.length || 0} shown
             </span>
           </div>
         </div>
@@ -214,6 +214,10 @@ function PropertyExplorer() {
                 <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                   <span>House prices</span>
                   <SourceTooltip source={DATA_SOURCES.housePrices} />
+                </div>
+                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                  <span>Scraped listings</span>
+                  <SourceTooltip source={DATA_SOURCES.scrapedListings} />
                 </div>
                 <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                   <span>POIs</span>

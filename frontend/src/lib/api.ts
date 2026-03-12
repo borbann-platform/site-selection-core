@@ -413,6 +413,47 @@ export interface HousePriceListResponse {
   items: HousePriceItem[];
 }
 
+export interface ListingItem {
+  listing_key: string;
+  source_type:
+    | "house_price"
+    | "scraped_project"
+    | "market_listing"
+    | "condo_project";
+  source: string;
+  source_id: string;
+  title: string | null;
+  building_style_desc: string | null;
+  amphur: string | null;
+  tumbon: string | null;
+  total_price: number | null;
+  building_area: number | null;
+  no_of_floor: number | null;
+  building_age: number | null;
+  lat: number;
+  lon: number;
+  image_url: string | null;
+  image_status: string | null;
+  has_image: boolean;
+  detail_url: string | null;
+}
+
+export interface ListingListResponse {
+  count: number;
+  items: ListingItem[];
+}
+
+export interface ListingFilters {
+  amphur?: string;
+  building_style?: string;
+  min_price?: number;
+  max_price?: number;
+  min_area?: number;
+  max_area?: number;
+  limit?: number;
+  offset?: number;
+}
+
 export interface HousePriceFilters {
   amphur?: string;
   tumbon?: string;
@@ -752,15 +793,46 @@ export const api = {
     return res.json();
   },
 
+  getListings: async (
+    filters: ListingFilters = {}
+  ): Promise<ListingListResponse> => {
+    const params = new URLSearchParams();
+    if (filters.amphur) params.set("amphur", filters.amphur);
+    if (filters.building_style)
+      params.set("building_style", filters.building_style);
+    if (filters.min_price !== undefined)
+      params.set("min_price", String(filters.min_price));
+    if (filters.max_price !== undefined)
+      params.set("max_price", String(filters.max_price));
+    if (filters.min_area !== undefined)
+      params.set("min_area", String(filters.min_area));
+    if (filters.max_area !== undefined)
+      params.set("max_area", String(filters.max_area));
+    if (filters.limit !== undefined) params.set("limit", String(filters.limit));
+    if (filters.offset !== undefined)
+      params.set("offset", String(filters.offset));
+
+    const url = `${API_URL}/listings${params.toString() ? `?${params}` : ""}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Failed to get listings");
+    return res.json();
+  },
+
+  getListingByKey: async (listingKey: string): Promise<ListingItem> => {
+    const res = await fetch(`${API_URL}/listings/${encodeURIComponent(listingKey)}`);
+    if (!res.ok) throw new Error("Failed to get listing");
+    return res.json();
+  },
+
   getDistricts: async (): Promise<DistrictOption[]> => {
-    const res = await fetch(`${API_URL}/house-prices/districts`);
-    if (!res.ok) throw new Error("Failed to get districts");
+    const res = await fetch(`${API_URL}/listings/districts`);
+    if (!res.ok) throw new Error("Failed to get listing districts");
     return res.json();
   },
 
   getBuildingStyles: async (): Promise<BuildingStyleOption[]> => {
-    const res = await fetch(`${API_URL}/house-prices/building-styles`);
-    if (!res.ok) throw new Error("Failed to get building styles");
+    const res = await fetch(`${API_URL}/listings/building-styles`);
+    if (!res.ok) throw new Error("Failed to get listing building styles");
     return res.json();
   },
 

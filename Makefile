@@ -3,6 +3,7 @@
   promote-baseline promote-hgt mlflow-leaderboard \
   dagger-ci dagger-ci-backend dagger-ci-frontend \
   backend-install backend-dev backend-test backend-lint backend-format \
+  backend-sync-images-minio backend-sync-images-minio-pipeline \
   frontend-install frontend-dev frontend-test frontend-lint frontend-format \
   test lint format
 
@@ -30,6 +31,8 @@ help:
 	@echo "  backend-test      Run backend tests"
 	@echo "  backend-lint      Run backend lint"
 	@echo "  backend-format    Format backend code"
+	@echo "  backend-sync-images-minio Run one image sync batch to MinIO"
+	@echo "  backend-sync-images-minio-pipeline Run repeated image sync batches"
 	@echo "  frontend-install  Install frontend deps"
 	@echo "  frontend-dev      Run frontend dev server"
 	@echo "  frontend-test     Run frontend tests"
@@ -99,6 +102,12 @@ backend-lint:
 
 backend-format:
 	$(MAKE) -C gis-server format
+
+backend-sync-images-minio:
+	$(MAKE) -C gis-server sync-images-minio LIMIT=$(LIMIT) COMMIT_BATCH=$(COMMIT_BATCH)
+
+backend-sync-images-minio-pipeline:
+	$(MAKE) -C gis-server sync-images-minio-pipeline BATCH_LIMIT=$(BATCH_LIMIT) MAX_ROUNDS=$(MAX_ROUNDS) COMMIT_BATCH=$(COMMIT_BATCH) TARGET_PENDING=$(TARGET_PENDING)
 
 frontend-install:
 	cd frontend && npm install
