@@ -1,6 +1,7 @@
 .PHONY: test test-unit test-integration test-cov lint format install sync \
 	mlflow-up mlflow-down mlflow-logs mlflow-ui \
-	promote-baseline promote-hgt mlflow-leaderboard
+	promote-baseline promote-hgt mlflow-leaderboard \
+	sync-images-minio sync-images-minio-pipeline
 
 # Default target
 all: test
@@ -87,3 +88,11 @@ promote-hgt:
 # Export MLflow leaderboard for experiment comparison
 mlflow-leaderboard:
 	uv run python -m scripts.export_experiment_leaderboard --all-experiments --metric $(or $(METRIC),cv_mape_mean) --mode $(or $(MODE),min)
+
+# Run one image sync batch to MinIO
+sync-images-minio:
+	uv run --with minio python -m scripts.etl.sync_images_to_minio --limit $(or $(LIMIT),1000) --commit-batch $(or $(COMMIT_BATCH),50)
+
+# Run repeated image sync batches to MinIO
+sync-images-minio-pipeline:
+	uv run python -m scripts.etl.sync_images_to_minio_pipeline --with-minio-dep --batch-limit $(or $(BATCH_LIMIT),1000) --max-rounds $(or $(MAX_ROUNDS),20) --commit-batch $(or $(COMMIT_BATCH),50) --target-pending $(or $(TARGET_PENDING),0)
