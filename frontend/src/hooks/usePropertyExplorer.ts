@@ -37,7 +37,11 @@ export interface OpenSections {
 
 export interface SelectedProperty {
   listing_key?: string;
-  source_type?: "house_price" | "scraped_project";
+  source_type?:
+    | "house_price"
+    | "scraped_project"
+    | "market_listing"
+    | "condo_project";
   id?: string | number;
   house_ref?: string;
   locator?: string;
@@ -57,7 +61,11 @@ export interface SelectedProperty {
 
 export interface DeckGLObject {
   listing_key?: string;
-  source_type?: "house_price" | "scraped_project";
+  source_type?:
+    | "house_price"
+    | "scraped_project"
+    | "market_listing"
+    | "condo_project";
   source?: string;
   source_id?: string;
   lon?: number;
@@ -163,6 +171,8 @@ export function usePropertyExplorer(districtFromUrl?: string) {
         building_style: propertyFilters.buildingStyle || undefined,
         min_price: propertyFilters.minPrice,
         max_price: propertyFilters.maxPrice,
+        min_area: propertyFilters.minArea,
+        max_area: propertyFilters.maxArea,
         limit: 1000,
       }),
   });
@@ -450,7 +460,11 @@ export function usePropertyExplorer(districtFromUrl?: string) {
               ? props.source_type
               : "house_price";
         const sourceType =
-          sourceTypeRaw === "scraped_project" ? "scraped_project" : "house_price";
+          sourceTypeRaw === "scraped_project" ||
+          sourceTypeRaw === "market_listing" ||
+          sourceTypeRaw === "condo_project"
+            ? sourceTypeRaw
+            : "house_price";
         const listingKey =
           typeof obj.listing_key === "string"
             ? obj.listing_key
@@ -563,7 +577,11 @@ export function usePropertyExplorer(districtFromUrl?: string) {
     (property: {
       id?: string | number;
       listing_key?: string;
-      source_type?: "house_price" | "scraped_project";
+      source_type?:
+        | "house_price"
+        | "scraped_project"
+        | "market_listing"
+        | "condo_project";
       house_ref?: string;
       locator?: string;
       title?: string;
@@ -575,7 +593,7 @@ export function usePropertyExplorer(districtFromUrl?: string) {
       image_url?: string;
       detail_url?: string;
     }) => {
-      const isHouse = property.source_type !== "scraped_project";
+      const isHouse = property.source_type === "house_price";
       const houseRef = isHouse
         ? property.house_ref ||
           resolveHouseReference(property.id, property.lat, property.lon)

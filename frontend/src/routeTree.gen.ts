@@ -20,6 +20,7 @@ import { Route as AuthenticatedDistrictsRouteImport } from './routes/_authentica
 import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authenticated/chat/index'
 import { Route as AuthenticatedSiteSiteIdRouteImport } from './routes/_authenticated/site/$siteId'
 import { Route as AuthenticatedPropertyPropertyIdRouteImport } from './routes/_authenticated/property/$propertyId'
+import { Route as AuthenticatedListingListingKeyRouteImport } from './routes/_authenticated/listing/$listingKey'
 import { Route as AuthenticatedChatSessionIdRouteImport } from './routes/_authenticated/chat/$sessionId'
 
 const PublicRoute = PublicRouteImport.update({
@@ -76,6 +77,12 @@ const AuthenticatedPropertyPropertyIdRoute =
     path: '/property/$propertyId',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedListingListingKeyRoute =
+  AuthenticatedListingListingKeyRouteImport.update({
+    id: '/listing/$listingKey',
+    path: '/listing/$listingKey',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedChatSessionIdRoute =
   AuthenticatedChatSessionIdRouteImport.update({
     id: '/chat/$sessionId',
@@ -91,6 +98,7 @@ export interface FileRoutesByFullPath {
   '/register': typeof PublicRegisterRoute
   '/': typeof AuthenticatedIndexRoute
   '/chat/$sessionId': typeof AuthenticatedChatSessionIdRoute
+  '/listing/$listingKey': typeof AuthenticatedListingListingKeyRoute
   '/property/$propertyId': typeof AuthenticatedPropertyPropertyIdRoute
   '/site/$siteId': typeof AuthenticatedSiteSiteIdRoute
   '/chat': typeof AuthenticatedChatIndexRoute
@@ -103,6 +111,7 @@ export interface FileRoutesByTo {
   '/register': typeof PublicRegisterRoute
   '/': typeof AuthenticatedIndexRoute
   '/chat/$sessionId': typeof AuthenticatedChatSessionIdRoute
+  '/listing/$listingKey': typeof AuthenticatedListingListingKeyRoute
   '/property/$propertyId': typeof AuthenticatedPropertyPropertyIdRoute
   '/site/$siteId': typeof AuthenticatedSiteSiteIdRoute
   '/chat': typeof AuthenticatedChatIndexRoute
@@ -118,6 +127,7 @@ export interface FileRoutesById {
   '/_public/register': typeof PublicRegisterRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/chat/$sessionId': typeof AuthenticatedChatSessionIdRoute
+  '/_authenticated/listing/$listingKey': typeof AuthenticatedListingListingKeyRoute
   '/_authenticated/property/$propertyId': typeof AuthenticatedPropertyPropertyIdRoute
   '/_authenticated/site/$siteId': typeof AuthenticatedSiteSiteIdRoute
   '/_authenticated/chat/': typeof AuthenticatedChatIndexRoute
@@ -132,6 +142,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/'
     | '/chat/$sessionId'
+    | '/listing/$listingKey'
     | '/property/$propertyId'
     | '/site/$siteId'
     | '/chat'
@@ -144,6 +155,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/'
     | '/chat/$sessionId'
+    | '/listing/$listingKey'
     | '/property/$propertyId'
     | '/site/$siteId'
     | '/chat'
@@ -158,6 +170,7 @@ export interface FileRouteTypes {
     | '/_public/register'
     | '/_authenticated/'
     | '/_authenticated/chat/$sessionId'
+    | '/_authenticated/listing/$listingKey'
     | '/_authenticated/property/$propertyId'
     | '/_authenticated/site/$siteId'
     | '/_authenticated/chat/'
@@ -247,6 +260,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPropertyPropertyIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/listing/$listingKey': {
+      id: '/_authenticated/listing/$listingKey'
+      path: '/listing/$listingKey'
+      fullPath: '/listing/$listingKey'
+      preLoaderRoute: typeof AuthenticatedListingListingKeyRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/chat/$sessionId': {
       id: '/_authenticated/chat/$sessionId'
       path: '/chat/$sessionId'
@@ -263,6 +283,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedValuationRoute: typeof AuthenticatedValuationRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedChatSessionIdRoute: typeof AuthenticatedChatSessionIdRoute
+  AuthenticatedListingListingKeyRoute: typeof AuthenticatedListingListingKeyRoute
   AuthenticatedPropertyPropertyIdRoute: typeof AuthenticatedPropertyPropertyIdRoute
   AuthenticatedSiteSiteIdRoute: typeof AuthenticatedSiteSiteIdRoute
   AuthenticatedChatIndexRoute: typeof AuthenticatedChatIndexRoute
@@ -274,6 +295,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedValuationRoute: AuthenticatedValuationRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedChatSessionIdRoute: AuthenticatedChatSessionIdRoute,
+  AuthenticatedListingListingKeyRoute: AuthenticatedListingListingKeyRoute,
   AuthenticatedPropertyPropertyIdRoute: AuthenticatedPropertyPropertyIdRoute,
   AuthenticatedSiteSiteIdRoute: AuthenticatedSiteSiteIdRoute,
   AuthenticatedChatIndexRoute: AuthenticatedChatIndexRoute,

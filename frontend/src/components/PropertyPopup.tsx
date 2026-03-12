@@ -11,7 +11,11 @@ import { Link } from "@tanstack/react-router";
 
 interface PropertyData {
   listing_key?: string;
-  source_type?: "house_price" | "scraped_project";
+  source_type?:
+    | "house_price"
+    | "scraped_project"
+    | "market_listing"
+    | "condo_project";
   id?: string | number;
   house_ref?: string;
   locator?: string;
@@ -192,7 +196,13 @@ export function PropertyPopup({
 
           {property.source_type && (
             <div className="mb-2 inline-flex rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-              {property.source_type === "scraped_project" ? "Scraped Listing" : "Appraisal"}
+              {property.source_type === "scraped_project"
+                ? "Scraped Listing"
+                : property.source_type === "market_listing"
+                  ? "Market Listing"
+                  : property.source_type === "condo_project"
+                    ? "Condo Project"
+                    : "Appraisal"}
             </div>
           )}
           <div className="text-lg font-bold text-foreground mb-2">
@@ -231,7 +241,7 @@ export function PropertyPopup({
           )}
 
           {/* View Details button - only show if property has ID */}
-          {property.id && property.source_type !== "scraped_project" && (
+          {property.id && property.source_type === "house_price" && (
             <Link
               to="/property/$propertyId"
               params={{ propertyId: String(property.id) }}
@@ -239,6 +249,17 @@ export function PropertyPopup({
             >
               <ArrowRight size={14} />
               <span>View Details</span>
+            </Link>
+          )}
+
+          {property.listing_key && property.source_type !== "house_price" && (
+            <Link
+              to="/listing/$listingKey"
+              params={{ listingKey: property.listing_key }}
+              className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 bg-brand hover:bg-brand/90 text-brand-foreground text-xs font-medium rounded-lg transition-colors"
+            >
+              <ArrowRight size={14} />
+              <span>View Listing Details</span>
             </Link>
           )}
 

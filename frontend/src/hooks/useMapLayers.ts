@@ -120,10 +120,12 @@ export function useMapLayers({
         mvtParams.set("min_price", String(propertyFilters.minPrice));
       if (propertyFilters.maxPrice !== undefined)
         mvtParams.set("max_price", String(propertyFilters.maxPrice));
-      if (propertyFilters.minArea !== undefined)
+      if (propertyFilters.minArea !== undefined) {
         mvtParams.set("min_area", String(propertyFilters.minArea));
-      if (propertyFilters.maxArea !== undefined)
+      }
+      if (propertyFilters.maxArea !== undefined) {
         mvtParams.set("max_area", String(propertyFilters.maxArea));
+      }
       const mvtQueryString = mvtParams.toString()
         ? `?${mvtParams.toString()}`
         : "";
@@ -143,7 +145,13 @@ export function useMapLayers({
               id: `${props.id}-icon`,
               iconAtlas: iconAtlas.atlas,
               iconMapping: iconAtlas.mapping,
-              getIcon: () => "home",
+              getIcon: (d: DeckGLObject) => {
+                const sourceType =
+                  typeof d.properties?.source_type === "string"
+                    ? d.properties.source_type
+                    : "house_price";
+                return sourceType === "condo_project" ? "building" : "home";
+              },
               getPosition: (d: DeckGLObject) => {
                 const coords = d.geometry?.coordinates;
                 return [Number(coords?.[0] ?? 0), Number(coords?.[1] ?? 0)] as [
