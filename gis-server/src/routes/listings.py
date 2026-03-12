@@ -24,6 +24,25 @@ ListingSourceType = Literal[
 ]
 
 
+def _load_known_districts(db: Session) -> list[str]:
+    rows = db.execute(
+        text(
+            """
+            SELECT DISTINCT amphur
+            FROM house_prices
+            WHERE amphur IS NOT NULL
+              AND amphur <> ''
+            ORDER BY amphur ASC
+            """
+        )
+    ).fetchall()
+    return sorted(
+        [str(row._mapping["amphur"]) for row in rows if row._mapping["amphur"]],
+        key=len,
+        reverse=True,
+    )
+
+
 def _parse_price_to_float(price: str | None) -> float | None:
     if not price:
         return None
@@ -76,6 +95,39 @@ def _resolve_condo_image(images_raw: Any) -> str | None:
             return _resolve_condo_image(parsed)
         return text_value
 
+    return None
+
+
+def _resolve_market_image(images_raw: Any) -> str | None:
+    if images_raw is None:
+        return None
+
+    if isinstance(images_raw, str):
+        for part in images_raw.split(","):
+            candidate = part.strip()
+            if candidate.startswith("http://") or candidate.startswith("https://"):
+                return candidate
+        return None
+
+    if isinstance(images_raw, list):
+        for item in images_raw:
+            if isinstance(item, str) and (
+                item.startswith("http://") or item.startswith("https://")
+            ):
+                return item
+        return None
+
+    return None
+
+
+def _infer_district_from_location(
+    location_text: str | None, known_districts: list[str]
+) -> str | None:
+    if not location_text:
+        return None
+    for district in known_districts:
+        if district in location_text:
+            return district
     return None
 
 
@@ -207,15 +259,16 @@ def _build_common_filters(
     return house_filters, scraped_filters, market_filters, condo_filters, params
 
 
-def _rows_to_items(rows: Any) -> list[ListingItem]:
+def _rows_to_items(rows: Any, known_districts: list[str]) -> list[ListingItem]:
     items: list[ListingItem] = []
     for row in rows:
         proxy_image = _build_scraped_image_url(row.image_id, row.image_status)
 
-        market_image = None
-        if row.source_type == "market_listing" and row.image_source_url:
-            first_image = str(row.image_source_url).split(",", 1)[0]
-            market_image = first_image.strip() if first_image.strip() else None
+        market_image = (
+            _resolve_market_image(row.image_source_url)
+            if row.source_type == "market_listing"
+            else None
+        )
 
         condo_image = (
             _resolve_condo_image(row.image_source_url)
@@ -237,6 +290,12 @@ def _rows_to_items(rows: Any) -> list[ListingItem]:
         raw_floors = str(row.no_of_floor) if row.no_of_floor is not None else None
         floor_value = _parse_numeric(raw_floors)
 
+        amphur_value = row.amphur
+        if not amphur_value and row.location_text:
+            amphur_value = _infer_district_from_location(
+                str(row.location_text), known_districts
+            )
+
         items.append(
             ListingItem(
                 listing_key=row.listing_key,
@@ -245,7 +304,7 @@ def _rows_to_items(rows: Any) -> list[ListingItem]:
                 source_id=row.source_id,
                 title=row.title,
                 building_style_desc=row.building_style_desc,
-                amphur=row.amphur,
+                amphur=amphur_value,
                 tumbon=row.tumbon,
                 total_price=price_value,
                 building_area=area_value,
@@ -331,7 +390,8 @@ def list_listings(
                 NULL::text AS image_status,
                 NULL::text AS image_source_url,
                 NULL::text AS main_image_url,
-                NULL::text AS detail_url
+                NULL::text AS detail_url,
+                NULL::text AS location_text
             FROM house_prices h
             WHERE {house_where}
 
@@ -356,7 +416,8 @@ def list_listings(
                 img.fetch_status AS image_status,
                 img.source_url AS image_source_url,
                 s.main_image_url,
-                s.detail_url
+                s.detail_url,
+                NULL::text AS location_text
             FROM scraped_listings s
             LEFT JOIN LATERAL (
                 SELECT
@@ -391,7 +452,8 @@ def list_listings(
                 NULL::text AS image_status,
                 r.images AS image_source_url,
                 NULL::text AS main_image_url,
-                NULL::text AS detail_url
+                NULL::text AS detail_url,
+                r.location AS location_text
             FROM real_estate_listings r
             WHERE {market_where}
 
@@ -416,7 +478,8 @@ def list_listings(
                 NULL::text AS image_status,
                 c.images::text AS image_source_url,
                 NULL::text AS main_image_url,
-                c.project_base_url AS detail_url
+                c.project_base_url AS detail_url,
+                c.location AS location_text
             FROM condo_projects c
             WHERE {condo_where}
         ) merged
@@ -429,7 +492,8 @@ def list_listings(
 
     total = int(db.execute(count_sql, params).scalar() or 0)
     rows = db.execute(data_sql, params).fetchall()
-    items = _rows_to_items(rows)
+    known_districts = _load_known_districts(db)
+    items = _rows_to_items(rows, known_districts)
     return ListingListResponse(count=total, items=items)
 
 
@@ -455,6 +519,28 @@ def get_listing_districts(
               AND s.district IS NOT NULL
               AND s.district <> ''
             GROUP BY s.district
+            UNION ALL
+            SELECT d.amphur, COUNT(*) AS count
+            FROM real_estate_listings r
+            JOIN (
+                SELECT DISTINCT amphur
+                FROM house_prices
+                WHERE amphur IS NOT NULL
+                  AND amphur <> ''
+            ) d ON r.location ILIKE ('%' || d.amphur || '%')
+            WHERE r.geometry IS NOT NULL
+            GROUP BY d.amphur
+            UNION ALL
+            SELECT d.amphur, COUNT(*) AS count
+            FROM condo_projects c
+            JOIN (
+                SELECT DISTINCT amphur
+                FROM house_prices
+                WHERE amphur IS NOT NULL
+                  AND amphur <> ''
+            ) d ON c.location ILIKE ('%' || d.amphur || '%')
+            WHERE c.geometry IS NOT NULL
+            GROUP BY d.amphur
         ) d
         GROUP BY amphur
         ORDER BY count DESC, amphur ASC
@@ -544,7 +630,8 @@ def get_listing_by_key(
                 NULL::text AS image_status,
                 NULL::text AS image_source_url,
                 NULL::text AS main_image_url,
-                NULL::text AS detail_url
+                NULL::text AS detail_url,
+                NULL::text AS location_text
             FROM house_prices h
             WHERE h.id::text = :source_id
               AND h.geometry IS NOT NULL
@@ -579,7 +666,8 @@ def get_listing_by_key(
                 img.fetch_status AS image_status,
                 img.source_url AS image_source_url,
                 s.main_image_url,
-                s.detail_url
+                s.detail_url,
+                NULL::text AS location_text
             FROM scraped_listings s
             LEFT JOIN LATERAL (
                 SELECT
@@ -627,7 +715,8 @@ def get_listing_by_key(
                 NULL::text AS image_status,
                 r.images AS image_source_url,
                 NULL::text AS main_image_url,
-                NULL::text AS detail_url
+                NULL::text AS detail_url,
+                r.location AS location_text
             FROM real_estate_listings r
             WHERE r.id::text = :source_id
               AND r.geometry IS NOT NULL
@@ -658,7 +747,8 @@ def get_listing_by_key(
                 NULL::text AS image_status,
                 c.images::text AS image_source_url,
                 NULL::text AS main_image_url,
-                c.project_base_url AS detail_url
+                c.project_base_url AS detail_url,
+                c.location AS location_text
             FROM condo_projects c
             WHERE c.id::text = :source_id
               AND c.geometry IS NOT NULL
@@ -672,7 +762,8 @@ def get_listing_by_key(
     if row is None:
         raise HTTPException(status_code=404, detail="Listing not found")
 
-    items = _rows_to_items([row])
+    known_districts = _load_known_districts(db)
+    items = _rows_to_items([row], known_districts)
     return items[0]
 
 
@@ -789,7 +880,7 @@ def get_listings_tile(
                 r.property_type AS building_style_desc,
                 NULL::text AS amphur,
                 NULL::text AS tumbon,
-                split_part(r.images, ',', 1) AS image_url,
+                substring(r.images from '(https?://[^,\s\]"\'']+)') AS image_url,
                 NULL::text AS detail_url,
                 r.title
             FROM real_estate_listings r
