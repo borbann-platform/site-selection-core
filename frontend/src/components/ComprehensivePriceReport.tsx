@@ -19,7 +19,11 @@ import {
 	TrendingUp,
 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { api, type HousePriceItem } from "@/lib/api";
+import {
+	api,
+	type ExplainabilityEvidenceResponse,
+	type HousePriceItem,
+} from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 interface ComprehensivePriceReportProps {
@@ -50,6 +54,12 @@ interface ConfidenceMetrics {
 	data_quality_score: number;
 	comparable_count: number;
 	model_accuracy: number;
+}
+
+interface MetricCardProps {
+	label: string;
+	value: string;
+	helper?: string;
 }
 
 // Helper functions
@@ -465,6 +475,214 @@ function LoadingState() {
 	);
 }
 
+function formatEvidenceMetric(metric: string, value: number): string {
+	if (metric.includes("mae") || metric.includes("rmse")) {
+		return `฿${Math.round(value).toLocaleString()}`;
+	}
+	if (
+		metric.includes("mape") ||
+		metric.includes("coverage") ||
+		metric.includes("overlap")
+	) {
+		return `${(value * (value <= 1 ? 100 : 1)).toFixed(1)}${value <= 1 ? "%" : ""}`;
+	}
+	if (metric === "r2") {
+		return value.toFixed(3);
+	}
+	if (
+		metric.includes("delta") ||
+		metric.includes("lift") ||
+		metric.includes("correlation")
+	) {
+		return value.toFixed(3);
+	}
+	return value.toFixed(2);
+}
+
+function formatMetricLabel(metric: string): string {
+	return metric
+		.replaceAll("_", " ")
+		.replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function MetricCard({ label, value, helper }: MetricCardProps) {
+	return (
+		<div className="rounded-lg border border-border bg-muted/40 p-3">
+			<div className="text-xs text-muted-foreground mb-1">{label}</div>
+			<div className="text-lg font-semibold text-foreground">{value}</div>
+			{helper ? (
+				<div className="text-xs text-muted-foreground mt-1">{helper}</div>
+			) : null}
+		</div>
+	);
+}
+
+function ExplainabilityEvidenceSection({
+	evidence,
+	isLoading,
+	error,
+}: {
+	evidence: ExplainabilityEvidenceResponse | undefined;
+	isLoading: boolean;
+	error: Error | null;
+}) {
+	if (isLoading) {
+		return (
+			<div className="rounded-lg border border-border bg-card p-4">
+				<div className="animate-pulse space-y-3">
+					<div className="h-5 w-48 rounded bg-muted/50" />
+					<div className="h-16 rounded bg-muted/50" />
+					<div className="grid grid-cols-2 gap-3">
+						<div className="h-20 rounded bg-muted/50" />
+						<div className="h-20 rounded bg-muted/50" />
+					</div>
+				</div>
+			</div>
+		);
+	}
+
+	if (error) {
+		return (
+			<div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4">
+				<div className="text-sm text-destructive font-medium mb-1">
+					Explainability Evidence Unavailable
+				</div>
+				<p className="text-xs text-muted-foreground">{error.message}</p>
+			</div>
+		);
+	}
+
+	if (!evidence) {
+		return null;
+	}
+
+	const primaryMetrics = [
+		"faithfulness_lift",
+		"shap_rank_correlation",
+		"top5_overlap",
+		"expected_feature_coverage",
+	];
+	const shownPrimaryMetrics = primaryMetrics.filter(
+		(metric) => evidence.explanation_metrics[metric] !== undefined,
+	);
+
+	return (
+		<div className="rounded-lg border border-border bg-card p-4 space-y-4">
+			<div className="flex items-start justify-between gap-3">
+				<div>
+					<h4 className="text-sm font-semibold text-foreground">
+						Explainability Evidence
+					</h4>
+					<p className="text-sm text-muted-foreground mt-1">
+						{evidence.summary}
+					</p>
+				</div>
+				<div className="rounded-full border border-border px-2 py-1 text-xs text-muted-foreground">
+					{evidence.evaluation_complete ? "Benchmarked" : "Partial Evidence"}
+				</div>
+			</div>
+
+			<div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+				<MetricCard
+					label="Runtime Method"
+					value={formatMetricLabel(evidence.runtime_explanation_method)}
+				/>
+				<MetricCard
+					label="Last Generated"
+					value={
+						evidence.generated_at
+							? new Date(evidence.generated_at).toLocaleString()
+							: "Unknown"
+					}
+				/>
+				{evidence.model_performance.mae !== undefined && (
+					<MetricCard
+						label="Model MAE"
+						value={formatEvidenceMetric("mae", evidence.model_performance.mae)}
+						helper="Offline CV performance"
+					/>
+				)}
+				{evidence.model_performance.r2 !== undefined && (
+					<MetricCard
+						label="Model R2"
+						value={formatEvidenceMetric("r2", evidence.model_performance.r2)}
+					/>
+				)}
+			</div>
+
+			{shownPrimaryMetrics.length > 0 && (
+				<div>
+					<div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
+						Benchmark Metrics
+					</div>
+					<div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+						{shownPrimaryMetrics.map((metric) => (
+							<MetricCard
+								key={metric}
+								label={formatMetricLabel(metric)}
+								value={formatEvidenceMetric(
+									metric,
+									evidence.explanation_metrics[metric],
+								)}
+							/>
+						))}
+					</div>
+				</div>
+			)}
+
+			{evidence.top_shap_features.length > 0 && (
+				<div>
+					<div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
+						Top Offline SHAP Features
+					</div>
+					<div className="grid gap-2 md:grid-cols-2">
+						{evidence.top_shap_features.map((feature, index) => (
+							<div
+								key={feature.feature}
+								className="flex items-center justify-between rounded-lg border border-border bg-muted/40 px-3 py-2"
+							>
+								<div className="flex items-center gap-2">
+									<span className="text-xs text-muted-foreground w-5">
+										{index + 1}
+									</span>
+									<span className="text-sm text-foreground">
+										{formatMetricLabel(feature.feature)}
+									</span>
+								</div>
+								<span className="text-xs font-mono text-muted-foreground">
+									{feature.importance.toFixed(4)}
+								</span>
+							</div>
+						))}
+					</div>
+				</div>
+			)}
+
+			{evidence.missing_artifacts.length > 0 && (
+				<div className="rounded-lg border border-warning/30 bg-warning/10 p-3">
+					<div className="text-xs uppercase tracking-wide text-warning mb-2">
+						Missing Artifacts
+					</div>
+					<p className="text-sm text-foreground/90">
+						{evidence.missing_artifacts.join(", ")}
+					</p>
+				</div>
+			)}
+
+			<div className="space-y-2">
+				<div className="text-xs uppercase tracking-wide text-muted-foreground">
+					Notes
+				</div>
+				{evidence.notes.map((note) => (
+					<p key={note} className="text-sm text-muted-foreground leading-6">
+						{note}
+					</p>
+				))}
+			</div>
+		</div>
+	);
+}
+
 function ErrorState({ message }: { message: string }) {
 	return (
 		<div className="bg-card border border-border rounded-lg p-4">
@@ -486,6 +704,7 @@ export function ComprehensivePriceReport({
 	const [showFactors, setShowFactors] = useState(true);
 	const [showComparables, setShowComparables] = useState(true);
 	const [showTrends, setShowTrends] = useState(false);
+	const [showEvidence, setShowEvidence] = useState(false);
 
 	// Fetch price explanation from API
 	const {
@@ -512,6 +731,19 @@ export function ComprehensivePriceReport({
 			}),
 		enabled: !!property,
 		staleTime: 1000 * 60 * 5,
+	});
+
+	const {
+		data: explainabilityEvidence,
+		isLoading: isEvidenceLoading,
+		error: evidenceError,
+	} = useQuery({
+		queryKey: ["explainabilityEvidence", priceData?.model_type],
+		queryFn: () =>
+			api.getExplainabilityEvidence(priceData?.model_type || "baseline"),
+		enabled: !!priceData?.model_type,
+		staleTime: 1000 * 60 * 10,
+		retry: false,
 	});
 
 	// Generate extended data based on real data
@@ -800,6 +1032,25 @@ export function ComprehensivePriceReport({
 					</div>
 				</div>
 			)}
+
+			<div className="bg-card border border-border rounded-lg p-4">
+				<SectionHeader
+					icon={CheckCircle2}
+					title="Explainability Evidence"
+					expandable
+					expanded={showEvidence}
+					onToggle={() => setShowEvidence(!showEvidence)}
+				/>
+				{showEvidence && (
+					<div className="mt-4">
+						<ExplainabilityEvidenceSection
+							evidence={explainabilityEvidence}
+							isLoading={isEvidenceLoading}
+							error={evidenceError as Error | null}
+						/>
+					</div>
+				)}
+			</div>
 		</div>
 	);
 }

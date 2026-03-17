@@ -604,6 +604,25 @@ export interface PriceExplanationResponse {
 	price_vs_district: number | null;
 }
 
+export interface ExplainabilityTopFeature {
+	feature: string;
+	importance: number;
+}
+
+export interface ExplainabilityEvidenceResponse {
+	model_type: string;
+	runtime_explanation_method: string;
+	evidence_available: boolean;
+	evaluation_complete: boolean;
+	generated_at: string | null;
+	summary: string;
+	model_performance: Record<string, number>;
+	explanation_metrics: Record<string, number>;
+	top_shap_features: ExplainabilityTopFeature[];
+	missing_artifacts: string[];
+	notes: string[];
+}
+
 // Property Upload & Valuation Types
 export interface PropertyUploadRequest {
 	building_style: string;
@@ -1032,6 +1051,18 @@ export const api = {
 				throw new Error("Model not trained yet");
 			}
 			throw new Error("Failed to get price explanation");
+		}
+		return res.json();
+	},
+
+	getExplainabilityEvidence: async (
+		modelType: string,
+	): Promise<ExplainabilityEvidenceResponse> => {
+		const res = await fetch(
+			`${API_URL}/house-prices/models/${modelType}/explainability-evidence`,
+		);
+		if (!res.ok) {
+			throw new Error("Failed to get explainability evidence");
 		}
 		return res.json();
 	},

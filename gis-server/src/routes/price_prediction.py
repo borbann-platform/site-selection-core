@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from src.config.database import get_db_session
 from src.dependencies.auth import get_current_user_optional
 from src.models.user import User
+from src.services.explainability_artifacts import load_explainability_evidence
 from src.services.explanation_narration import generate_natural_language_explanation
 from src.services.price_prediction import (
     PredictorType,
@@ -68,6 +69,31 @@ class PriceExplanationResponse(BaseModel):
     )
 
 
+class ExplainabilityTopFeatureResponse(BaseModel):
+    """Top SHAP-ranked feature from offline analysis."""
+
+    feature: str
+    importance: float
+
+
+class ExplainabilityEvidenceResponse(BaseModel):
+    """Explainability benchmark evidence for a prediction model."""
+
+    model_type: str
+    runtime_explanation_method: str
+    evidence_available: bool
+    evaluation_complete: bool
+    generated_at: str | None = None
+    summary: str
+    model_performance: dict[str, float] = Field(default_factory=dict)
+    explanation_metrics: dict[str, float] = Field(default_factory=dict)
+    top_shap_features: list[ExplainabilityTopFeatureResponse] = Field(
+        default_factory=list
+    )
+    missing_artifacts: list[str] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+
+
 class PredictRequest(BaseModel):
     """Request for price prediction at arbitrary location."""
 
@@ -102,6 +128,37 @@ def get_models_status(
         pass
 
     return ModelStatusResponse(models=available, default_model=default)
+
+
+@router.get(
+    "/models/{model_type}/explainability-evidence",
+    response_model=ExplainabilityEvidenceResponse,
+)
+def get_explainability_evidence(
+    model_type: PredictorType,
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
+):
+    """Return offline explainability benchmark artifacts for the selected model."""
+    evidence = load_explainability_evidence(model_type.value)
+    return ExplainabilityEvidenceResponse(
+        model_type=evidence.model_type,
+        runtime_explanation_method=evidence.runtime_explanation_method,
+        evidence_available=evidence.evidence_available,
+        evaluation_complete=evidence.evaluation_complete,
+        generated_at=evidence.generated_at,
+        summary=evidence.summary,
+        model_performance=evidence.model_performance,
+        explanation_metrics=evidence.explanation_metrics,
+        top_shap_features=[
+            ExplainabilityTopFeatureResponse(
+                feature=item.feature,
+                importance=item.importance,
+            )
+            for item in evidence.top_shap_features
+        ],
+        missing_artifacts=evidence.missing_artifacts,
+        notes=evidence.notes,
+    )
 
 
 @router.get("/{property_id}/explain", response_model=PriceExplanationResponse)
