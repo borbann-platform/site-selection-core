@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from src.config.database import get_db_session
 from src.dependencies.auth import get_current_user_optional
 from src.models.user import User
+from src.services.explanation_narration import generate_natural_language_explanation
 from src.services.price_prediction import (
     PredictorType,
     get_available_predictors,
@@ -57,6 +58,7 @@ class PriceExplanationResponse(BaseModel):
     explanation_summary: str
     explanation_disclaimer: str
     explanation_method: str
+    explanation_narrative: str | None = None
     district: str | None = None
     district_avg_price: float | None = None
     price_vs_district: float | None = None  # Percentage
@@ -194,6 +196,9 @@ def explain_price(
         explanation_summary=prediction.explanation_summary,
         explanation_disclaimer=prediction.explanation_disclaimer,
         explanation_method=prediction.explanation_method,
+        explanation_narrative=generate_natural_language_explanation(
+            prediction, actual_price
+        ),
         district=prediction.district or amphur,
         district_avg_price=round(prediction.district_avg_price, 0)
         if prediction.district_avg_price
@@ -260,6 +265,7 @@ def predict_price(
         explanation_summary=prediction.explanation_summary,
         explanation_disclaimer=prediction.explanation_disclaimer,
         explanation_method=prediction.explanation_method,
+        explanation_narrative=generate_natural_language_explanation(prediction),
         district=prediction.district,
         district_avg_price=round(prediction.district_avg_price, 0)
         if prediction.district_avg_price

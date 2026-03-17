@@ -265,6 +265,17 @@ export function PriceExplanation({
 				))}
 			</div>
 
+			{data.explanation_narrative && (
+				<div className="mt-4 rounded-lg border border-border bg-muted/40 p-3">
+					<div className="text-muted-foreground text-xs uppercase tracking-wide mb-2">
+						Natural Language Summary
+					</div>
+					<p className="text-sm text-foreground/90 leading-6">
+						{data.explanation_narrative}
+					</p>
+				</div>
+			)}
+
 			{/* Legend */}
 			<div className="flex gap-4 text-xs text-muted-foreground mt-4 pt-3 border-t border-border">
 				<div className="flex items-center gap-1">

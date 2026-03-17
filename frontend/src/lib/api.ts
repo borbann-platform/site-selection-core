@@ -599,6 +599,7 @@ export interface PriceExplanationResponse {
 	explanation_summary: string;
 	explanation_disclaimer: string;
 	explanation_method: string;
+	explanation_narrative?: string | null;
 	district_avg_price: number | null;
 	price_vs_district: number | null;
 }

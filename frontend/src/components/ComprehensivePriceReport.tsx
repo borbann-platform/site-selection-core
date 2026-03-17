@@ -701,6 +701,16 @@ export function ComprehensivePriceReport({
 						<p className="text-xs text-muted-foreground mt-3">
 							{priceData.explanation_disclaimer}
 						</p>
+						{priceData.explanation_narrative && (
+							<div className="mt-4 rounded-lg border border-border bg-muted/40 p-3">
+								<div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
+									Natural Language Summary
+								</div>
+								<p className="text-sm leading-6 text-foreground/90">
+									{priceData.explanation_narrative}
+								</p>
+							</div>
+						)}
 					</div>
 				)}
 			</div>
