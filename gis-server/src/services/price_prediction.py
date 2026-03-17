@@ -62,8 +62,10 @@ class FeatureContribution:
     feature: str
     feature_display: str
     value: float
-    contribution: float  # SHAP value or attention weight
     direction: str  # "positive" or "negative"
+    contribution: float  # Relative importance score, SHAP value, or attention weight
+    contribution_kind: str = "relative_signal"
+    contribution_display: str | None = None
 
 
 @dataclass
@@ -81,6 +83,10 @@ class PricePrediction:
 
     # Explanations
     feature_contributions: list[FeatureContribution] = field(default_factory=list)
+    explanation_title: str = "Model Signals"
+    explanation_summary: str = "Top factors that most influenced the model output."
+    explanation_disclaimer: str = "These signals are not additive THB components and should not be read as percentages."
+    explanation_method: str = "relative_signal"
 
     # Comparison metrics
     h3_cell_avg_price: float | None = None
@@ -380,6 +386,8 @@ class BaselinePredictor(PricePredictor):
                     ),
                     value=float(feature_values[idx]),
                     contribution=float(importance[idx]),
+                    contribution_kind="global_gain",
+                    contribution_display=f"Gain {importance[idx]:.2f}",
                     direction=direction,
                 )
             )
@@ -494,6 +502,15 @@ class BaselinePredictor(PricePredictor):
             district=district,
             is_cold_start=is_cold_start,
             feature_contributions=contributions,
+            explanation_title="Model Signals",
+            explanation_summary=(
+                "These factors show which inputs most influenced the current estimate."
+            ),
+            explanation_disclaimer=(
+                "Current baseline explanations are relative model signals derived from "
+                "global feature importance. They are not additive THB breakdowns or percentages."
+            ),
+            explanation_method="global_gain",
             h3_cell_avg_price=h3_avg,
             district_avg_price=district_avg,
             price_vs_district=price_vs_district,
@@ -563,6 +580,8 @@ class HGTPredictorAdapter(PricePredictor):
                 feature_display=exp.node_name,
                 value=exp.distance_m,
                 contribution=exp.attention_weight,
+                contribution_kind="attention_weight",
+                contribution_display=f"Attention {exp.attention_weight:.2f}",
                 direction=exp.impact_direction,
             )
             for exp in result.attention_explanations
@@ -576,6 +595,15 @@ class HGTPredictorAdapter(PricePredictor):
             district=result.district,
             is_cold_start=result.is_cold_start,
             feature_contributions=contributions,
+            explanation_title="Attention Signals",
+            explanation_summary=(
+                "These anchors received the highest model attention for this estimate."
+            ),
+            explanation_disclaimer=(
+                "Attention weights indicate model focus, not additive THB components or "
+                "validated causal effects."
+            ),
+            explanation_method="attention_weight",
             h3_cell_avg_price=result.h3_cell_avg_price,
             district_avg_price=result.district_avg_price,
             price_vs_district=result.price_vs_cell,

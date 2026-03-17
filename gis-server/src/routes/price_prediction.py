@@ -33,8 +33,15 @@ class FeatureContributionResponse(BaseModel):
     feature: str
     feature_display: str
     value: float
-    contribution: float
     direction: str
+    contribution: float
+    contribution_kind: str = Field(
+        description="How to interpret the contribution value"
+    )
+    contribution_display: str | None = Field(
+        default=None,
+        description="Human-readable contribution label for the UI",
+    )
 
 
 class PriceExplanationResponse(BaseModel):
@@ -46,6 +53,10 @@ class PriceExplanationResponse(BaseModel):
     model_type: str = Field(description="Model used for prediction")
     actual_price: float | None = None
     feature_contributions: list[FeatureContributionResponse]
+    explanation_title: str
+    explanation_summary: str
+    explanation_disclaimer: str
+    explanation_method: str
     district: str | None = None
     district_avg_price: float | None = None
     price_vs_district: float | None = None  # Percentage
@@ -172,11 +183,17 @@ def explain_price(
                 feature=c.feature,
                 feature_display=c.feature_display,
                 value=c.value,
-                contribution=c.contribution,
                 direction=c.direction,
+                contribution=c.contribution,
+                contribution_kind=c.contribution_kind,
+                contribution_display=c.contribution_display,
             )
             for c in prediction.feature_contributions
         ],
+        explanation_title=prediction.explanation_title,
+        explanation_summary=prediction.explanation_summary,
+        explanation_disclaimer=prediction.explanation_disclaimer,
+        explanation_method=prediction.explanation_method,
         district=prediction.district or amphur,
         district_avg_price=round(prediction.district_avg_price, 0)
         if prediction.district_avg_price
@@ -232,11 +249,17 @@ def predict_price(
                 feature=c.feature,
                 feature_display=c.feature_display,
                 value=c.value,
-                contribution=c.contribution,
                 direction=c.direction,
+                contribution=c.contribution,
+                contribution_kind=c.contribution_kind,
+                contribution_display=c.contribution_display,
             )
             for c in prediction.feature_contributions
         ],
+        explanation_title=prediction.explanation_title,
+        explanation_summary=prediction.explanation_summary,
+        explanation_disclaimer=prediction.explanation_disclaimer,
+        explanation_method=prediction.explanation_method,
         district=prediction.district,
         district_avg_price=round(prediction.district_avg_price, 0)
         if prediction.district_avg_price
