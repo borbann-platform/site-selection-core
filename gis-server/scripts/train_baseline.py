@@ -34,6 +34,15 @@ from sklearn.model_selection import GroupKFold, train_test_split
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sqlalchemy import text
 from src.config.database import engine
+from src.services.explanation_evaluation import (
+    GlobalExplainabilityReport,
+    build_importance_table,
+    compute_expected_feature_coverage,
+    compute_perturbation_delta,
+    compute_random_reference_delta,
+    compute_rank_correlation,
+    compute_topk_overlap,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -670,6 +679,96 @@ def analyze_shap(
         )
 
 
+def evaluate_explainability(
+    model: lgb.LGBMRegressor,
+    X: np.ndarray,
+    feature_names: list[str],
+    output_dir: Path,
+) -> GlobalExplainabilityReport:
+    """Benchmark SHAP against model gain importance and perturbation faithfulness."""
+    logger.info("Running explainability evaluation...")
+
+    sample_size = min(1000, len(X))
+    sample_idx = np.random.choice(len(X), sample_size, replace=False)
+    X_sample = X[sample_idx]
+
+    explainer = shap.TreeExplainer(model)
+    shap_values = explainer.shap_values(X_sample)
+    mean_abs_shap = np.abs(shap_values).mean(axis=0)
+    gain_importance = model.booster_.feature_importance(importance_type="gain")
+
+    shap_table = build_importance_table(feature_names, mean_abs_shap, "mean_abs_shap")
+    gain_table = build_importance_table(
+        feature_names, gain_importance, "gain_importance"
+    )
+
+    shap_ranked = shap_table["feature"].tolist()
+    gain_ranked = gain_table["feature"].tolist()
+
+    replacement_values = np.median(X, axis=0)
+    faithfulness_top5 = compute_perturbation_delta(
+        lambda values: model.predict(values),
+        X,
+        feature_names,
+        shap_ranked,
+        replacement_values,
+        top_k=5,
+        sample_size=min(256, len(X)),
+    )
+    faithfulness_random = compute_random_reference_delta(
+        lambda values: model.predict(values),
+        X,
+        feature_names,
+        replacement_values,
+        top_k=5,
+        sample_size=min(256, len(X)),
+        trials=10,
+    )
+    expected_feature_coverage, expected_found, expected_missing = (
+        compute_expected_feature_coverage(
+            shap_ranked,
+            ["building_area", "dist_to_bts", "dist_to_cbd_min"],
+            10,
+        )
+    )
+
+    report = GlobalExplainabilityReport(
+        shap_rank_correlation=compute_rank_correlation(shap_ranked, gain_ranked),
+        top5_overlap=compute_topk_overlap(shap_ranked, gain_ranked, 5),
+        top10_overlap=compute_topk_overlap(shap_ranked, gain_ranked, 10),
+        faithfulness_delta_top5=faithfulness_top5,
+        faithfulness_delta_random=faithfulness_random,
+        faithfulness_lift=(faithfulness_top5 / faithfulness_random)
+        if faithfulness_random > 0
+        else 0.0,
+        expected_feature_coverage=expected_feature_coverage,
+        expected_features_found=expected_found,
+        expected_features_missing=expected_missing,
+    )
+
+    shap_table.merge(gain_table, on="feature", how="outer").to_csv(
+        output_dir / "explainability_feature_alignment.csv", index=False
+    )
+    with open(output_dir / "explainability_report.json", "w") as f:
+        json.dump(report.__dict__, f, indent=2)
+
+    logger.info("\n=== Explainability Evaluation ===")
+    logger.info("SHAP vs gain rank corr: %.3f", report.shap_rank_correlation)
+    logger.info("Top-5 overlap: %.2f", report.top5_overlap)
+    logger.info("Top-10 overlap: %.2f", report.top10_overlap)
+    logger.info("Faithfulness delta (top-5 SHAP): %.4f", report.faithfulness_delta_top5)
+    logger.info("Faithfulness delta (random): %.4f", report.faithfulness_delta_random)
+    logger.info("Faithfulness lift: %.2f", report.faithfulness_lift)
+    logger.info("Expected-feature coverage@10: %.2f", report.expected_feature_coverage)
+    if report.expected_features_missing:
+        logger.warning(
+            "Missing expected features in SHAP top-10: %s",
+            ", ".join(report.expected_features_missing),
+        )
+
+    return report
+
+
 def save_residuals(df: pd.DataFrame, predictions: np.ndarray, output_dir: Path) -> None:
     """Save predictions and residuals for GNN error analysis."""
     df = df.copy()
@@ -812,6 +911,7 @@ def main():
     # SHAP analysis
     X = df[feature_cols].fillna(0).values
     analyze_shap(best_model, X, feature_cols, output_dir)
+    evaluate_explainability(best_model, X, feature_cols, output_dir)
 
     # Save model
     best_model.booster_.save_model(str(output_dir / "lgbm_model.txt"))

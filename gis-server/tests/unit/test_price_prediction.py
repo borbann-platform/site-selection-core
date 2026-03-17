@@ -104,6 +104,8 @@ class TestFeatureContribution:
         assert contrib.value == 150.0
         assert contrib.contribution == 0.25
         assert contrib.direction == "positive"
+        assert contrib.contribution_kind == "relative_signal"
+        assert contrib.contribution_display is None
 
     def test_feature_contribution_negative_direction(self):
         """Test creating a FeatureContribution with negative direction."""
@@ -143,6 +145,8 @@ class TestPricePrediction:
         assert prediction.district is None
         assert prediction.is_cold_start is False
         assert prediction.feature_contributions == []
+        assert prediction.explanation_title == "Model Signals"
+        assert prediction.explanation_method == "relative_signal"
 
 
 class TestPredictorRegistry:
