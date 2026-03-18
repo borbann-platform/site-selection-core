@@ -12,6 +12,7 @@ from typing import Any, Sequence
 import lightgbm as lgb
 import numpy as np
 import pandas as pd
+from xgboost import XGBRegressor
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -61,6 +62,34 @@ DEFAULT_SPLIT_PATH = BENCHMARK_DIR / "combined_sales_v1_grouped_cv_splits.parque
 DEFAULT_IMAGE_EMBEDDINGS_PATH = BENCHMARK_DIR / "listing_image_embeddings_v1.parquet"
 DEFAULT_OUTPUT_DIR = BASE_DIR / "models" / "combined_price"
 
+DEFAULT_XGB_PARAMS: dict[str, Any] = {
+    "n_estimators": 500,
+    "learning_rate": 0.05,
+    "max_depth": 8,
+    "min_child_weight": 20,
+    "subsample": 0.9,
+    "colsample_bytree": 0.8,
+    "reg_alpha": 0.0,
+    "reg_lambda": 1.0,
+    "gamma": 0.0,
+    "objective": "reg:squarederror",
+    "tree_method": "hist",
+    "random_state": 42,
+    "n_jobs": -1,
+}
+
+DEFAULT_RESIDUAL_SOURCE_WEIGHTS = {
+    "baania": 1.0,
+    "hipflat": 0.8,
+    "legacy_bania": 0.3,
+}
+
+DEFAULT_RESIDUAL_SOURCE_MAX_ABS_LOG_DELTA = {
+    "baania": 0.10,
+    "hipflat": 0.04,
+    "legacy_bania": 0.03,
+}
+
 COMMON_FEATURES = [
     "area_sqm",
     "floors",
@@ -103,8 +132,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--stages",
         type=str,
-        default="C1,C2,C3,C4,C5",
-        help="Comma-separated stage list, e.g. C5 or C4,C5",
+        default="C1,C2,C3,C4,C5,C6",
+        help="Comma-separated stage list, e.g. C5, C6, C6I, C6IR or C4,C5",
     )
     parser.add_argument(
         "--dataset",
@@ -185,16 +214,95 @@ def parse_args() -> argparse.Namespace:
         help="Number of trees used in the pretraining stage",
     )
     parser.add_argument(
+        "--pretrain-use-legacy-confidence",
+        action="store_true",
+        help="Apply legacy_confidence_score row weighting during pretraining",
+    )
+    parser.add_argument(
+        "--pretrain-confidence-power",
+        type=float,
+        default=1.0,
+        help="Exponent applied to legacy_confidence_score during pretraining",
+    )
+    parser.add_argument(
+        "--pretrain-drop-low-confidence-quantile",
+        type=float,
+        default=0.0,
+        help="Optional quantile threshold to drop lowest-confidence legacy pretrain rows",
+    )
+    parser.add_argument(
+        "--pretrain-only-source-sites",
+        type=str,
+        default="",
+        help="Optional comma-separated source_site filter for pretraining rows",
+    )
+    parser.add_argument(
         "--finetune-n-estimators",
         type=int,
         default=300,
         help="Max number of additional trees used during fold-level fine-tuning",
     )
     parser.add_argument(
+        "--model-backend",
+        type=str,
+        default="lightgbm",
+        choices=["lightgbm", "xgboost"],
+        help="Tree model backend for C1-C5 stages",
+    )
+    parser.add_argument("--xgb-learning-rate", type=float, default=0.05)
+    parser.add_argument("--xgb-max-depth", type=int, default=8)
+    parser.add_argument("--xgb-min-child-weight", type=float, default=20.0)
+    parser.add_argument("--xgb-subsample", type=float, default=0.9)
+    parser.add_argument("--xgb-colsample-bytree", type=float, default=0.8)
+    parser.add_argument("--xgb-reg-alpha", type=float, default=0.0)
+    parser.add_argument("--xgb-reg-lambda", type=float, default=1.0)
+    parser.add_argument("--xgb-gamma", type=float, default=0.0)
+    parser.add_argument(
         "--image-embeddings",
         type=Path,
         default=DEFAULT_IMAGE_EMBEDDINGS_PATH,
         help="Optional listing-level image embedding parquet keyed by row_id",
+    )
+    parser.add_argument(
+        "--residual-n-estimators",
+        type=int,
+        default=200,
+        help="Max trees for listing residual branch in C5IR",
+    )
+    parser.add_argument(
+        "--residual-alpha",
+        type=float,
+        default=0.6,
+        help="Global shrinkage applied to residual branch prediction",
+    )
+    parser.add_argument(
+        "--residual-source-weights-json",
+        type=Path,
+        default=None,
+        help="Optional JSON file mapping listing source_site to residual sample weight",
+    )
+    parser.add_argument(
+        "--residual-source-calibration",
+        action="store_true",
+        help="Enable per-source residual scaling learned from train fold",
+    )
+    parser.add_argument(
+        "--residual-max-abs-log-delta",
+        type=float,
+        default=0.12,
+        help="Global absolute cap for residual correction in log-space",
+    )
+    parser.add_argument(
+        "--residual-source-max-abs-json",
+        type=Path,
+        default=None,
+        help="Optional JSON mapping source_site to abs cap for residual correction",
+    )
+    parser.add_argument(
+        "--residual-forward-shrink",
+        type=float,
+        default=0.75,
+        help="Additional multiplier applied to residuals on forward-chaining splits",
     )
     return parser.parse_args()
 
@@ -210,14 +318,63 @@ def load_source_weights(weights_path: Path | None) -> dict[str, float]:
 
 
 def build_sample_weights(
-    df: pd.DataFrame, source_weights: dict[str, float] | None
+    df: pd.DataFrame,
+    source_weights: dict[str, float] | None,
+    use_legacy_confidence: bool = False,
+    confidence_power: float = 1.0,
 ) -> np.ndarray | None:
     if source_weights is None or len(source_weights) == 0:
-        return None
-    weights = df["source_site"].map(
-        lambda value: float(source_weights.get(str(value), 1.0))
-    )
+        weights = pd.Series(1.0, index=df.index, dtype=float)
+    else:
+        weights = (
+            df["source_site"]
+            .map(lambda value: float(source_weights.get(str(value), 1.0)))
+            .astype(float)
+        )
+
+    if use_legacy_confidence and "legacy_confidence_score" in df.columns:
+        confidence = pd.to_numeric(
+            df["legacy_confidence_score"], errors="coerce"
+        ).fillna(1.0)
+        confidence = confidence.clip(lower=0.05, upper=1.0)
+        power = max(float(confidence_power), 0.1)
+        weights = weights * np.power(confidence.to_numpy(dtype=float), power)
+
     return weights.to_numpy(dtype=float)
+
+
+def filter_pretrain_rows_by_confidence(
+    pretrain_df: pd.DataFrame,
+    drop_low_confidence_quantile: float,
+) -> tuple[pd.DataFrame, int]:
+    if "legacy_confidence_score" not in pretrain_df.columns:
+        return pretrain_df, 0
+    quantile = float(np.clip(drop_low_confidence_quantile, 0.0, 0.95))
+    if quantile <= 0.0:
+        return pretrain_df, 0
+    confidence = pd.to_numeric(
+        pretrain_df["legacy_confidence_score"], errors="coerce"
+    ).fillna(1.0)
+    threshold = float(confidence.quantile(quantile))
+    kept = pretrain_df.loc[confidence >= threshold].copy()
+    dropped = int(len(pretrain_df) - len(kept))
+    return kept, dropped
+
+
+def filter_pretrain_rows_by_source(
+    pretrain_df: pd.DataFrame,
+    allowed_sources_csv: str,
+) -> tuple[pd.DataFrame, int, list[str]]:
+    allowed_sources = [
+        item.strip() for item in allowed_sources_csv.split(",") if item.strip()
+    ]
+    if len(allowed_sources) == 0:
+        return pretrain_df, 0, []
+    kept = pretrain_df.loc[
+        pretrain_df["source_site"].astype(str).isin(allowed_sources)
+    ].copy()
+    dropped = int(len(pretrain_df) - len(kept))
+    return kept, dropped, allowed_sources
 
 
 def build_category_maps(dfs: Sequence[pd.DataFrame]) -> dict[str, dict[str, int]]:
@@ -474,7 +631,7 @@ def build_feature_set(
                 "parking_spaces_missing",
             ]
         )
-    elif stage == "C5I":
+    elif stage in {"C5I", "C5IR"}:
         result = augment_geo_features(result, use_hex2vec=True)
         hex_cols = [column for column in result.columns if column.startswith("emb_")]
         image_cols = [
@@ -513,6 +670,196 @@ def build_feature_set(
                 "image_embedding_count",
             ]
             + image_cols
+            + [
+                "area_sqm_missing",
+                "floors_missing",
+                "land_area_missing",
+                "building_age_missing",
+                "bedrooms_missing",
+                "bathrooms_missing",
+                "parking_spaces_missing",
+            ]
+        )
+    elif stage == "C6":
+        from scripts.compute_enhanced_features import (
+            compute_accessibility_features,
+            compute_composition_features,
+            compute_density_features,
+            compute_nearest_poi_distances,
+            load_h3_features_with_coords,
+        )
+
+        result = augment_geo_features(result, use_hex2vec=True)
+        hex_cols = [column for column in result.columns if column.startswith("emb_")]
+        h3_features = load_h3_features_with_coords()
+
+        result = compute_nearest_poi_distances(result, h3_features)
+        result = compute_density_features(result, h3_features)
+        result = compute_composition_features(result, h3_features)
+        result = compute_accessibility_features(result)
+        result["local_price_median_h3"] = np.nan
+        result["local_price_iqr_h3"] = np.nan
+        result["price_vs_local"] = np.nan
+
+        density_cols = [c for c in result.columns if c.endswith("_density")]
+        composition_cols = [
+            "essential_amenity_count",
+            "lifestyle_amenity_count",
+            "education_amenity_count",
+            "health_amenity_count",
+            "transit_amenity_count",
+            "poi_diversity_index",
+        ]
+        market_cols = [
+            "local_price_median_h3",
+            "local_price_iqr_h3",
+            "price_vs_local",
+        ]
+        accessibility_cols = [
+            "drive_time_to_cbd_min",
+            "transit_time_to_bts_min",
+            "accessibility_score",
+        ]
+        distance_poi_cols = [
+            "dist_to_school",
+            "dist_to_hospital",
+            "dist_to_park",
+            "dist_to_mall",
+            "dist_to_university",
+            "dist_to_police_station",
+        ]
+
+        geo_features = [
+            "dist_to_cbd_min",
+            "dist_to_bts",
+            "dist_to_siam_paragon",
+            "dist_to_asoke",
+            "dist_to_silom",
+            "poi_school",
+            "poi_transit_stop",
+            "poi_hospital",
+            "poi_mall",
+            "poi_restaurant",
+            "poi_cafe",
+            "poi_supermarket",
+            "poi_park",
+            "poi_temple",
+            "poi_total",
+            "transit_total",
+            "property_count",
+            "flood_risk",
+        ]
+        feature_cols = (
+            COMMON_FEATURES
+            + SOURCE_AWARE_FEATURES
+            + geo_features
+            + hex_cols
+            + LISTING_METADATA_FEATURES
+            + density_cols
+            + composition_cols
+            + market_cols
+            + accessibility_cols
+            + distance_poi_cols
+            + [
+                "area_sqm_missing",
+                "floors_missing",
+                "land_area_missing",
+                "building_age_missing",
+                "bedrooms_missing",
+                "bathrooms_missing",
+                "parking_spaces_missing",
+            ]
+        )
+    elif stage in {"C6I", "C6IR"}:
+        from scripts.compute_enhanced_features import (
+            compute_accessibility_features,
+            compute_composition_features,
+            compute_density_features,
+            compute_nearest_poi_distances,
+            load_h3_features_with_coords,
+        )
+
+        result = augment_geo_features(result, use_hex2vec=True)
+        hex_cols = [column for column in result.columns if column.startswith("emb_")]
+        image_cols = [
+            column
+            for column in result.columns
+            if column.startswith(IMAGE_EMBEDDING_PREFIX)
+        ]
+        h3_features = load_h3_features_with_coords()
+
+        result = compute_nearest_poi_distances(result, h3_features)
+        result = compute_density_features(result, h3_features)
+        result = compute_composition_features(result, h3_features)
+        result = compute_accessibility_features(result)
+        result["local_price_median_h3"] = np.nan
+        result["local_price_iqr_h3"] = np.nan
+        result["price_vs_local"] = np.nan
+
+        density_cols = [c for c in result.columns if c.endswith("_density")]
+        composition_cols = [
+            "essential_amenity_count",
+            "lifestyle_amenity_count",
+            "education_amenity_count",
+            "health_amenity_count",
+            "transit_amenity_count",
+            "poi_diversity_index",
+        ]
+        market_cols = [
+            "local_price_median_h3",
+            "local_price_iqr_h3",
+            "price_vs_local",
+        ]
+        accessibility_cols = [
+            "drive_time_to_cbd_min",
+            "transit_time_to_bts_min",
+            "accessibility_score",
+        ]
+        distance_poi_cols = [
+            "dist_to_school",
+            "dist_to_hospital",
+            "dist_to_park",
+            "dist_to_mall",
+            "dist_to_university",
+            "dist_to_police_station",
+        ]
+
+        geo_features = [
+            "dist_to_cbd_min",
+            "dist_to_bts",
+            "dist_to_siam_paragon",
+            "dist_to_asoke",
+            "dist_to_silom",
+            "poi_school",
+            "poi_transit_stop",
+            "poi_hospital",
+            "poi_mall",
+            "poi_restaurant",
+            "poi_cafe",
+            "poi_supermarket",
+            "poi_park",
+            "poi_temple",
+            "poi_total",
+            "transit_total",
+            "property_count",
+            "flood_risk",
+        ]
+        feature_cols = (
+            COMMON_FEATURES
+            + SOURCE_AWARE_FEATURES
+            + geo_features
+            + hex_cols
+            + LISTING_METADATA_FEATURES
+            + [
+                "has_image_embedding",
+                "image_embedding_count",
+            ]
+            + image_cols
+            + density_cols
+            + composition_cols
+            + market_cols
+            + accessibility_cols
+            + distance_poi_cols
             + [
                 "area_sqm_missing",
                 "floors_missing",
@@ -587,6 +934,59 @@ def assign_cv_folds_from_artifact(
     df: pd.DataFrame, split_df: pd.DataFrame
 ) -> pd.DataFrame:
     result = assign_time_groups(df)
+    if "row_id" not in split_df.columns or "cv_fold" not in split_df.columns:
+        raise ValueError(
+            "Split artifact must include both 'row_id' and 'cv_fold' columns"
+        )
+
+    duplicate_row_ids = int(split_df["row_id"].duplicated().sum())
+    if duplicate_row_ids > 0:
+        raise ValueError(
+            f"Split artifact has {duplicate_row_ids} duplicated row_id values"
+        )
+
+    dataset_row_ids = result["row_id"].astype(str)
+    split_row_ids = split_df["row_id"].astype(str)
+
+    missing_in_split_mask = ~dataset_row_ids.isin(set(split_row_ids.tolist()))
+    missing_in_split = int(missing_in_split_mask.sum())
+    if missing_in_split > 0:
+        missing_df = result.loc[missing_in_split_mask, ["row_id", "source_site"]].copy()
+        missing_source_counts = (
+            missing_df["source_site"].fillna("unknown").value_counts().to_dict()
+        )
+        sample_row_ids = missing_df["row_id"].astype(str).head(5).tolist()
+        raise ValueError(
+            "Split artifact is incompatible with dataset: "
+            f"missing cv_fold assignment for {missing_in_split} rows before merge. "
+            f"Missing source breakdown={missing_source_counts}. "
+            f"Example missing row_ids={sample_row_ids}. "
+            "Likely cause: dataset and split were built from different benchmark variants "
+            "(for example clean dataset with all-data legacy split, or vice versa)."
+        )
+
+    extra_in_split_mask = ~split_row_ids.isin(set(dataset_row_ids.tolist()))
+    extra_in_split = int(extra_in_split_mask.sum())
+    if extra_in_split > 0:
+        logger.warning(
+            "Split artifact has %s extra rows not present in dataset; they will be ignored",
+            extra_in_split,
+        )
+
+    if "dataset_version" in result.columns and "dataset_version" in split_df.columns:
+        dataset_versions = sorted(
+            result["dataset_version"].dropna().astype(str).unique()
+        )
+        split_versions = sorted(
+            split_df["dataset_version"].dropna().astype(str).unique()
+        )
+        if dataset_versions and split_versions and dataset_versions != split_versions:
+            logger.warning(
+                "Dataset/split dataset_version mismatch: dataset=%s split=%s",
+                dataset_versions,
+                split_versions,
+            )
+
     merge_columns = ["row_id", "cv_fold"]
     optional_columns = ["strict_group", "spatial_group", "time_group"]
     for column in optional_columns:
@@ -607,7 +1007,18 @@ def assign_cv_folds_from_artifact(
     missing_mask = result["cv_fold"].isna()
     missing = int(missing_mask.sum())
     if missing > 0:
-        raise ValueError(f"Split artifact missing cv_fold for {missing} rows")
+        missing_source_counts = (
+            result.loc[missing_mask, "source_site"]
+            .fillna("unknown")
+            .value_counts()
+            .to_dict()
+            if "source_site" in result.columns
+            else {}
+        )
+        raise ValueError(
+            "Split artifact missing cv_fold after merge for "
+            f"{missing} rows; source breakdown={missing_source_counts}"
+        )
     result["cv_fold"] = result["cv_fold"].astype(int)
     return result
 
@@ -670,17 +1081,117 @@ def prepare_feature_matrix(df: pd.DataFrame, feature_cols: list[str]) -> pd.Data
     return feature_df
 
 
+def create_estimator(
+    backend: str,
+    n_estimators: int,
+    args: argparse.Namespace | None,
+) -> Any:
+    if backend == "xgboost":
+        if args is None:
+            raise ValueError("args is required for xgboost backend")
+        params = DEFAULT_XGB_PARAMS.copy()
+        params["learning_rate"] = float(max(args.xgb_learning_rate, 1e-3))
+        params["max_depth"] = int(max(args.xgb_max_depth, 2))
+        params["min_child_weight"] = float(max(args.xgb_min_child_weight, 0.0))
+        params["subsample"] = float(np.clip(args.xgb_subsample, 0.3, 1.0))
+        params["colsample_bytree"] = float(np.clip(args.xgb_colsample_bytree, 0.3, 1.0))
+        params["reg_alpha"] = float(max(args.xgb_reg_alpha, 0.0))
+        params["reg_lambda"] = float(max(args.xgb_reg_lambda, 0.0))
+        params["gamma"] = float(max(args.xgb_gamma, 0.0))
+        params["n_estimators"] = int(n_estimators)
+        return XGBRegressor(**params)
+    params = DEFAULT_PARAMS.copy()
+    params["n_estimators"] = int(n_estimators)
+    return lgb.LGBMRegressor(**params)
+
+
+def fit_estimator(
+    model: Any,
+    backend: str,
+    X_train: pd.DataFrame,
+    y_train: np.ndarray,
+    X_val: pd.DataFrame,
+    y_val: np.ndarray,
+    sample_weight: np.ndarray | None,
+) -> None:
+    if backend == "xgboost":
+        fit_kwargs: dict[str, Any] = {
+            "eval_set": [(X_val, y_val)],
+            "verbose": False,
+        }
+        if sample_weight is not None:
+            fit_kwargs["sample_weight"] = sample_weight
+        model.fit(X_train, y_train, **fit_kwargs)
+        return
+
+    fit_kwargs_lgb: dict[str, Any] = {
+        "eval_set": [(X_val, y_val)],
+        "callbacks": [lgb.early_stopping(50, verbose=False)],
+    }
+    if sample_weight is not None:
+        fit_kwargs_lgb["sample_weight"] = sample_weight
+    model.fit(X_train, y_train, **fit_kwargs_lgb)
+
+
+def add_fold_safe_market_context_features(
+    work_df: pd.DataFrame,
+    train_index: np.ndarray,
+    val_index: np.ndarray,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Build fold-safe local market features from train fold and map to val fold."""
+    train_df = work_df.iloc[train_index].copy()
+    val_df = work_df.iloc[val_index].copy()
+
+    group_col = "h3_index"
+    target_col = "target_price_thb"
+
+    stats = (
+        train_df.groupby(group_col)[target_col]
+        .agg(local_price_median_h3="median", local_q75=lambda x: x.quantile(0.75))
+        .reset_index()
+    )
+    q25 = (
+        train_df.groupby(group_col)[target_col]
+        .quantile(0.25)
+        .reset_index(name="local_q25")
+    )
+    stats = stats.merge(q25, on=group_col, how="left")
+    stats["local_price_iqr_h3"] = stats["local_q75"] - stats["local_q25"]
+    stats = stats[[group_col, "local_price_median_h3", "local_price_iqr_h3"]]
+
+    global_median = float(train_df[target_col].median()) if len(train_df) > 0 else 0.0
+
+    def _apply(df_in: pd.DataFrame) -> pd.DataFrame:
+        original_index = df_in.index
+        market_cols = ["local_price_median_h3", "local_price_iqr_h3", "price_vs_local"]
+        df_clean = df_in.drop(columns=[c for c in market_cols if c in df_in.columns])
+        out = df_clean.merge(stats, on=group_col, how="left")
+        out["local_price_median_h3"] = out["local_price_median_h3"].fillna(
+            global_median
+        )
+        out["local_price_iqr_h3"] = out["local_price_iqr_h3"].fillna(0.0)
+        # IMPORTANT: `price_vs_local` must not use target label at training or validation
+        # time, otherwise it leaks the answer into features.
+        out["price_vs_local"] = 0.0
+        out.index = original_index
+        return out
+
+    return _apply(train_df), _apply(val_df)
+
+
 def cross_validate(
     df: pd.DataFrame,
     feature_cols: list[str],
     n_folds: int,
     max_listing_test_groups: int,
-    source_weights: dict[str, float] | None = None,
+    sample_weights: np.ndarray | None = None,
     split_df: pd.DataFrame | None = None,
     pretrain_df: pd.DataFrame | None = None,
-    pretrain_source_weights: dict[str, float] | None = None,
+    pretrain_weights: np.ndarray | None = None,
     pretrain_n_estimators: int = 300,
     finetune_n_estimators: int = 300,
+    model_backend: str = "lightgbm",
+    args: argparse.Namespace | None = None,
 ) -> tuple[np.ndarray, dict[str, Any], list[dict[str, Any]]]:
     _ = max_listing_test_groups
     if split_df is not None:
@@ -689,26 +1200,15 @@ def cross_validate(
         work_df = assign_cv_folds(df, n_folds=n_folds)
     X = prepare_feature_matrix(work_df, feature_cols)
     y = work_df["target_log_price"].to_numpy()
-    sample_weights = build_sample_weights(work_df, source_weights)
     oof_preds = np.zeros(len(work_df), dtype=float)
     fold_reports: list[dict[str, Any]] = []
 
     pretrain_work_df = pretrain_df.copy() if pretrain_df is not None else None
     pretrain_X: Any = None
     pretrain_y: np.ndarray | None = None
-    pretrain_weights: np.ndarray | None = None
     if pretrain_work_df is not None:
         pretrain_X = prepare_feature_matrix(pretrain_work_df, feature_cols)
         pretrain_y = pretrain_work_df["target_log_price"].to_numpy()
-        pretrain_weights = build_sample_weights(
-            pretrain_work_df, pretrain_source_weights
-        )
-
-    params = DEFAULT_PARAMS.copy()
-    params["n_estimators"] = finetune_n_estimators
-
-    pretrain_params = DEFAULT_PARAMS.copy()
-    pretrain_params["n_estimators"] = pretrain_n_estimators
 
     property_counts = work_df["property_type"].value_counts().head(3)
     top_property_types: Sequence[str] = [
@@ -729,13 +1229,34 @@ def cross_validate(
         train_index = np.where(train_mask.to_numpy())[0]
         val_index = np.where(val_mask.to_numpy())[0]
 
-        model = lgb.LGBMRegressor(**params)
-        fit_kwargs: dict[str, Any] = {
-            "eval_set": [(X.iloc[val_index], y[val_index])],
-            "callbacks": [lgb.early_stopping(50, verbose=False)],
-        }
-        if sample_weights is not None:
-            fit_kwargs["sample_weight"] = sample_weights[train_index]
+        train_sample_weight = (
+            sample_weights[train_index] if sample_weights is not None else None
+        )
+
+        if any(
+            col in feature_cols
+            for col in ["local_price_median_h3", "local_price_iqr_h3", "price_vs_local"]
+        ):
+            train_aug, val_aug = add_fold_safe_market_context_features(
+                work_df,
+                train_index=train_index,
+                val_index=val_index,
+            )
+            market_cols_to_add = [
+                "local_price_median_h3",
+                "local_price_iqr_h3",
+                "price_vs_local",
+            ]
+            for col in market_cols_to_add:
+                if col not in work_df.columns:
+                    work_df[col] = np.nan
+                work_df.iloc[train_index, work_df.columns.get_loc(col)] = train_aug[
+                    col
+                ].values
+                work_df.iloc[val_index, work_df.columns.get_loc(col)] = val_aug[
+                    col
+                ].values
+            X = prepare_feature_matrix(work_df, feature_cols)
         pretrain_rows_used = 0
         pretrain_rows_excluded = 0
         if (
@@ -750,25 +1271,83 @@ def cross_validate(
             pretrain_rows_used = int(len(pretrain_index))
             pretrain_rows_excluded = int((~pretrain_mask).sum())
             if pretrain_rows_used > 0:
-                pretrain_model = lgb.LGBMRegressor(**pretrain_params)
-                pretrain_fit_kwargs: dict[str, Any] = {}
-                if pretrain_weights is not None:
-                    pretrain_fit_kwargs["sample_weight"] = pretrain_weights[
-                        pretrain_index
-                    ]
-                pretrain_model.fit(
-                    pretrain_X.iloc[pretrain_index],
-                    pretrain_y[pretrain_index],
-                    **pretrain_fit_kwargs,
+                pretrain_model = create_estimator(
+                    model_backend,
+                    n_estimators=pretrain_n_estimators,
+                    args=args,
                 )
-                fit_kwargs["init_model"] = pretrain_model.booster_
-        model.fit(
-            X.iloc[train_index],
-            y[train_index],
-            **fit_kwargs,
-        )
+                pretrain_sample_weight = (
+                    pretrain_weights[pretrain_index]
+                    if pretrain_weights is not None
+                    else None
+                )
+                fit_estimator(
+                    model=pretrain_model,
+                    backend=model_backend,
+                    X_train=pretrain_X.iloc[pretrain_index],
+                    y_train=pretrain_y[pretrain_index],
+                    X_val=X.iloc[val_index],
+                    y_val=y[val_index],
+                    sample_weight=pretrain_sample_weight,
+                )
+                pretrain_train_preds = np.asarray(
+                    pretrain_model.predict(X.iloc[train_index]), dtype=float
+                )
+                pretrain_val_preds = np.asarray(
+                    pretrain_model.predict(X.iloc[val_index]), dtype=float
+                )
 
-        raw_preds = model.predict(X.iloc[val_index])
+                finetune_target = y[train_index] - pretrain_train_preds
+                model = create_estimator(
+                    model_backend,
+                    n_estimators=finetune_n_estimators,
+                    args=args,
+                )
+                fit_estimator(
+                    model=model,
+                    backend=model_backend,
+                    X_train=X.iloc[train_index],
+                    y_train=finetune_target,
+                    X_val=X.iloc[val_index],
+                    y_val=y[val_index] - pretrain_val_preds,
+                    sample_weight=train_sample_weight,
+                )
+                raw_preds = pretrain_val_preds + np.asarray(
+                    model.predict(X.iloc[val_index]), dtype=float
+                )
+            else:
+                model = create_estimator(
+                    model_backend,
+                    n_estimators=finetune_n_estimators,
+                    args=args,
+                )
+                fit_estimator(
+                    model=model,
+                    backend=model_backend,
+                    X_train=X.iloc[train_index],
+                    y_train=y[train_index],
+                    X_val=X.iloc[val_index],
+                    y_val=y[val_index],
+                    sample_weight=train_sample_weight,
+                )
+                raw_preds = model.predict(X.iloc[val_index])
+        else:
+            model = create_estimator(
+                model_backend,
+                n_estimators=finetune_n_estimators,
+                args=args,
+            )
+            fit_estimator(
+                model=model,
+                backend=model_backend,
+                X_train=X.iloc[train_index],
+                y_train=y[train_index],
+                X_val=X.iloc[val_index],
+                y_val=y[val_index],
+                sample_weight=train_sample_weight,
+            )
+            raw_preds = model.predict(X.iloc[val_index])
+
         val_preds = np.asarray(raw_preds, dtype=float)
         oof_preds[val_index] = val_preds
 
@@ -805,6 +1384,332 @@ def cross_validate(
             fold_index + 1,
             len(fold_df),
             pretrain_rows_used,
+            slices["overall"]["mae"],
+            f"{slices.get('listing', {}).get('mae', float('nan')):.0f}"
+            if "listing" in slices
+            else "n/a",
+            f"{slices.get('treasury', {}).get('mae', float('nan')):.0f}"
+            if "treasury" in slices
+            else "n/a",
+        )
+
+    overall_slices = slice_metrics(
+        work_df.loc[oof_preds != 0.0].copy() if forward_chaining else work_df,
+        np.asarray(oof_preds[oof_preds != 0.0], dtype=float)
+        if forward_chaining
+        else np.asarray(oof_preds, dtype=float),
+        [str(value) for value in top_property_types],
+    )
+    return oof_preds, overall_slices, fold_reports
+
+
+def build_residual_feature_cols(work_df: pd.DataFrame) -> list[str]:
+    cols: list[str] = []
+    cols += SOURCE_AWARE_FEATURES
+    cols += LISTING_METADATA_FEATURES
+    cols += ["has_image_embedding", "image_embedding_count"]
+    cols += [
+        "area_sqm_missing",
+        "floors_missing",
+        "land_area_missing",
+        "building_age_missing",
+        "bedrooms_missing",
+        "bathrooms_missing",
+        "parking_spaces_missing",
+    ]
+    cols += [
+        column
+        for column in work_df.columns
+        if column.startswith(IMAGE_EMBEDDING_PREFIX)
+    ]
+    return [column for column in cols if column in work_df.columns]
+
+
+def compute_source_scale(
+    source_df: pd.DataFrame,
+    residual_true: np.ndarray,
+    residual_pred: np.ndarray,
+) -> dict[str, float]:
+    scales: dict[str, float] = {}
+    temp = source_df.copy()
+    temp["residual_true"] = residual_true
+    temp["residual_pred"] = residual_pred
+    for source_site, group in temp.groupby("source_site"):
+        denom = float(np.mean(np.abs(group["residual_pred"].to_numpy())))
+        if denom <= 1e-9:
+            scales[str(source_site)] = 1.0
+            continue
+        numer = float(np.mean(np.abs(group["residual_true"].to_numpy())))
+        ratio = numer / denom
+        scales[str(source_site)] = float(np.clip(ratio, 0.5, 1.5))
+    return scales
+
+
+def apply_residual_caps(
+    val_df: pd.DataFrame,
+    val_listing_mask: pd.Series,
+    residual_pred: np.ndarray,
+    global_abs_cap: float,
+    source_abs_caps: dict[str, float],
+) -> np.ndarray:
+    capped = residual_pred.copy()
+    if len(capped) == 0:
+        return capped
+    sources = val_df.loc[val_listing_mask, "source_site"].astype(str).to_numpy()
+    for index, source in enumerate(sources):
+        source_cap = float(source_abs_caps.get(source, global_abs_cap))
+        source_cap = abs(source_cap)
+        capped[index] = float(np.clip(capped[index], -source_cap, source_cap))
+    return capped
+
+
+def cross_validate_with_listing_residual(
+    df: pd.DataFrame,
+    feature_cols: list[str],
+    n_folds: int,
+    sample_weights: np.ndarray | None,
+    split_df: pd.DataFrame | None,
+    pretrain_df: pd.DataFrame | None,
+    pretrain_weights: np.ndarray | None,
+    pretrain_n_estimators: int,
+    finetune_n_estimators: int,
+    residual_n_estimators: int,
+    residual_alpha: float,
+    residual_source_weights: dict[str, float],
+    residual_source_calibration: bool,
+    residual_max_abs_log_delta: float,
+    residual_source_max_abs: dict[str, float],
+    residual_forward_shrink: float,
+    model_backend: str = "lightgbm",
+) -> tuple[np.ndarray, dict[str, Any], list[dict[str, Any]]]:
+    _ = n_folds
+    if split_df is not None:
+        work_df = assign_cv_folds_from_artifact(df, split_df)
+    else:
+        work_df = assign_cv_folds(df, n_folds=n_folds)
+
+    X = prepare_feature_matrix(work_df, feature_cols)
+    y = work_df["target_log_price"].to_numpy()
+
+    pretrain_work_df = pretrain_df.copy() if pretrain_df is not None else None
+    pretrain_X: Any = None
+    pretrain_y: np.ndarray | None = None
+    if pretrain_work_df is not None:
+        pretrain_X = prepare_feature_matrix(pretrain_work_df, feature_cols)
+        pretrain_y = pretrain_work_df["target_log_price"].to_numpy()
+
+    oof_preds = np.zeros(len(work_df), dtype=float)
+    fold_reports: list[dict[str, Any]] = []
+
+    if model_backend != "lightgbm":
+        raise ValueError("C5IR currently supports only lightgbm backend")
+
+    params = DEFAULT_PARAMS.copy()
+    params["n_estimators"] = finetune_n_estimators
+    pretrain_params = DEFAULT_PARAMS.copy()
+    pretrain_params["n_estimators"] = pretrain_n_estimators
+
+    residual_params = DEFAULT_PARAMS.copy()
+    residual_params["n_estimators"] = residual_n_estimators
+    residual_params["learning_rate"] = min(
+        float(residual_params.get("learning_rate", 0.05)), 0.04
+    )
+    residual_params["num_leaves"] = min(int(residual_params.get("num_leaves", 63)), 31)
+    residual_params["reg_lambda"] = float(residual_params.get("reg_lambda", 1.0)) + 2.0
+    residual_params["reg_alpha"] = float(residual_params.get("reg_alpha", 0.0)) + 0.5
+    residual_params["min_child_samples"] = max(
+        int(residual_params.get("min_child_samples", 20)), 80
+    )
+
+    property_counts = work_df["property_type"].value_counts().head(3)
+    top_property_types: Sequence[str] = [
+        str(value) for value in property_counts.index.to_list()
+    ]
+    forward_chaining = split_df is not None and "time_group" in split_df.columns
+    available_folds = sorted(int(value) for value in work_df["cv_fold"].unique())
+
+    for fold_index in available_folds:
+        val_mask = work_df["cv_fold"] == fold_index
+        train_mask = (
+            (work_df["cv_fold"] < fold_index) if forward_chaining else (~val_mask)
+        )
+        if val_mask.sum() == 0 or train_mask.sum() == 0:
+            continue
+
+        train_index = np.where(train_mask.to_numpy())[0]
+        val_index = np.where(val_mask.to_numpy())[0]
+
+        if any(
+            col in feature_cols
+            for col in ["local_price_median_h3", "local_price_iqr_h3", "price_vs_local"]
+        ):
+            train_aug, val_aug = add_fold_safe_market_context_features(
+                work_df,
+                train_index=train_index,
+                val_index=val_index,
+            )
+            market_cols_to_add = [
+                "local_price_median_h3",
+                "local_price_iqr_h3",
+                "price_vs_local",
+            ]
+            for col in market_cols_to_add:
+                if col not in work_df.columns:
+                    work_df[col] = np.nan
+                work_df.iloc[train_index, work_df.columns.get_loc(col)] = train_aug[
+                    col
+                ].values
+                work_df.iloc[val_index, work_df.columns.get_loc(col)] = val_aug[
+                    col
+                ].values
+            X = prepare_feature_matrix(work_df, feature_cols)
+
+        base_model = lgb.LGBMRegressor(**params)
+        fit_kwargs: dict[str, Any] = {
+            "eval_set": [(X.iloc[val_index], y[val_index])],
+            "callbacks": [lgb.early_stopping(50, verbose=False)],
+        }
+        if sample_weights is not None:
+            fit_kwargs["sample_weight"] = sample_weights[train_index]
+
+        pretrain_rows_used = 0
+        pretrain_rows_excluded = 0
+        if (
+            pretrain_work_df is not None
+            and pretrain_X is not None
+            and pretrain_y is not None
+            and len(pretrain_work_df) > 0
+        ):
+            val_row_ids = work_df.iloc[val_index]["row_id"].astype(str).tolist()
+            pretrain_mask = ~pretrain_work_df["row_id"].astype(str).isin(val_row_ids)
+            pretrain_index = np.where(pretrain_mask.to_numpy())[0]
+            pretrain_rows_used = int(len(pretrain_index))
+            pretrain_rows_excluded = int((~pretrain_mask).sum())
+            if pretrain_rows_used > 0:
+                pretrain_model = lgb.LGBMRegressor(**pretrain_params)
+                pretrain_fit_kwargs: dict[str, Any] = {}
+                if pretrain_weights is not None:
+                    pretrain_fit_kwargs["sample_weight"] = pretrain_weights[
+                        pretrain_index
+                    ]
+                pretrain_model.fit(
+                    pretrain_X.iloc[pretrain_index],
+                    pretrain_y[pretrain_index],
+                    **pretrain_fit_kwargs,
+                )
+                fit_kwargs["init_model"] = pretrain_model.booster_
+
+        base_model.fit(X.iloc[train_index], y[train_index], **fit_kwargs)
+        train_base = np.asarray(base_model.predict(X.iloc[train_index]), dtype=float)
+        val_base = np.asarray(base_model.predict(X.iloc[val_index]), dtype=float)
+
+        train_df = work_df.iloc[train_index].copy()
+        val_df = work_df.iloc[val_index].copy()
+        train_listing_mask = (train_df["source_type"] == "listing") & (
+            train_df["has_image_embedding"] == 1
+        )
+        val_listing_mask = (val_df["source_type"] == "listing") & (
+            val_df["has_image_embedding"] == 1
+        )
+
+        residual_adjustment = np.zeros(len(val_df), dtype=float)
+        source_scale_map: dict[str, float] = {}
+        residual_rows_used = int(train_listing_mask.sum())
+
+        if residual_rows_used >= 40 and int(val_listing_mask.sum()) > 0:
+            residual_cols = build_residual_feature_cols(work_df)
+            X_res_train = prepare_feature_matrix(
+                train_df.loc[train_listing_mask].copy(), residual_cols
+            )
+            y_res_train = (
+                y[train_index][train_listing_mask.to_numpy()]
+                - train_base[train_listing_mask.to_numpy()]
+            )
+
+            residual_weight_series = train_df.loc[
+                train_listing_mask, "source_site"
+            ].map(lambda value: float(residual_source_weights.get(str(value), 1.0)))
+            residual_weights = residual_weight_series.to_numpy(dtype=float)
+
+            residual_model = lgb.LGBMRegressor(**residual_params)
+            residual_model.fit(X_res_train, y_res_train, sample_weight=residual_weights)
+
+            X_res_val = prepare_feature_matrix(
+                val_df.loc[val_listing_mask].copy(), residual_cols
+            )
+            residual_pred = np.asarray(residual_model.predict(X_res_val), dtype=float)
+            residual_pred = residual_alpha * residual_pred
+
+            if residual_source_calibration:
+                train_residual_pred = np.asarray(
+                    residual_model.predict(X_res_train), dtype=float
+                )
+                train_residual_pred = residual_alpha * train_residual_pred
+                source_scale_map = compute_source_scale(
+                    train_df.loc[train_listing_mask, ["source_site"]].copy(),
+                    y_res_train,
+                    train_residual_pred,
+                )
+                val_sources = val_df.loc[val_listing_mask, "source_site"].astype(str)
+                scales = val_sources.map(
+                    lambda source: source_scale_map.get(source, 1.0)
+                ).to_numpy(dtype=float)
+                residual_pred = residual_pred * scales
+
+            if forward_chaining:
+                residual_pred = residual_pred * float(
+                    np.clip(residual_forward_shrink, 0.0, 1.0)
+                )
+
+            residual_pred = apply_residual_caps(
+                val_df=val_df,
+                val_listing_mask=val_listing_mask,
+                residual_pred=residual_pred,
+                global_abs_cap=float(abs(residual_max_abs_log_delta)),
+                source_abs_caps=residual_source_max_abs,
+            )
+
+            residual_adjustment[val_listing_mask.to_numpy()] = residual_pred
+
+        val_preds = val_base + residual_adjustment
+        oof_preds[val_index] = val_preds
+
+        slices = slice_metrics(val_df, val_preds, top_property_types)
+        fold_reports.append(
+            {
+                "fold": fold_index + 1,
+                "cv_fold": int(fold_index),
+                "treasury_time_groups": sorted(
+                    val_df.loc[
+                        val_df["source_type"] == "treasury", "time_group"
+                    ].unique()
+                ),
+                "listing_groups": int(
+                    val_df.loc[
+                        val_df["source_type"] == "listing", "duplicate_group"
+                    ].nunique()
+                ),
+                "strict_groups": int(val_df["strict_group"].nunique())
+                if "strict_group" in val_df.columns
+                else None,
+                "spatial_groups": int(val_df["spatial_group"].nunique())
+                if "spatial_group" in val_df.columns
+                else None,
+                "rows": int(len(val_df)),
+                "pretrain_rows_used": pretrain_rows_used,
+                "pretrain_rows_excluded_for_overlap": pretrain_rows_excluded,
+                "residual_rows_used": residual_rows_used,
+                "residual_alpha": float(residual_alpha),
+                "residual_source_scale": source_scale_map,
+                "metrics": slices,
+            }
+        )
+        logger.info(
+            "Fold %s rows=%s pretrain_rows=%s residual_rows=%s overall_mae=%.0f listing_mae=%s treasury_mae=%s",
+            fold_index + 1,
+            len(val_df),
+            pretrain_rows_used,
+            residual_rows_used,
             slices["overall"]["mae"],
             f"{slices.get('listing', {}).get('mae', float('nan')):.0f}"
             if "listing" in slices
@@ -861,6 +1766,26 @@ def train_stage(args: argparse.Namespace, stage: str) -> dict[str, Any]:
         raw_pretrain_dataset = merge_image_embeddings(
             raw_pretrain_dataset, args.image_embeddings
         )
+        (
+            raw_pretrain_dataset,
+            pretrain_rows_dropped_source,
+            pretrain_allowed_sources,
+        ) = filter_pretrain_rows_by_source(
+            raw_pretrain_dataset,
+            allowed_sources_csv=args.pretrain_only_source_sites,
+        )
+        raw_pretrain_dataset, pretrain_rows_dropped_low_conf = (
+            filter_pretrain_rows_by_confidence(
+                raw_pretrain_dataset,
+                drop_low_confidence_quantile=float(
+                    np.clip(args.pretrain_drop_low_confidence_quantile, 0.0, 0.95)
+                ),
+            )
+        )
+    else:
+        pretrain_rows_dropped_source = 0
+        pretrain_allowed_sources = []
+        pretrain_rows_dropped_low_conf = 0
     category_maps = build_category_maps(
         [df for df in [raw_dataset, raw_pretrain_dataset] if df is not None]
     )
@@ -881,18 +1806,67 @@ def train_stage(args: argparse.Namespace, stage: str) -> dict[str, Any]:
     split_df = load_split_artifact(args.split_artifact)
     source_weights = load_source_weights(args.source_weights_json)
     pretrain_source_weights = load_source_weights(args.pretrain_source_weights_json)
-    predictions, slice_report, fold_reports = cross_validate(
-        dataset,
-        feature_cols=feature_cols,
-        n_folds=args.cv_folds,
-        max_listing_test_groups=args.max_listing_test_groups,
-        source_weights=source_weights,
-        split_df=split_df,
-        pretrain_df=pretrain_dataset,
-        pretrain_source_weights=pretrain_source_weights,
-        pretrain_n_estimators=args.pretrain_n_estimators,
-        finetune_n_estimators=args.finetune_n_estimators,
-    )
+
+    sample_weights = build_sample_weights(dataset, source_weights)
+    if pretrain_dataset is not None:
+        pretrain_weights = build_sample_weights(
+            pretrain_dataset,
+            pretrain_source_weights,
+            use_legacy_confidence=bool(args.pretrain_use_legacy_confidence),
+            confidence_power=float(max(args.pretrain_confidence_power, 0.1)),
+        )
+    else:
+        pretrain_weights = None
+    residual_source_weights = DEFAULT_RESIDUAL_SOURCE_WEIGHTS.copy()
+    if args.residual_source_weights_json is not None:
+        residual_source_weights.update(
+            load_source_weights(args.residual_source_weights_json)
+        )
+    residual_source_max_abs = DEFAULT_RESIDUAL_SOURCE_MAX_ABS_LOG_DELTA.copy()
+    if args.residual_source_max_abs_json is not None:
+        payload = json.loads(
+            args.residual_source_max_abs_json.read_text(encoding="utf-8")
+        )
+        for key, value in payload.items():
+            residual_source_max_abs[str(key)] = float(value)
+
+    if stage in {"C5IR", "C6IR"}:
+        predictions, slice_report, fold_reports = cross_validate_with_listing_residual(
+            dataset,
+            feature_cols=feature_cols,
+            n_folds=args.cv_folds,
+            sample_weights=sample_weights,
+            split_df=split_df,
+            pretrain_df=pretrain_dataset,
+            pretrain_weights=pretrain_weights,
+            pretrain_n_estimators=args.pretrain_n_estimators,
+            finetune_n_estimators=args.finetune_n_estimators,
+            residual_n_estimators=args.residual_n_estimators,
+            residual_alpha=float(np.clip(args.residual_alpha, 0.0, 1.5)),
+            residual_source_weights=residual_source_weights,
+            residual_source_calibration=bool(args.residual_source_calibration),
+            residual_max_abs_log_delta=float(abs(args.residual_max_abs_log_delta)),
+            residual_source_max_abs=residual_source_max_abs,
+            residual_forward_shrink=float(
+                np.clip(args.residual_forward_shrink, 0.0, 1.0)
+            ),
+            model_backend=args.model_backend,
+        )
+    else:
+        predictions, slice_report, fold_reports = cross_validate(
+            dataset,
+            feature_cols=feature_cols,
+            n_folds=args.cv_folds,
+            max_listing_test_groups=args.max_listing_test_groups,
+            sample_weights=sample_weights,
+            split_df=split_df,
+            pretrain_df=pretrain_dataset,
+            pretrain_weights=pretrain_weights,
+            pretrain_n_estimators=args.pretrain_n_estimators,
+            finetune_n_estimators=args.finetune_n_estimators,
+            model_backend=args.model_backend,
+            args=args,
+        )
 
     metrics = {
         "stage": stage,
@@ -900,12 +1874,22 @@ def train_stage(args: argparse.Namespace, stage: str) -> dict[str, Any]:
         "feature_count": len(feature_cols),
         "feature_cols": feature_cols,
         "source_weights": source_weights,
+        "sample_weights_mode": "source_weights",
+        "model_backend": args.model_backend,
         "pretrain_dataset": str(args.pretrain_dataset)
         if args.pretrain_dataset is not None
         else None,
         "pretrain_source_weights": pretrain_source_weights
         if args.pretrain_dataset is not None
         else None,
+        "pretrain_use_legacy_confidence": bool(args.pretrain_use_legacy_confidence),
+        "pretrain_confidence_power": float(max(args.pretrain_confidence_power, 0.1)),
+        "pretrain_only_source_sites": pretrain_allowed_sources,
+        "pretrain_rows_dropped_source_filter": int(pretrain_rows_dropped_source),
+        "pretrain_drop_low_confidence_quantile": float(
+            np.clip(args.pretrain_drop_low_confidence_quantile, 0.0, 0.95)
+        ),
+        "pretrain_rows_dropped_low_confidence": int(pretrain_rows_dropped_low_conf),
         "pretrain_n_estimators": args.pretrain_n_estimators
         if args.pretrain_dataset is not None
         else 0,
@@ -916,6 +1900,15 @@ def train_stage(args: argparse.Namespace, stage: str) -> dict[str, Any]:
         "image_embeddings": str(args.image_embeddings)
         if args.image_embeddings is not None and args.image_embeddings.exists()
         else None,
+        "residual_n_estimators": args.residual_n_estimators,
+        "residual_alpha": float(np.clip(args.residual_alpha, 0.0, 1.5)),
+        "residual_source_weights": residual_source_weights,
+        "residual_source_calibration": bool(args.residual_source_calibration),
+        "residual_max_abs_log_delta": float(abs(args.residual_max_abs_log_delta)),
+        "residual_source_max_abs": residual_source_max_abs,
+        "residual_forward_shrink": float(
+            np.clip(args.residual_forward_shrink, 0.0, 1.0)
+        ),
         "slices": slice_report,
         "folds": fold_reports,
     }
@@ -944,10 +1937,14 @@ def main() -> None:
 
     run_context = build_standard_run_context(
         model_family="combined_price",
-        model_variant="cpu_phase_a_two_stage"
-        if args.pretrain_dataset is not None
-        else "cpu_phase_a",
-        feature_set="C1_to_C5I" if "C5I" in stages else "C1_to_C5",
+        model_variant=(
+            f"{args.model_backend}_phase_a_two_stage"
+            if args.pretrain_dataset is not None
+            else f"{args.model_backend}_phase_a"
+        ),
+        feature_set="C1_to_C5I"
+        if ("C5I" in stages or "C5IR" in stages)
+        else "C1_to_C5",
         target="target_log_price",
         split_seed=42,
         dataset_version=args.dataset_version,
@@ -967,6 +1964,7 @@ def main() -> None:
                 "split_artifact": str(args.split_artifact),
                 "dataset_version": args.dataset_version,
                 "cv_folds": args.cv_folds,
+                "model_backend": args.model_backend,
                 "max_listing_test_groups": args.max_listing_test_groups,
                 "source_weights_json": str(args.source_weights_json)
                 if args.source_weights_json is not None
@@ -982,6 +1980,21 @@ def main() -> None:
                 "image_embeddings": str(args.image_embeddings)
                 if args.image_embeddings is not None and args.image_embeddings.exists()
                 else "none",
+                "residual_n_estimators": args.residual_n_estimators,
+                "residual_alpha": float(np.clip(args.residual_alpha, 0.0, 1.5)),
+                "residual_source_weights_json": str(args.residual_source_weights_json)
+                if args.residual_source_weights_json is not None
+                else "default",
+                "residual_source_calibration": bool(args.residual_source_calibration),
+                "residual_max_abs_log_delta": float(
+                    abs(args.residual_max_abs_log_delta)
+                ),
+                "residual_source_max_abs_json": str(args.residual_source_max_abs_json)
+                if args.residual_source_max_abs_json is not None
+                else "default",
+                "residual_forward_shrink": float(
+                    np.clip(args.residual_forward_shrink, 0.0, 1.0)
+                ),
                 "stages": ",".join(stages),
             }
         )
