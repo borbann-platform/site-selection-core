@@ -129,7 +129,6 @@ class HGTValuator(nn.Module):
                 out_channels=hidden_dim,
                 metadata=metadata,
                 heads=num_heads,
-                dropout=dropout,
             )
             self.hgt_layers.append(conv)
 

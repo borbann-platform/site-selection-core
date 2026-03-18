@@ -62,7 +62,7 @@ def load_graph(graph_path: Path) -> "HeteroData":
     if not graph_path.exists():
         raise FileNotFoundError(f"Graph not found: {graph_path}")
 
-    data = torch.load(graph_path)
+    data = torch.load(graph_path, weights_only=False)
     logger.info(f"Loaded graph with {len(data.node_types)} node types")
     return data
 
@@ -161,24 +161,18 @@ def create_neighbor_loader(
 
 
 def compute_metrics(predictions: torch.Tensor, targets: torch.Tensor) -> dict:
-    """Compute evaluation metrics."""
+    """Compute evaluation metrics. Model predicts log10(price), targets are raw price."""
     predictions = predictions.detach().cpu().numpy()
     targets = targets.detach().cpu().numpy()
 
-    # Avoid division by zero
+    pred_price = 10**predictions
     targets_safe = np.maximum(targets, 1.0)
 
-    # MAPE
-    mape = np.mean(np.abs((predictions - targets) / targets_safe)) * 100
+    mape = np.mean(np.abs((pred_price - targets) / targets_safe)) * 100
+    mae = np.mean(np.abs(pred_price - targets))
+    rmse = np.sqrt(np.mean((pred_price - targets) ** 2))
 
-    # MAE
-    mae = np.mean(np.abs(predictions - targets))
-
-    # RMSE
-    rmse = np.sqrt(np.mean((predictions - targets) ** 2))
-
-    # R²
-    ss_res = np.sum((targets - predictions) ** 2)
+    ss_res = np.sum((targets - pred_price) ** 2)
     ss_tot = np.sum((targets - np.mean(targets)) ** 2)
     r2 = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0.0
 
@@ -200,14 +194,14 @@ def train_epoch(
     """Train for one epoch (full-batch)."""
     model.train()
 
-    # Move data to device
     x_dict = {k: data[k].x.to(device) for k in data.node_types if hasattr(data[k], "x")}
     edge_index_dict = {
         k: data[k].edge_index.to(device)
         for k in data.edge_types
         if hasattr(data[k], "edge_index")
     }
-    targets = data["property"].y.to(device)
+    targets_raw = data["property"].y.to(device)
+    targets = torch.log10(targets_raw)
     train_mask = data["property"].train_mask.to(device)
     cold_start_mask = (
         data["property"].cold_start_mask.to(device)
@@ -217,17 +211,14 @@ def train_epoch(
 
     optimizer.zero_grad()
 
-    # Forward pass
     predictions = model(x_dict, edge_index_dict, cold_start_mask=cold_start_mask)
 
-    # Compute loss only on training nodes
     loss = criterion(
         predictions[train_mask],
         targets[train_mask],
         cold_start_mask[train_mask] if cold_start_mask is not None else None,
     )
 
-    # Backward pass
     loss.backward()
     torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
     optimizer.step()
@@ -253,7 +244,7 @@ def evaluate(
             for k in data.edge_types
             if hasattr(data[k], "edge_index")
         }
-        targets = data["property"].y.to(device)
+        targets_raw = data["property"].y.to(device)
         cold_start_mask = (
             data["property"].cold_start_mask.to(device)
             if hasattr(data["property"], "cold_start_mask")
@@ -262,8 +253,7 @@ def evaluate(
 
         predictions = model(x_dict, edge_index_dict, cold_start_mask=cold_start_mask)
 
-        # Compute metrics on masked subset
-        metrics = compute_metrics(predictions[mask], targets[mask])
+        metrics = compute_metrics(predictions[mask], targets_raw[mask])
 
     return metrics
 

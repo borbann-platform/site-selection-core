@@ -128,6 +128,10 @@ def load_explainability_evidence(model_type: str) -> ExplainabilityEvidence:
             if isinstance(value, int | float):
                 model_performance[metric] = float(value)
 
+    notes = [
+        "Runtime explanations currently use model signals in the UI; SHAP evidence comes from offline training artifacts.",
+    ]
+
     explanation_metrics: dict[str, float] = {}
     explainability_report_path = artifact_paths["explainability_report"]
     if explainability_report_path.exists():
@@ -146,18 +150,44 @@ def load_explainability_evidence(model_type: str) -> ExplainabilityEvidence:
                 if isinstance(value, int | float):
                     explanation_metrics[metric] = float(value)
 
+            expected_found = report.get("expected_features_found", [])
+            if isinstance(expected_found, list) and expected_found:
+                notes.append(
+                    "Expected domain drivers found in SHAP top features: "
+                    + ", ".join(str(item) for item in expected_found)
+                    + "."
+                )
+
+            expected_missing = report.get("expected_features_missing", [])
+            if isinstance(expected_missing, list) and expected_missing:
+                notes.append(
+                    "Expected domain drivers still missing from SHAP top features: "
+                    + ", ".join(str(item) for item in expected_missing)
+                    + "."
+                )
+
     top_shap_features: list[ExplainabilityTopFeature] = []
     shap_importance_path = artifact_paths["shap_importance"]
     if shap_importance_path.exists():
         top_shap_features = _read_top_shap_features(shap_importance_path)
-
-    notes = [
-        "Runtime explanations currently use model signals in the UI; SHAP evidence comes from offline training artifacts.",
-    ]
     if explainability_report_path.exists():
         notes.append(
             "Faithfulness metrics compare prediction changes after perturbing top-ranked SHAP features versus random features."
         )
+        faithfulness_lift = explanation_metrics.get("faithfulness_lift")
+        if faithfulness_lift is not None:
+            notes.append(
+                "Top SHAP-ranked features cause about "
+                f"{faithfulness_lift:.2f}x more prediction change than random features in the current benchmark."
+            )
+
+        rank_correlation = explanation_metrics.get("shap_rank_correlation")
+        if rank_correlation is not None:
+            notes.append(
+                "SHAP and gain importance are "
+                f"{'well aligned' if rank_correlation >= 0.8 else 'only partially aligned'} "
+                f"in this run (rank correlation {rank_correlation:.2f})."
+            )
     else:
         notes.append(
             "The explainability benchmark report is missing, so the evidence below is only partial."

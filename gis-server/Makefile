@@ -6,7 +6,8 @@
 	load-scraped-bkk sync-scraped-images rebuild-combined-benchmark \
 	build-listing-only-benchmark \
 	audit-listing-images build-image-embedding-manifest \
-	build-listing-image-embeddings
+	build-listing-image-embeddings \
+	rebuild-combined-benchmark-legacy
 
 DATE_TAG ?= $(shell date +%Y%m%d)
 START_PAGE ?= 1
@@ -148,6 +149,15 @@ sync-scraped-images:
 # Rebuild combined benchmark artifacts after new listing data lands
 rebuild-combined-benchmark:
 	uv run python -m scripts.build_combined_price_dataset
+
+# Rebuild combined benchmark including legacy salvage rows
+rebuild-combined-benchmark-legacy:
+	uv run python -m scripts.build_combined_price_dataset \
+		--include-legacy-listings \
+		--output data/benchmarks/combined_sales_v1_legacy_salvage.parquet \
+		--audit-json data/benchmarks/combined_sales_v1_legacy_salvage_audit.json \
+		--audit-md data/benchmarks/combined_sales_v1_legacy_salvage_audit.md \
+		--dataset-version combined_sales_v1_legacy_salvage
 
 # Build listing-only benchmark from combined artifact
 build-listing-only-benchmark:
