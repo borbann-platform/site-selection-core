@@ -712,3 +712,70 @@
   - stronger image quality filtering
   - per-listing de-duplication by checksum
   - embedding dimensionality reduction (`PCA`/projection) before model training
+
+---
+
+## 2026-03-18 - M1 Iteration v2 (PCA + Filtering)
+
+### Goal
+
+- Improve first-pass `C5I` by reducing overfit risk from high-dimensional image vectors
+- Keep benchmark protocol fixed and compare directly against same `C5` two-stage reference
+
+### Implementation Changes
+
+- Added quality filter options in manifest builder:
+  - `--min-width`, `--min-height`, `--dedupe-checksum-per-listing`
+  - file: `gis-server/scripts/extract_listing_image_embeddings.py`
+- Added PCA compression stage in embedding builder:
+  - `--pca-dim` (used `64`)
+  - file: `gis-server/scripts/build_listing_image_embeddings.py`
+- Produced v2 artifacts:
+  - `gis-server/data/benchmarks/listing_image_embedding_manifest_v2.parquet`
+  - `gis-server/data/benchmarks/listing_image_embedding_manifest_v2_audit.json`
+  - `gis-server/data/benchmarks/listing_image_embeddings_v2.parquet`
+  - `gis-server/data/benchmarks/listing_image_embeddings_v2_audit.json`
+
+### Embedding Artifact Snapshot
+
+- Model: `openai/clip-vit-base-patch32`
+- Processed image rows: `1,158`
+- Listing rows with embeddings: `387`
+- Original dim: `768`
+- Output dim after PCA: `64`
+- Explained variance ratio sum: `0.826`
+
+### MLflow Runs
+
+- Grouped split (`C5` vs `C5I` with v2 embeddings):
+  - run: `2adebc7244934b25b5b16b572c7bb82e`
+  - output: `gis-server/models/combined_price_grouped_cv_c5_vs_c5i_m1_v2`
+- Time split (`C5` vs `C5I` with v2 embeddings):
+  - run: `1e09f0933eda4cf688a4f17021ec341b`
+  - output: `gis-server/models/combined_price_time_split_c5_vs_c5i_m1_v2`
+
+### Benchmark Outcome
+
+- Grouped split:
+  - `C5`: overall MAE `996,616`, treasury MAE `814,572`, listing MAE `4,017,903`
+  - `C5I` v2: overall MAE `991,346`, treasury MAE `820,866`, listing MAE `3,820,714`
+- Time split:
+  - `C5`: overall MAE `943,288`, treasury MAE `681,869`, listing MAE `6,268,830`
+  - `C5I` v2: overall MAE `961,661`, treasury MAE `689,627`, listing MAE `6,503,475`
+
+### Interpretation
+
+- v2 improved `C5I` significantly versus v1 on grouped split and now beats `C5` on:
+  - overall MAE (small gain)
+  - listing MAE (material gain)
+- But time split still regresses versus `C5` on overall, listing, and treasury MAE.
+- So image signal looks useful under grouped CV but is not yet stable for time generalization.
+
+### Decision
+
+- Do not promote `C5I` as new leader yet.
+- Keep tuned two-stage `C5` as production-candidate baseline.
+- Next M1 iteration should focus on time robustness:
+  - source-aware regularization for image features
+  - stronger per-source calibration (especially Hipflat)
+  - possibly constrain image features to listing residual branch instead of full joint model

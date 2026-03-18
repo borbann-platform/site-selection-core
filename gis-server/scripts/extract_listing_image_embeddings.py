@@ -24,8 +24,8 @@ logger = logging.getLogger(__name__)
 BASE_DIR = Path(__file__).resolve().parents[1]
 BENCHMARK_DIR = BASE_DIR / "data" / "benchmarks"
 DEFAULT_DATASET = BENCHMARK_DIR / "combined_sales_v1.parquet"
-DEFAULT_OUTPUT = BENCHMARK_DIR / "listing_image_embedding_manifest_v1.parquet"
-DEFAULT_AUDIT_JSON = BENCHMARK_DIR / "listing_image_embedding_manifest_v1_audit.json"
+DEFAULT_OUTPUT = BENCHMARK_DIR / "listing_image_embedding_manifest_v2.parquet"
+DEFAULT_AUDIT_JSON = BENCHMARK_DIR / "listing_image_embedding_manifest_v2_audit.json"
 
 
 def parse_args() -> argparse.Namespace:
@@ -40,6 +40,28 @@ def parse_args() -> argparse.Namespace:
         "--prefer-uploaded",
         action="store_true",
         help="Prioritize uploaded images with object_uri; fallback to source_url",
+    )
+    parser.add_argument(
+        "--drop-missing-dim",
+        action="store_true",
+        help="Drop rows where width or height is missing",
+    )
+    parser.add_argument(
+        "--min-width",
+        type=int,
+        default=0,
+        help="Optional minimum width threshold (0 disables)",
+    )
+    parser.add_argument(
+        "--min-height",
+        type=int,
+        default=0,
+        help="Optional minimum height threshold (0 disables)",
+    )
+    parser.add_argument(
+        "--dedupe-checksum-per-listing",
+        action="store_true",
+        help="Keep one image per listing and checksum",
     )
     return parser.parse_args()
 
@@ -206,6 +228,44 @@ def build_priority_order(
     return ranked
 
 
+def apply_quality_filters(
+    images_df: pd.DataFrame,
+    drop_missing_dim: bool,
+    min_width: int,
+    min_height: int,
+    dedupe_checksum_per_listing: bool,
+) -> pd.DataFrame:
+    result = images_df.copy()
+    if result.empty:
+        return result
+
+    result["width"] = pd.to_numeric(result["width"], errors="coerce")
+    result["height"] = pd.to_numeric(result["height"], errors="coerce")
+
+    if drop_missing_dim:
+        result = result.loc[result["width"].notna() & result["height"].notna()].copy()
+    if min_width > 0:
+        result = result.loc[
+            result["width"].isna() | (result["width"] >= float(min_width))
+        ].copy()
+    if min_height > 0:
+        result = result.loc[
+            result["height"].isna() | (result["height"] >= float(min_height))
+        ].copy()
+
+    if dedupe_checksum_per_listing:
+        result["checksum_sha256"] = result["checksum_sha256"].fillna("").astype(str)
+        with_checksum = result["checksum_sha256"].str.len() > 0
+        deduped = result.loc[with_checksum].drop_duplicates(
+            subset=["listing_id", "checksum_sha256"],
+            keep="first",
+        )
+        without_checksum = result.loc[~with_checksum]
+        result = pd.concat([deduped, without_checksum], ignore_index=True)
+
+    return result
+
+
 def select_top_k_manifest(
     listing_df: pd.DataFrame,
     mapped_df: pd.DataFrame,
@@ -339,6 +399,13 @@ def main() -> None:
         mapped_df["listing_id"].dropna().astype(int).drop_duplicates().tolist()
     )
     images_df = fetch_images(listing_ids)
+    images_df = apply_quality_filters(
+        images_df,
+        drop_missing_dim=args.drop_missing_dim,
+        min_width=max(args.min_width, 0),
+        min_height=max(args.min_height, 0),
+        dedupe_checksum_per_listing=args.dedupe_checksum_per_listing,
+    )
 
     manifest_df = select_top_k_manifest(
         listing_df=listing_df,
@@ -387,6 +454,12 @@ def main() -> None:
         top_k=max(args.top_k, 1),
         prefer_uploaded=args.prefer_uploaded,
     )
+    audit["quality_filters"] = {
+        "drop_missing_dim": bool(args.drop_missing_dim),
+        "min_width": int(max(args.min_width, 0)),
+        "min_height": int(max(args.min_height, 0)),
+        "dedupe_checksum_per_listing": bool(args.dedupe_checksum_per_listing),
+    }
     args.audit_json.write_text(json.dumps(audit, indent=2), encoding="utf-8")
 
     logger.info("Saved listing image embedding manifest: %s", args.output)

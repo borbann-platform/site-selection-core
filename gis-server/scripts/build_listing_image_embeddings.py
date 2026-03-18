@@ -13,6 +13,7 @@ from urllib.parse import urlparse
 import httpx
 import numpy as np
 import pandas as pd
+from sklearn.decomposition import PCA
 import torch
 from PIL import Image
 from transformers import CLIPModel, CLIPProcessor
@@ -29,9 +30,9 @@ logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 BENCHMARK_DIR = BASE_DIR / "data" / "benchmarks"
-DEFAULT_MANIFEST = BENCHMARK_DIR / "listing_image_embedding_manifest_v1.parquet"
-DEFAULT_OUTPUT = BENCHMARK_DIR / "listing_image_embeddings_v1.parquet"
-DEFAULT_AUDIT_JSON = BENCHMARK_DIR / "listing_image_embeddings_v1_audit.json"
+DEFAULT_MANIFEST = BENCHMARK_DIR / "listing_image_embedding_manifest_v2.parquet"
+DEFAULT_OUTPUT = BENCHMARK_DIR / "listing_image_embeddings_v2.parquet"
+DEFAULT_AUDIT_JSON = BENCHMARK_DIR / "listing_image_embeddings_v2_audit.json"
 
 
 def parse_args() -> argparse.Namespace:
@@ -60,6 +61,12 @@ def parse_args() -> argparse.Namespace:
         type=str,
         default="auto",
         help="auto, cpu, or cuda",
+    )
+    parser.add_argument(
+        "--pca-dim",
+        type=int,
+        default=64,
+        help="Target embedding dimension after PCA (0 disables)",
     )
     return parser.parse_args()
 
@@ -295,11 +302,54 @@ def aggregate_listing_embeddings(emb_df: pd.DataFrame) -> pd.DataFrame:
     return result
 
 
+def compress_embeddings(
+    listing_embeddings: pd.DataFrame,
+    pca_dim: int,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
+    emb_cols = [
+        column for column in listing_embeddings.columns if column.startswith("img_emb_")
+    ]
+    original_dim = len(emb_cols)
+    if pca_dim <= 0 or original_dim == 0 or pca_dim >= original_dim:
+        return listing_embeddings, {
+            "pca_applied": False,
+            "original_dim": original_dim,
+            "output_dim": original_dim,
+            "explained_variance_ratio_sum": 1.0,
+        }
+
+    matrix = listing_embeddings[emb_cols].to_numpy(dtype=np.float32)
+    pca = PCA(
+        n_components=min(pca_dim, matrix.shape[0], matrix.shape[1]), random_state=42
+    )
+    reduced = pca.fit_transform(matrix).astype(np.float32)
+    reduced_dim = int(reduced.shape[1])
+
+    reduced_cols = [f"img_emb_{idx}" for idx in range(reduced_dim)]
+    reduced_df = pd.DataFrame(
+        reduced, columns=reduced_cols, index=listing_embeddings.index
+    )
+
+    base_cols = [
+        column
+        for column in listing_embeddings.columns
+        if not column.startswith("img_emb_")
+    ]
+    result = pd.concat([listing_embeddings[base_cols], reduced_df], axis=1)
+    return result, {
+        "pca_applied": True,
+        "original_dim": original_dim,
+        "output_dim": reduced_dim,
+        "explained_variance_ratio_sum": float(pca.explained_variance_ratio_.sum()),
+    }
+
+
 def build_audit(
     metrics: dict[str, Any],
     listing_embeddings: pd.DataFrame,
     model_id: str,
     device: str,
+    compression: dict[str, Any],
 ) -> dict[str, Any]:
     return {
         "embedding_version": "listing_image_embeddings_v1",
@@ -310,6 +360,12 @@ def build_audit(
         "failed_image_rows": metrics["failed_rows"],
         "embedding_dim": metrics["embedding_dim"],
         "listing_rows_with_embeddings": int(len(listing_embeddings)),
+        "pca_applied": bool(compression.get("pca_applied", False)),
+        "embedding_dim_original": int(compression.get("original_dim", 0)),
+        "embedding_dim_output": int(compression.get("output_dim", 0)),
+        "pca_explained_variance_ratio_sum": float(
+            compression.get("explained_variance_ratio_sum", 0.0)
+        ),
         "avg_images_per_listing": float(
             listing_embeddings["image_embedding_count"].mean()
             if len(listing_embeddings) > 0
@@ -362,6 +418,10 @@ def main() -> None:
         )
 
     listing_embeddings = aggregate_listing_embeddings(emb_df)
+    listing_embeddings, compression = compress_embeddings(
+        listing_embeddings,
+        pca_dim=max(args.pca_dim, 0),
+    )
     listing_embeddings.to_parquet(args.output, index=False)
 
     audit = build_audit(
@@ -369,6 +429,7 @@ def main() -> None:
         listing_embeddings=listing_embeddings,
         model_id=args.model_id,
         device=device,
+        compression=compression,
     )
     args.audit_json.write_text(json.dumps(audit, indent=2), encoding="utf-8")
 

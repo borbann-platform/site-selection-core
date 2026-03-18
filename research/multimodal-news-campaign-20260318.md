@@ -185,3 +185,30 @@ uv run python -m scripts.extract_listing_image_embeddings \
 - Decision:
   - Keep `C5` two-stage as active leader.
   - Continue M1 iteration with stronger filtering/regularization and dimensionality reduction instead of promoting current `C5I`.
+
+### M1 Iteration v2 Outcome
+
+- v2 artifacts:
+  - `gis-server/data/benchmarks/listing_image_embedding_manifest_v2.parquet`
+  - `gis-server/data/benchmarks/listing_image_embedding_manifest_v2_audit.json`
+  - `gis-server/data/benchmarks/listing_image_embeddings_v2.parquet`
+  - `gis-server/data/benchmarks/listing_image_embeddings_v2_audit.json`
+- Compression summary:
+  - CLIP embedding `768` -> PCA `64`
+  - explained variance ratio sum: `0.826`
+- Runs:
+  - grouped: `2adebc7244934b25b5b16b572c7bb82e`
+  - time split: `1e09f0933eda4cf688a4f17021ec341b`
+
+- Grouped benchmark:
+  - `C5`: overall MAE `996,616`, listing MAE `4,017,903`, treasury MAE `814,572`
+  - `C5I` v2: overall MAE `991,346`, listing MAE `3,820,714`, treasury MAE `820,866`
+
+- Time benchmark:
+  - `C5`: overall MAE `943,288`, listing MAE `6,268,830`, treasury MAE `681,869`
+  - `C5I` v2: overall MAE `961,661`, listing MAE `6,503,475`, treasury MAE `689,627`
+
+- Current status:
+  - grouped split improved and is now promising,
+  - time split still regresses,
+  - keep `C5` two-stage as active leader until time robustness improves.
