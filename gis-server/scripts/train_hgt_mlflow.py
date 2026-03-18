@@ -66,6 +66,20 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+def _json_safe(obj):
+    """Convert nested values to JSON-serializable Python primitives."""
+    if isinstance(obj, dict):
+        return {k: _json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_json_safe(v) for v in obj]
+    if hasattr(obj, "item"):
+        try:
+            return obj.item()
+        except Exception:
+            pass
+    return obj
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Train HGT Valuator with MLflow tracking"
@@ -325,7 +339,7 @@ def main():
         }
         metadata_path = output_dir / "model_metadata.json"
         with open(metadata_path, "w") as f:
-            json.dump(metadata, f, indent=2)
+            json.dump(_json_safe(metadata), f, indent=2)
         log_artifact_safe(metadata_path, get_artifact_path("config"))
 
         logger.info("\n=== Training Complete ===")

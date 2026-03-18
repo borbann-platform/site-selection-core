@@ -1,7 +1,23 @@
 .PHONY: test test-unit test-integration test-cov lint format install sync \
 	mlflow-up mlflow-down mlflow-logs mlflow-ui \
 	promote-baseline promote-hgt mlflow-leaderboard \
-	sync-images-minio sync-images-minio-pipeline
+	sync-images-minio sync-images-minio-pipeline \
+	playwright-install scrape-baania-bkk scrape-hipflat-bkk \
+	load-scraped-bkk sync-scraped-images rebuild-combined-benchmark \
+	build-listing-only-benchmark \
+	audit-listing-images build-image-embedding-manifest \
+	build-listing-image-embeddings \
+	rebuild-combined-benchmark-legacy
+
+DATE_TAG ?= $(shell date +%Y%m%d)
+START_PAGE ?= 1
+MAX_PAGES ?= 10
+MAX_DETAILS ?=
+INPUT_GLOB ?= data/scraped/*$(DATE_TAG)*.jsonl
+IMAGE_LIMIT ?= 5000
+IMAGE_STATUSES ?= pending,failed
+IMAGE_COMMIT_BATCH ?= 100
+IMAGE_TIMEOUT_SECONDS ?= 30
 
 # Default target
 all: test
@@ -96,3 +112,65 @@ sync-images-minio:
 # Run repeated image sync batches to MinIO
 sync-images-minio-pipeline:
 	uv run python -m scripts.etl.sync_images_to_minio_pipeline --with-minio-dep --batch-limit $(or $(BATCH_LIMIT),1000) --max-rounds $(or $(MAX_ROUNDS),20) --commit-batch $(or $(COMMIT_BATCH),50) --target-pending $(or $(TARGET_PENDING),0)
+
+# Install Playwright Chromium for Hipflat scraping
+playwright-install:
+	uv run --with playwright playwright install chromium
+
+# Scrape a chunk of Bangkok Baania house projects
+scrape-baania-bkk:
+	uv run --with scrapy scrapy runspider scripts/scrapers/baania_house_spider.py \
+		-a start_page=$(START_PAGE) \
+		-a max_pages=$(MAX_PAGES) \
+		$(if $(MAX_DETAILS),-a max_details=$(MAX_DETAILS),) \
+		-a include_raw=0 \
+		-O data/scraped/baania_bangkok_houses_page_$(START_PAGE)_$$(( $(START_PAGE) + $(MAX_PAGES) - 1 ))_$(DATE_TAG).jsonl
+
+# Scrape a chunk of Bangkok Hipflat house projects
+scrape-hipflat-bkk:
+	uv run --with scrapy --with scrapy-playwright --with playwright scrapy runspider scripts/scrapers/hipflat_bangkok_house_spider.py \
+		-a start_page=$(START_PAGE) \
+		-a max_pages=$(MAX_PAGES) \
+		$(if $(MAX_DETAILS),-a max_details=$(MAX_DETAILS),) \
+		-O data/scraped/hipflat_bangkok_houses_page_$(START_PAGE)_$$(( $(START_PAGE) + $(MAX_PAGES) - 1 ))_$(DATE_TAG).jsonl
+
+# Load scraped Bangkok JSONL files into normalized tables
+load-scraped-bkk:
+	uv run python -m scripts.etl.load_scraped_projects --input-glob "$(INPUT_GLOB)" --include-raw
+
+# Download and sync scraped listing images into object storage
+sync-scraped-images:
+	uv run --with minio python -m scripts.etl.sync_images_to_minio \
+		--statuses $(IMAGE_STATUSES) \
+		--limit $(IMAGE_LIMIT) \
+		--commit-batch $(IMAGE_COMMIT_BATCH) \
+		--timeout-seconds $(IMAGE_TIMEOUT_SECONDS)
+
+# Rebuild combined benchmark artifacts after new listing data lands
+rebuild-combined-benchmark:
+	uv run python -m scripts.build_combined_price_dataset
+
+# Rebuild combined benchmark including legacy salvage rows
+rebuild-combined-benchmark-legacy:
+	uv run python -m scripts.build_combined_price_dataset \
+		--include-legacy-listings \
+		--output data/benchmarks/combined_sales_v1_legacy_salvage.parquet \
+		--audit-json data/benchmarks/combined_sales_v1_legacy_salvage_audit.json \
+		--audit-md data/benchmarks/combined_sales_v1_legacy_salvage_audit.md \
+		--dataset-version combined_sales_v1_legacy_salvage
+
+# Build listing-only benchmark from combined artifact
+build-listing-only-benchmark:
+	uv run python -m scripts.build_listing_only_dataset
+
+# Audit listing image quality for benchmark rows
+audit-listing-images:
+	uv run python -m scripts.audit_listing_images_quality
+
+# Build benchmark-aligned top-k listing image manifest
+build-image-embedding-manifest:
+	uv run python -m scripts.extract_listing_image_embeddings --top-k 3 --prefer-uploaded
+
+# Build listing-level image embeddings from manifest
+build-listing-image-embeddings:
+	uv run python -m scripts.build_listing_image_embeddings

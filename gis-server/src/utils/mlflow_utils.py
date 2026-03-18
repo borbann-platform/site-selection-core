@@ -153,23 +153,19 @@ def mlflow_run(
         return
 
     try:
-        # Set tracking URI if provided
         if tracking_uri:
             mlflow.set_tracking_uri(tracking_uri)
-
-        # Create or get experiment
         mlflow.set_experiment(experiment_name)
-
-        # Start run
-        with mlflow.start_run(run_name=run_name, tags=tags, nested=nested) as run:
-            logger.info(
-                f"Started MLflow run: {run.info.run_id} (experiment: {experiment_name})"
-            )
-            yield run
-
     except Exception as e:
-        logger.warning(f"MLflow error, continuing without tracking: {e}")
+        logger.warning(f"MLflow setup error, continuing without tracking: {e}")
         yield None
+        return
+
+    with mlflow.start_run(run_name=run_name, tags=tags, nested=nested) as run:
+        logger.info(
+            f"Started MLflow run: {run.info.run_id} (experiment: {experiment_name})"
+        )
+        yield run
 
 
 def log_params_safe(params: dict[str, Any]) -> None:

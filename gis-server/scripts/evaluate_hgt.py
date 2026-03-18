@@ -40,7 +40,7 @@ from src.models.hgt_valuator import create_model_from_data
 def load_model_and_graph(model_dir: Path, graph_path: Path, device: str = "cpu"):
     """Load trained model and graph data."""
     # Load graph
-    data = torch.load(graph_path, map_location=device)
+    data = torch.load(graph_path, map_location=device, weights_only=False)
     logger.info(f"Loaded graph: {len(data.node_types)} node types")
 
     # Load model
@@ -61,7 +61,7 @@ def load_model_and_graph(model_dir: Path, graph_path: Path, device: str = "cpu")
 
 
 def get_predictions(model, data, device: str = "cpu"):
-    """Get predictions for all properties."""
+    """Get predictions for all properties. Model outputs log10(price)."""
     model.eval()
 
     with torch.no_grad():
@@ -79,9 +79,12 @@ def get_predictions(model, data, device: str = "cpu"):
             else None
         )
 
-        predictions = model(x_dict, edge_index_dict, cold_start_mask=cold_start_mask)
+        log_predictions = model(
+            x_dict, edge_index_dict, cold_start_mask=cold_start_mask
+        )
+        predictions = 10 ** log_predictions.cpu().numpy()
 
-    return predictions.cpu().numpy(), data["property"].y.numpy()
+    return predictions, data["property"].y.numpy()
 
 
 def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict:

@@ -18,6 +18,8 @@ from sqlalchemy.orm import Session
 from src.config.database import get_db_session
 from src.dependencies.auth import get_current_user_optional
 from src.models.user import User
+from src.services.explainability_artifacts import load_explainability_evidence
+from src.services.explanation_narration import generate_natural_language_explanation
 from src.services.price_prediction import (
     PredictorType,
     get_available_predictors,
@@ -33,8 +35,15 @@ class FeatureContributionResponse(BaseModel):
     feature: str
     feature_display: str
     value: float
-    contribution: float
     direction: str
+    contribution: float
+    contribution_kind: str = Field(
+        description="How to interpret the contribution value"
+    )
+    contribution_display: str | None = Field(
+        default=None,
+        description="Human-readable contribution label for the UI",
+    )
 
 
 class PriceExplanationResponse(BaseModel):
@@ -46,6 +55,11 @@ class PriceExplanationResponse(BaseModel):
     model_type: str = Field(description="Model used for prediction")
     actual_price: float | None = None
     feature_contributions: list[FeatureContributionResponse]
+    explanation_title: str
+    explanation_summary: str
+    explanation_disclaimer: str
+    explanation_method: str
+    explanation_narrative: str | None = None
     district: str | None = None
     district_avg_price: float | None = None
     price_vs_district: float | None = None  # Percentage
@@ -53,6 +67,31 @@ class PriceExplanationResponse(BaseModel):
     is_cold_start: bool = Field(
         default=False, description="True if area has no transaction history"
     )
+
+
+class ExplainabilityTopFeatureResponse(BaseModel):
+    """Top SHAP-ranked feature from offline analysis."""
+
+    feature: str
+    importance: float
+
+
+class ExplainabilityEvidenceResponse(BaseModel):
+    """Explainability benchmark evidence for a prediction model."""
+
+    model_type: str
+    runtime_explanation_method: str
+    evidence_available: bool
+    evaluation_complete: bool
+    generated_at: str | None = None
+    summary: str
+    model_performance: dict[str, float] = Field(default_factory=dict)
+    explanation_metrics: dict[str, float] = Field(default_factory=dict)
+    top_shap_features: list[ExplainabilityTopFeatureResponse] = Field(
+        default_factory=list
+    )
+    missing_artifacts: list[str] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
 
 
 class PredictRequest(BaseModel):
@@ -89,6 +128,37 @@ def get_models_status(
         pass
 
     return ModelStatusResponse(models=available, default_model=default)
+
+
+@router.get(
+    "/models/{model_type}/explainability-evidence",
+    response_model=ExplainabilityEvidenceResponse,
+)
+def get_explainability_evidence(
+    model_type: PredictorType,
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
+):
+    """Return offline explainability benchmark artifacts for the selected model."""
+    evidence = load_explainability_evidence(model_type.value)
+    return ExplainabilityEvidenceResponse(
+        model_type=evidence.model_type,
+        runtime_explanation_method=evidence.runtime_explanation_method,
+        evidence_available=evidence.evidence_available,
+        evaluation_complete=evidence.evaluation_complete,
+        generated_at=evidence.generated_at,
+        summary=evidence.summary,
+        model_performance=evidence.model_performance,
+        explanation_metrics=evidence.explanation_metrics,
+        top_shap_features=[
+            ExplainabilityTopFeatureResponse(
+                feature=item.feature,
+                importance=item.importance,
+            )
+            for item in evidence.top_shap_features
+        ],
+        missing_artifacts=evidence.missing_artifacts,
+        notes=evidence.notes,
+    )
 
 
 @router.get("/{property_id}/explain", response_model=PriceExplanationResponse)
@@ -172,11 +242,20 @@ def explain_price(
                 feature=c.feature,
                 feature_display=c.feature_display,
                 value=c.value,
-                contribution=c.contribution,
                 direction=c.direction,
+                contribution=c.contribution,
+                contribution_kind=c.contribution_kind,
+                contribution_display=c.contribution_display,
             )
             for c in prediction.feature_contributions
         ],
+        explanation_title=prediction.explanation_title,
+        explanation_summary=prediction.explanation_summary,
+        explanation_disclaimer=prediction.explanation_disclaimer,
+        explanation_method=prediction.explanation_method,
+        explanation_narrative=generate_natural_language_explanation(
+            prediction, actual_price
+        ),
         district=prediction.district or amphur,
         district_avg_price=round(prediction.district_avg_price, 0)
         if prediction.district_avg_price
@@ -232,11 +311,18 @@ def predict_price(
                 feature=c.feature,
                 feature_display=c.feature_display,
                 value=c.value,
-                contribution=c.contribution,
                 direction=c.direction,
+                contribution=c.contribution,
+                contribution_kind=c.contribution_kind,
+                contribution_display=c.contribution_display,
             )
             for c in prediction.feature_contributions
         ],
+        explanation_title=prediction.explanation_title,
+        explanation_summary=prediction.explanation_summary,
+        explanation_disclaimer=prediction.explanation_disclaimer,
+        explanation_method=prediction.explanation_method,
+        explanation_narrative=generate_natural_language_explanation(prediction),
         district=prediction.district,
         district_avg_price=round(prediction.district_avg_price, 0)
         if prediction.district_avg_price
