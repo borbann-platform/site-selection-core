@@ -101,3 +101,55 @@ Additional notes:
   1. Reduce `location-intelligence` request cost (query consolidation and cache effectiveness).
   2. Re-run Sprint A with warmup-enabled script and compare cache-hit deltas.
   3. Validate on multi-worker/staging profile to separate local single-process limits from code-path limits.
+
+## Run D (Option 1 rerun before server restart)
+
+- k6 summary file: `/tmp/sprint-a-k6-summary-option1-rerun.json`
+- `http_req_failed` (`value`): `0.1724`
+- `http_req_duration avg`: `17758.4175 ms`
+- `http_req_duration p95`: `45263.9858 ms`
+- `checks` (`value`): `0.9902`
+- `http_reqs`: `3840`
+- `iterations`: `3113`
+
+## Run E (Option 1 rerun after server restart with latest metrics code)
+
+- k6 summary file: `/tmp/sprint-a-k6-summary-option1-rerun-after-restart.json`
+- `http_req_failed` (`value`): `0.1653`
+- `http_req_duration avg`: `14918.2251 ms`
+- `http_req_duration p95`: `39671.5316 ms`
+- `checks` (`value`): `0.9973`
+- `http_reqs`: `4525`
+- `iterations`: `3670`
+
+Observability snapshot (post-run): `/tmp/sprint-a-metrics-option1-rerun-after-restart.prom`
+
+- `api_requests_total`: `4556`
+- `api_request_errors_total`: `4`
+- `db_query_total`: `5835`
+- `db_query_errors_total`: `1093`
+- `cache_listings_tile_hit_rate`: `0.0599`
+- `cache_location_intelligence_hit_rate`: `0.0055`
+
+Location intelligence stage timings (new per-stage metrics):
+
+- `analyze_total`: total `365`, avg `0.7898 s`
+- `transit`: total `363`, avg `0.7583 s`
+- `schools`: total `363`, avg `0.0123 s`
+- `walkability`: total `363`, avg `0.0087 s`
+- `flood`: total `363`, avg `0.0077 s`
+- `noise`: total `363`, avg `0.0071 s`
+
+Interpretation:
+
+- Run E improved over Run C on all primary top-line metrics (error rate, avg latency, p95, throughput) but still misses Sprint A SLO targets.
+- New stage-level observability identifies `transit` as the dominant location-intelligence latency contributor in this profile.
+- `walkability` is no longer the primary per-request bottleneck after query consolidation and spatial index prefiltering.
+
+## Updated Decision (after Runs D/E)
+
+- Sprint A gate: **Fail** (improved, but still above p95 and failure targets).
+- Next action:
+  1. Optimize transit score path further (query shape/index strategy and/or bounded radius policy) and re-test.
+  2. Reduce DB query error volume observed in Run E (`db_query_errors_total=1093`) and classify root causes.
+  3. Validate with multi-worker/staging profile to remove single-process local ceiling from decision quality.

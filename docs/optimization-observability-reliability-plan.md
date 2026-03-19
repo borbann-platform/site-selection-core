@@ -372,6 +372,18 @@ Scope is to improve speed, stability, and operational visibility without breakin
 - Baseline rerun confirms auth blocker resolved, but SLO still fails due to high p95 latency and elevated failure rate under local load profile.
 - Load script updated with warmup controls (`WARMUP_ENABLED`, `WARMUP_REQUESTS`) to improve repeatability for cache-sensitive endpoints.
 
+### Sprint A update (Option 1 execution)
+
+- Committed optimization wave and reran Sprint A twice (`/tmp/sprint-a-k6-summary-option1-rerun.json`, `/tmp/sprint-a-k6-summary-option1-rerun-after-restart.json`).
+- Top-line metrics improved versus Run C baseline:
+  - `http_req_failed`: `0.1775 -> 0.1653`
+  - `http_req_duration p95`: `47689ms -> 39672ms`
+  - `http_reqs`: `3431 -> 4525`
+- New location-intelligence stage metrics confirm current dominant hotspot is **transit stage**:
+  - `transit` avg ~`0.758s`
+  - other stages (schools/walkability/flood/noise) each ~`0.007-0.012s`
+- Sprint A still fails SLO; continue Sprint A with transit-focused optimization before switching to next backlog theme.
+
 ## Ready-Next Checklist
 
 - [ ] Prepare staging profile with PgBouncer + Redis.
