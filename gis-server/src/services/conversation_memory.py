@@ -6,8 +6,11 @@ Uses in-memory cache with optional PostgreSQL persistence.
 import json
 import logging
 import uuid
+from collections import OrderedDict
 from datetime import datetime
 from typing import Any
+
+from src.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +27,26 @@ class ConversationMemory:
     """
 
     def __init__(self):
-        self._sessions: dict[str, list[dict[str, Any]]] = {}
-        self._session_metadata: dict[str, dict[str, Any]] = {}
+        self._sessions: OrderedDict[str, list[dict[str, Any]]] = OrderedDict()
+        self._session_metadata: OrderedDict[str, dict[str, Any]] = OrderedDict()
+        self._max_sessions = settings.CONVERSATION_CACHE_MAX_SESSIONS
+        self._max_messages_per_session = (
+            settings.CONVERSATION_CACHE_MAX_MESSAGES_PER_SESSION
+        )
+        self._cache_hits = 0
+        self._cache_misses = 0
+
+    def _touch_session(self, session_id: str) -> None:
+        if session_id in self._sessions:
+            self._sessions.move_to_end(session_id)
+        if session_id in self._session_metadata:
+            self._session_metadata.move_to_end(session_id)
+
+    def _trim_sessions(self) -> None:
+        while len(self._sessions) > self._max_sessions:
+            oldest_session_id, _ = self._sessions.popitem(last=False)
+            self._session_metadata.pop(oldest_session_id, None)
+            logger.info(f"Evicted old session from memory cache: {oldest_session_id}")
 
     def create_session(self) -> str:
         """
@@ -40,6 +61,7 @@ class ConversationMemory:
             "created_at": datetime.utcnow().isoformat(),
             "last_activity": datetime.utcnow().isoformat(),
         }
+        self._trim_sessions()
         logger.info(f"Created new conversation session: {session_id}")
         return session_id
 
@@ -64,6 +86,7 @@ class ConversationMemory:
             self._session_metadata[session_id] = {
                 "created_at": datetime.utcnow().isoformat(),
             }
+            self._trim_sessions()
 
         message = {
             "role": role,
@@ -72,12 +95,17 @@ class ConversationMemory:
             "timestamp": datetime.utcnow().isoformat(),
         }
         self._sessions[session_id].append(message)
+        if len(self._sessions[session_id]) > self._max_messages_per_session:
+            self._sessions[session_id] = self._sessions[session_id][
+                -self._max_messages_per_session :
+            ]
 
         # Update last activity
         if session_id in self._session_metadata:
             self._session_metadata[session_id]["last_activity"] = (
                 datetime.utcnow().isoformat()
             )
+        self._touch_session(session_id)
 
         # Persist to database (async, best-effort)
         self._persist_message_async(session_id, message)
@@ -98,12 +126,24 @@ class ConversationMemory:
             List of message dicts with role, content, timestamp
         """
         if session_id not in self._sessions:
+            self._cache_misses += 1
             # Try loading from database
             history = self._load_from_db(session_id, limit)
             if history:
                 self._sessions[session_id] = history
+                self._session_metadata.setdefault(
+                    session_id,
+                    {
+                        "created_at": datetime.utcnow().isoformat(),
+                        "last_activity": datetime.utcnow().isoformat(),
+                    },
+                )
+                self._touch_session(session_id)
+                self._trim_sessions()
             return history
 
+        self._cache_hits += 1
+        self._touch_session(session_id)
         # Return last N messages
         return self._sessions[session_id][-limit:]
 
@@ -152,6 +192,18 @@ class ConversationMemory:
                 "message_count": len(self._sessions.get(session_id, [])),
             }
         return None
+
+    def get_cache_stats(self) -> dict[str, int | float]:
+        total = self._cache_hits + self._cache_misses
+        hit_rate = (self._cache_hits / total) if total > 0 else 0.0
+        return {
+            "sessions": len(self._sessions),
+            "max_sessions": self._max_sessions,
+            "max_messages_per_session": self._max_messages_per_session,
+            "cache_hits": self._cache_hits,
+            "cache_misses": self._cache_misses,
+            "cache_hit_rate": round(hit_rate, 4),
+        }
 
     def _persist_message_async(self, session_id: str, message: dict) -> None:
         """

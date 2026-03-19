@@ -4,9 +4,12 @@ import csv
 import hashlib
 import logging
 import os
+import time
+from collections import OrderedDict
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+from src.config.settings import settings
 from src.models.location_intelligence import (
     FloodRiskScore,
     LocationIntelligenceResponse,
@@ -48,7 +51,13 @@ class LocationIntelligenceService:
 
     def __init__(self):
         self._flood_data: list[dict] | None = None
-        self._cache: dict[str, LocationIntelligenceResponse] = {}
+        self._cache: OrderedDict[str, tuple[LocationIntelligenceResponse, float]] = (
+            OrderedDict()
+        )
+        self._cache_ttl_seconds = settings.LOCATION_INTELLIGENCE_CACHE_TTL_SECONDS
+        self._cache_max_entries = settings.LOCATION_INTELLIGENCE_CACHE_MAX_ENTRIES
+        self._cache_hits = 0
+        self._cache_misses = 0
 
     def _get_cache_key(self, lat: float, lon: float, radius: int) -> str:
         """Generate cache key based on location grid cell (100m precision)."""
@@ -57,6 +66,43 @@ class LocationIntelligenceService:
         grid_lon = round(lon, 3)
         key = f"{grid_lat}:{grid_lon}:{radius}"
         return hashlib.md5(key.encode()).hexdigest()
+
+    def _get_cached(self, cache_key: str) -> LocationIntelligenceResponse | None:
+        now = time.time()
+        cached = self._cache.get(cache_key)
+        if not cached:
+            self._cache_misses += 1
+            return None
+
+        response, ts = cached
+        if now - ts > self._cache_ttl_seconds:
+            del self._cache[cache_key]
+            self._cache_misses += 1
+            return None
+
+        self._cache.move_to_end(cache_key)
+        self._cache_hits += 1
+        return response
+
+    def _set_cached(
+        self, cache_key: str, response: LocationIntelligenceResponse
+    ) -> None:
+        self._cache[cache_key] = (response, time.time())
+        self._cache.move_to_end(cache_key)
+        while len(self._cache) > self._cache_max_entries:
+            self._cache.popitem(last=False)
+
+    def get_cache_stats(self) -> dict[str, int | float]:
+        total = self._cache_hits + self._cache_misses
+        hit_rate = (self._cache_hits / total) if total > 0 else 0.0
+        return {
+            "size": len(self._cache),
+            "max_entries": self._cache_max_entries,
+            "ttl_seconds": self._cache_ttl_seconds,
+            "hits": self._cache_hits,
+            "misses": self._cache_misses,
+            "hit_rate": round(hit_rate, 4),
+        }
 
     def _load_flood_data(self) -> list[dict]:
         """Load flood warning data from CSV."""
@@ -491,8 +537,9 @@ class LocationIntelligenceService:
         """Perform complete location intelligence analysis."""
         # Check cache
         cache_key = self._get_cache_key(lat, lon, radius)
-        if cache_key in self._cache:
-            return self._cache[cache_key]
+        cached = self._get_cached(cache_key)
+        if cached:
+            return cached
 
         # Calculate all scores
         transit = self.calculate_transit_score(db, lat, lon, radius)
@@ -528,7 +575,7 @@ class LocationIntelligenceService:
         )
 
         # Cache result
-        self._cache[cache_key] = response
+        self._set_cached(cache_key, response)
 
         return response
 
