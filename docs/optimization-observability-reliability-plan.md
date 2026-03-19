@@ -384,6 +384,16 @@ Scope is to improve speed, stability, and operational visibility without breakin
   - other stages (schools/walkability/flood/noise) each ~`0.007-0.012s`
 - Sprint A still fails SLO; continue Sprint A with transit-focused optimization before switching to next backlog theme.
 
+### Sprint A update (transit-focused follow-up)
+
+- Applied transit-query rewrite to use KNN (`geometry <-> point`) in nearest rail/ferry subqueries while preserving `ST_DWithin` radius filter.
+- Fixed walkability SQL syntax (`(ARRAY_REMOVE(...))[1:3]`) and added explicit `db.rollback()` recovery on per-stage DB errors to prevent cascading "current transaction is aborted" failures.
+- Reran Sprint A (`/tmp/sprint-a-k6-summary-sprint-a-transit-fix.json`):
+  - `http_req_failed`: `0.1590`
+  - `http_req_duration p95`: `37167.72ms`
+  - `db_query_errors_total`: `0` (from `1093` in previous run)
+- Result: still SLO-fail, but reliability improved and error metrics are now clean for next optimization iteration.
+
 ## Ready-Next Checklist
 
 - [ ] Prepare staging profile with PgBouncer + Redis.

@@ -138,6 +138,13 @@ class LocationIntelligenceService:
         # 1 degree latitude is approximately 111,320 meters.
         return radius_meters / 111_320.0
 
+    @staticmethod
+    def _rollback_session(db: Session) -> None:
+        try:
+            db.rollback()
+        except Exception:
+            logger.exception("Failed to rollback DB session after stage error")
+
     @contextmanager
     def _observe_stage(self, stage: str):
         start = time.perf_counter()
@@ -163,14 +170,18 @@ class LocationIntelligenceService:
             # Query for nearest rail station (BTS/MRT/ARL)
             rail_query = text(
                 """
-                SELECT stop_name as name, source as type,
+                WITH nearest AS (
+                    SELECT stop_name as name, source as type, geometry
+                    FROM transit_stops
+                    WHERE source IN ('bangkok-gtfs')
+                      AND geometry && ST_Expand(ST_SetSRID(ST_MakePoint(:lon, :lat), 4326), :radius_deg)
+                      AND ST_DWithin(geometry::geography, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography, :radius)
+                    ORDER BY geometry <-> ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)
+                    LIMIT 1
+                )
+                SELECT name, type,
                        ST_Distance(geometry::geography, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography) as distance_m
-                FROM transit_stops
-                WHERE source IN ('bangkok-gtfs')
-                  AND geometry && ST_Expand(ST_SetSRID(ST_MakePoint(:lon, :lat), 4326), :radius_deg)
-                  AND ST_DWithin(geometry::geography, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography, :radius)
-                ORDER BY distance_m
-                LIMIT 1
+                FROM nearest
             """
             )
 
@@ -187,13 +198,17 @@ class LocationIntelligenceService:
             # Query for ferry/water transport
             ferry_query = text(
                 """
+                WITH nearest AS (
+                    SELECT name, geometry
+                    FROM water_transport_piers
+                    WHERE geometry && ST_Expand(ST_SetSRID(ST_MakePoint(:lon, :lat), 4326), :radius_deg)
+                      AND ST_DWithin(geometry::geography, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography, :radius)
+                    ORDER BY geometry <-> ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)
+                    LIMIT 1
+                )
                 SELECT name,
                        ST_Distance(geometry::geography, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography) as distance_m
-                FROM water_transport_piers
-                WHERE geometry && ST_Expand(ST_SetSRID(ST_MakePoint(:lon, :lat), 4326), :radius_deg)
-                  AND ST_DWithin(geometry::geography, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography, :radius)
-                ORDER BY distance_m
-                LIMIT 1
+                FROM nearest
             """
             )
 
@@ -274,6 +289,7 @@ class LocationIntelligenceService:
 
             except Exception as e:
                 logger.exception(f"Error calculating transit score: {e}")
+                self._rollback_session(db)
 
             # Cap at 100
             score = min(100, score)
@@ -350,6 +366,7 @@ class LocationIntelligenceService:
 
             except Exception as e:
                 logger.exception(f"Error calculating schools score: {e}")
+                self._rollback_session(db)
 
             total = len(schools)
 
@@ -423,7 +440,7 @@ class LocationIntelligenceService:
                         WHEN type = ANY(:retail_types) THEN 'retail'
                     END AS category,
                     LEAST(COUNT(*), 10) AS poi_count,
-                    ARRAY_REMOVE(ARRAY_AGG(name), NULL)[1:3] AS examples
+                    (ARRAY_REMOVE(ARRAY_AGG(name), NULL))[1:3] AS examples
                 FROM view_all_pois
                 WHERE ST_DWithin(
                     geometry::geography,
@@ -492,6 +509,7 @@ class LocationIntelligenceService:
                         score += 8
             except Exception as e:
                 logger.exception(f"Error calculating walkability score: {e}")
+                self._rollback_session(db)
 
             score = min(100, int(score))
 
@@ -541,6 +559,7 @@ class LocationIntelligenceService:
                     district = row.amphur
             except Exception as e:
                 logger.exception(f"Error finding district: {e}")
+                self._rollback_session(db)
 
             # Load flood data and check for warnings
             flood_data = self._load_flood_data()
@@ -615,6 +634,7 @@ class LocationIntelligenceService:
 
             except Exception as e:
                 logger.exception(f"Error calculating noise level: {e}")
+                self._rollback_session(db)
 
             # Determine level based on distance to major road proxy
             min_dist = min(

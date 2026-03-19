@@ -153,3 +153,42 @@ Interpretation:
   1. Optimize transit score path further (query shape/index strategy and/or bounded radius policy) and re-test.
   2. Reduce DB query error volume observed in Run E (`db_query_errors_total=1093`) and classify root causes.
   3. Validate with multi-worker/staging profile to remove single-process local ceiling from decision quality.
+
+## Run F (Sprint A after transit-query rewrite + transaction-recovery fix)
+
+- k6 summary file: `/tmp/sprint-a-k6-summary-sprint-a-transit-fix.json`
+- `http_req_failed` (`value`): `0.1590`
+- `http_req_duration avg`: `15635.4773 ms`
+- `http_req_duration p95`: `37167.72 ms`
+- `checks` (`value`): `1.0`
+- `http_reqs`: `4321`
+- `iterations`: `3513`
+
+Observability snapshot (post-run): `/tmp/sprint-a-metrics-sprint-a-transit-fix.prom`
+
+- `api_requests_total`: `4336`
+- `api_request_errors_total`: `0`
+- `db_query_total`: `5734`
+- `db_query_errors_total`: `0` (fixed from prior 1093 by removing SQL syntax error + rollback recovery)
+- `cache_listings_tile_hit_rate`: `0.0591`
+- `cache_location_intelligence_hit_rate`: `0.0`
+
+Location intelligence stage timing (Run F):
+
+- `analyze_total` avg: `0.8113 s`
+- `transit` avg: `0.7576 s` (still dominant)
+- `schools` avg: `0.0101 s`
+- `walkability` avg: `0.0240 s`
+- `flood` avg: `0.0081 s`
+- `noise` avg: `0.0112 s`
+
+Delta vs Run E (`/tmp/sprint-a-k6-summary-option1-rerun-after-restart.json`):
+
+- `http_req_failed`: `0.1653 -> 0.1590` (`-3.82%`)
+- `http_req_duration p95`: `39671.53ms -> 37167.72ms` (`-6.31%`)
+- `http_req_duration avg`: `14918.23ms -> 15635.48ms` (`+4.81%`)
+
+Interpretation:
+
+- Transit query rewrite and transaction recovery removed DB query-error noise and improved p95/failure rate.
+- Sprint A remains SLO-fail in local profile, but now with cleaner metrics and a confirmed dominant hotspot (`transit` stage).
