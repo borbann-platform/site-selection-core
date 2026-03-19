@@ -220,6 +220,8 @@ export function usePropertyExplorer(districtFromUrl?: string) {
         categories: ["school"],
       }),
     enabled: overlays.schools,
+    staleTime: 1000 * 60 * 30,
+    gcTime: 1000 * 60 * 60,
   });
 
   const { data: transitLines } = useQuery({
@@ -236,6 +238,8 @@ export function usePropertyExplorer(districtFromUrl?: string) {
       };
     },
     enabled: overlays.transitRail,
+    staleTime: 1000 * 60 * 30,
+    gcTime: 1000 * 60 * 60,
   });
 
   // Derive the H3 resolution from the current zoom level so that the query
