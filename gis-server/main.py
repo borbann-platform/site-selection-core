@@ -20,6 +20,7 @@ from src.routes.house_prices import router as house_prices_router
 from src.routes.invitations import router as invitations_router
 from src.routes.location_intelligence import router as location_intelligence_router
 from src.routes.listings import router as listings_router
+from src.routes.observability import router as observability_router
 from src.routes.organizations import router as organizations_router
 from src.routes.price_prediction import router as price_prediction_router
 from src.routes.projects import router as projects_router
@@ -27,6 +28,7 @@ from src.routes.site import router as site_router
 from src.routes.teams import router as teams_router
 from src.routes.transit import router as transit_router
 from src.routes.valuation import router as valuation_router
+from src.services.observability import request_metrics
 
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
@@ -75,6 +77,12 @@ async def request_timing_middleware(request: Request, call_next):
         response = await call_next(request)
     except Exception:
         duration_ms = (time.perf_counter() - start) * 1000
+        request_metrics.observe_request(
+            method=request.method,
+            path=request.url.path,
+            status_code=500,
+            duration_seconds=duration_ms / 1000,
+        )
         logger.exception(
             "request_failed method=%s path=%s request_id=%s duration_ms=%.2f",
             request.method,
@@ -85,6 +93,12 @@ async def request_timing_middleware(request: Request, call_next):
         raise
 
     duration_ms = (time.perf_counter() - start) * 1000
+    request_metrics.observe_request(
+        method=request.method,
+        path=request.url.path,
+        status_code=response.status_code,
+        duration_seconds=duration_ms / 1000,
+    )
     response.headers["X-Request-ID"] = request_id
     logger.info(
         "request_complete method=%s path=%s status=%s request_id=%s duration_ms=%.2f",
@@ -117,6 +131,7 @@ app.include_router(transit_router, prefix="/api/v1", tags=["Transit"])
 app.include_router(admin_router, prefix="/api/v1", tags=["Admin"])
 app.include_router(auth_router, prefix="/api/v1", tags=["Authentication"])
 app.include_router(valuation_router, prefix="/api/v1", tags=["Property Valuation"])
+app.include_router(observability_router, prefix="/api/v1", tags=["Observability"])
 
 # Enterprise auth routers
 app.include_router(organizations_router, prefix="/api/v1", tags=["Organizations"])
