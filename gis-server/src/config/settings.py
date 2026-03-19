@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     DB_POOL_TIMEOUT_SECONDS: int = 10
     DB_POOL_RECYCLE_SECONDS: int = 1800
     DB_STATEMENT_TIMEOUT_MS: int = 15000
+    DB_USE_PGBOUNCER: bool = False
 
     LOG_LEVEL: str = "INFO"
 
