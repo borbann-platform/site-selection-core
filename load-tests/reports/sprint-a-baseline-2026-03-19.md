@@ -1,0 +1,103 @@
+# Sprint A Baseline Capacity Report
+
+Date: 2026-03-19
+
+Environment: local dev (single uvicorn process), Postgres local, then PgBouncer local
+
+Commit SHA: working tree (not yet committed)
+
+## Scenario
+
+- Script: `load-tests/sprint-a-baseline.js`
+- Base URL: `http://localhost:8000`
+- Duration: ~7 minutes + graceful stop
+- Max VUs reached: 300
+
+## Run A (direct DB, no PgBouncer)
+
+- k6 summary file: `/tmp/sprint-a-k6-summary.json`
+- `http_req_failed`: `0.1821`
+- `http_req_duration p95`: `42597.9654 ms`
+- `checks`: `0.9914`
+- `http_reqs`: `3685`
+- `iterations`: `3062`
+
+Observability snapshot (post-run): `/tmp/sprint-a-metrics.prom`
+
+- `api_requests_total`: `3724`
+- `api_request_errors_total`: `0`
+- `db_pool_size`: `20`
+- `db_pool_checked_out`: `0`
+- `db_pool_overflow`: `0`
+- `db_pool_checkout_timeout_total`: `0`
+- `cache_listings_tile_hit_rate`: `0.0128`
+- `cache_location_intelligence_hit_rate`: `0.0067`
+
+## Run B (through PgBouncer)
+
+- k6 summary file: `/tmp/sprint-a-k6-summary-pgbouncer.json`
+- `http_req_failed`: `1.0`
+- `http_req_duration p95`: `60001.1656 ms`
+- `checks`: `0.1014`
+- `http_reqs`: `1442`
+- `iterations`: `1206`
+
+Observability snapshot (post-run): `/tmp/sprint-a-metrics-fallback.prom`
+
+- `api_requests_total`: `1231`
+- `api_request_errors_total`: `935`
+- `db_pool_size`: `20`
+- `db_pool_checked_out`: `21`
+- `db_pool_overflow`: `1`
+- `db_pool_checkout_timeout_total`: `0`
+- `cache_listings_tile_hit_rate`: `0.0`
+- `cache_location_intelligence_hit_rate`: `0.0086`
+
+## Findings
+
+- PgBouncer path is currently misconfigured: backend logs show `server login failed: wrong password type` from PgBouncer to Postgres.
+- This authentication mismatch causes widespread request timeout/failure and invalidates PgBouncer performance assessment.
+- Without PgBouncer, timeout pressure still appears at high VU due to single-process local server and heavy endpoint mix.
+- Listings tile cache hit rate remains near zero in this run, likely due to random tile distribution and no warmup phase.
+
+## Run C (through PgBouncer after SCRAM fix)
+
+- k6 summary file: `/tmp/sprint-a-k6-summary-pgbouncer-fixed.json`
+- `http_req_failed` (`value`): `0.1775`
+- `http_req_duration p95`: `47689.1495 ms`
+- `checks` (`value`): `0.9891`
+- `http_reqs`: `3431`
+- `iterations`: `2879`
+
+Observability snapshot (post-run): `/tmp/sprint-a-metrics-after-fixed.prom`
+
+- `api_requests_total`: `3478`
+- `api_request_errors_total`: `0`
+- `db_pool_size`: `20`
+- `db_pool_checked_out`: `0`
+- `db_pool_overflow`: `0`
+- `db_pool_checkout_timeout_total`: `0`
+- `cache_listings_tile_hit_rate`: `0.01`
+- `cache_location_intelligence_hit_rate`: `0.0`
+
+Additional notes:
+
+- PgBouncer auth mismatch is fixed (`auth_type=scram-sha-256`), and login failures are no longer observed.
+- Despite auth recovery, p95 latency remains very high under this local profile; current bottleneck is now endpoint/service throughput, not pool auth.
+- k6 summary `thresholds` flags in JSON may report `true` even when observed values violate targets; use raw metric values (`value`, `p(95)`) for gate decisions.
+
+## Decision
+
+- Sprint A gate: **Fail** (PgBouncer not yet operational in this environment).
+- Next action:
+  1. Fix PgBouncer auth mode compatibility with Postgres (`auth_type`, password hashing config, userlist).
+  2. Re-run Sprint A baseline with warmup stage for tile cache.
+  3. Re-capture before/after metrics and compare with same traffic seed/profile.
+
+## Updated Decision (after Run C)
+
+- Sprint A gate: **Fail** (PgBouncer operational, but latency/error SLO not met).
+- Next action:
+  1. Reduce `location-intelligence` request cost (query consolidation and cache effectiveness).
+  2. Re-run Sprint A with warmup-enabled script and compare cache-hit deltas.
+  3. Validate on multi-worker/staging profile to separate local single-process limits from code-path limits.
