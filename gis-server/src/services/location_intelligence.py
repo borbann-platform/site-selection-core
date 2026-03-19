@@ -3,9 +3,10 @@
 import csv
 import hashlib
 import logging
-import os
 import time
+from contextlib import contextmanager
 from collections import OrderedDict
+from pathlib import Path
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -21,8 +22,10 @@ from src.models.location_intelligence import (
     WalkabilityCategory,
     WalkabilityScore,
 )
+from src.services.observability import location_intelligence_metrics
 
 logger = logging.getLogger(__name__)
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 # Weights for composite score
 WEIGHTS = {
@@ -109,14 +112,14 @@ class LocationIntelligenceService:
         if self._flood_data is not None:
             return self._flood_data
 
-        flood_path = "data/flood-warning.csv"
+        flood_path = PROJECT_ROOT / "data" / "flood-warning.csv"
         self._flood_data = []
 
-        if not os.path.exists(flood_path):
+        if not flood_path.exists():
             logger.warning(f"Flood data not found at {flood_path}")
             return self._flood_data
 
-        with open(flood_path, encoding="utf-8") as f:
+        with flood_path.open(encoding="utf-8") as f:
             reader = csv.DictReader(f)
             for row in reader:
                 self._flood_data.append(
@@ -130,54 +133,86 @@ class LocationIntelligenceService:
 
         return self._flood_data
 
+    @staticmethod
+    def _radius_meters_to_degrees(radius_meters: int) -> float:
+        # 1 degree latitude is approximately 111,320 meters.
+        return radius_meters / 111_320.0
+
+    @contextmanager
+    def _observe_stage(self, stage: str):
+        start = time.perf_counter()
+        is_error = False
+        try:
+            yield
+        except Exception:
+            is_error = True
+            raise
+        finally:
+            duration = time.perf_counter() - start
+            location_intelligence_metrics.observe_stage(
+                stage=stage,
+                duration_seconds=duration,
+                is_error=is_error,
+            )
+
     def calculate_transit_score(
         self, db: Session, lat: float, lon: float, radius: int = 1000
     ) -> TransitScore:
         """Calculate transit accessibility score."""
-        # Query for nearest rail station (BTS/MRT/ARL)
-        rail_query = text(
+        with self._observe_stage("transit"):
+            # Query for nearest rail station (BTS/MRT/ARL)
+            rail_query = text(
+                """
+                SELECT stop_name as name, source as type,
+                       ST_Distance(geometry::geography, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography) as distance_m
+                FROM transit_stops
+                WHERE source IN ('bangkok-gtfs')
+                  AND geometry && ST_Expand(ST_SetSRID(ST_MakePoint(:lon, :lat), 4326), :radius_deg)
+                  AND ST_DWithin(geometry::geography, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography, :radius)
+                ORDER BY distance_m
+                LIMIT 1
             """
-            SELECT stop_name as name, source as type,
-                   ST_Distance(geometry::geography, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography) as distance_m
-            FROM transit_stops
-            WHERE source IN ('bangkok-gtfs')
-              AND ST_DWithin(geometry::geography, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography, :radius)
-            ORDER BY distance_m
-            LIMIT 1
-        """
-        )
+            )
 
-        # Query for bus stops within 500m
-        bus_query = text(
+            # Query for bus stops within 500m
+            bus_query = text(
+                """
+                SELECT COUNT(*) as count
+                FROM bus_shelters
+                WHERE geometry && ST_Expand(ST_SetSRID(ST_MakePoint(:lon, :lat), 4326), :radius_deg)
+                  AND ST_DWithin(geometry::geography, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography, 500)
             """
-            SELECT COUNT(*) as count
-            FROM bus_shelters
-            WHERE ST_DWithin(geometry::geography, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography, 500)
-        """
-        )
+            )
 
-        # Query for ferry/water transport
-        ferry_query = text(
+            # Query for ferry/water transport
+            ferry_query = text(
+                """
+                SELECT name,
+                       ST_Distance(geometry::geography, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography) as distance_m
+                FROM water_transport_piers
+                WHERE geometry && ST_Expand(ST_SetSRID(ST_MakePoint(:lon, :lat), 4326), :radius_deg)
+                  AND ST_DWithin(geometry::geography, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography, :radius)
+                ORDER BY distance_m
+                LIMIT 1
             """
-            SELECT name,
-                   ST_Distance(geometry::geography, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography) as distance_m
-            FROM water_transport_piers
-            WHERE ST_DWithin(geometry::geography, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography, :radius)
-            ORDER BY distance_m
-            LIMIT 1
-        """
-        )
+            )
 
-        nearest_rail = None
-        bus_count = 0
-        ferry_access = None
-        score = 0
+            nearest_rail = None
+            bus_count: int = 0
+            ferry_access = None
+            score = 0
 
-        try:
-            with db.bind.connect() as conn:
+            try:
+                radius_deg = self._radius_meters_to_degrees(radius)
                 # Nearest rail
-                result = conn.execute(
-                    rail_query, {"lat": lat, "lon": lon, "radius": radius}
+                result = db.execute(
+                    rail_query,
+                    {
+                        "lat": lat,
+                        "lon": lon,
+                        "radius": radius,
+                        "radius_deg": radius_deg,
+                    },
                 )
                 row = result.fetchone()
                 if row:
@@ -195,10 +230,17 @@ class LocationIntelligenceService:
                         score += 20
 
                 # Bus stops
-                result = conn.execute(bus_query, {"lat": lat, "lon": lon})
+                result = db.execute(
+                    bus_query,
+                    {
+                        "lat": lat,
+                        "lon": lon,
+                        "radius_deg": self._radius_meters_to_degrees(500),
+                    },
+                )
                 row = result.fetchone()
                 if row:
-                    bus_count = row.count
+                    bus_count = int(row._mapping.get("count", 0) or 0)
                     # Score based on bus stop density
                     if bus_count >= 5:
                         score += 30
@@ -208,8 +250,14 @@ class LocationIntelligenceService:
                         score += 10
 
                 # Ferry
-                result = conn.execute(
-                    ferry_query, {"lat": lat, "lon": lon, "radius": radius}
+                result = db.execute(
+                    ferry_query,
+                    {
+                        "lat": lat,
+                        "lon": lon,
+                        "radius": radius,
+                        "radius_deg": radius_deg,
+                    },
                 )
                 row = result.fetchone()
                 if row:
@@ -224,53 +272,64 @@ class LocationIntelligenceService:
                     elif row.distance_m <= 1000:
                         score += 10
 
-        except Exception as e:
-            logger.exception(f"Error calculating transit score: {e}")
+            except Exception as e:
+                logger.exception(f"Error calculating transit score: {e}")
 
-        # Cap at 100
-        score = min(100, score)
+            # Cap at 100
+            score = min(100, score)
 
-        # Generate description
-        desc_parts = []
-        if nearest_rail:
-            desc_parts.append(f"Rail station {int(nearest_rail.distance_m)}m away")
-        if bus_count > 0:
-            desc_parts.append(f"{bus_count} bus stops nearby")
-        if ferry_access:
-            desc_parts.append("Ferry access available")
+            # Generate description
+            desc_parts = []
+            if nearest_rail:
+                desc_parts.append(f"Rail station {int(nearest_rail.distance_m)}m away")
+            if bus_count > 0:
+                desc_parts.append(f"{bus_count} bus stops nearby")
+            if ferry_access:
+                desc_parts.append("Ferry access available")
 
-        description = ". ".join(desc_parts) if desc_parts else "Limited transit options"
+            description = (
+                ". ".join(desc_parts) if desc_parts else "Limited transit options"
+            )
 
-        return TransitScore(
-            score=score,
-            nearest_rail=nearest_rail,
-            bus_stops_500m=bus_count,
-            ferry_access=ferry_access,
-            description=description,
-        )
+            return TransitScore(
+                score=score,
+                nearest_rail=nearest_rail,
+                bus_stops_500m=bus_count,
+                ferry_access=ferry_access,
+                description=description,
+            )
 
     def calculate_schools_score(
         self, db: Session, lat: float, lon: float, radius: int = 2000
     ) -> SchoolsScore:
         """Calculate schools accessibility score."""
-        query = text(
+        with self._observe_stage("schools"):
+            query = text(
+                """
+                SELECT name, level,
+                       ST_Distance(geometry::geography, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography) as distance_m
+                FROM schools
+                WHERE geometry && ST_Expand(ST_SetSRID(ST_MakePoint(:lon, :lat), 4326), :radius_deg)
+                  AND ST_DWithin(geometry::geography, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography, :radius)
+                ORDER BY distance_m
             """
-            SELECT name, level,
-                   ST_Distance(geometry::geography, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography) as distance_m
-            FROM schools
-            WHERE ST_DWithin(geometry::geography, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography, :radius)
-            ORDER BY distance_m
-        """
-        )
+            )
 
-        schools = []
-        by_level: dict[str, int] = {}
-        nearest: SchoolDetail | None = None
-        score = 0
+            schools = []
+            by_level: dict[str, int] = {}
+            nearest: SchoolDetail | None = None
+            score = 0
 
-        try:
-            with db.bind.connect() as conn:
-                result = conn.execute(query, {"lat": lat, "lon": lon, "radius": radius})
+            try:
+                result = db.execute(
+                    query,
+                    {
+                        "lat": lat,
+                        "lon": lon,
+                        "radius": radius,
+                        "radius_deg": self._radius_meters_to_degrees(radius),
+                    },
+                )
                 for row in result:
                     level = self._parse_school_level(row.level or "")
                     schools.append(
@@ -289,44 +348,44 @@ class LocationIntelligenceService:
                             distance_m=round(row.distance_m, 0),
                         )
 
-        except Exception as e:
-            logger.exception(f"Error calculating schools score: {e}")
+            except Exception as e:
+                logger.exception(f"Error calculating schools score: {e}")
 
-        total = len(schools)
+            total = len(schools)
 
-        # Score based on school availability
-        if total >= 10:
-            score = 80
-        elif total >= 5:
-            score = 60
-        elif total >= 2:
-            score = 40
-        elif total >= 1:
-            score = 20
+            # Score based on school availability
+            if total >= 10:
+                score = 80
+            elif total >= 5:
+                score = 60
+            elif total >= 2:
+                score = 40
+            elif total >= 1:
+                score = 20
 
-        # Bonus for variety of levels
-        if len(by_level) >= 3:
-            score += 20
-        elif len(by_level) >= 2:
-            score += 10
+            # Bonus for variety of levels
+            if len(by_level) >= 3:
+                score += 20
+            elif len(by_level) >= 2:
+                score += 10
 
-        score = min(100, score)
+            score = min(100, score)
 
-        # Description
-        if total > 0:
-            description = f"{total} schools within {radius}m"
-            if nearest:
-                description += f". Nearest: {int(nearest.distance_m)}m"
-        else:
-            description = "No schools within range"
+            # Description
+            if total > 0:
+                description = f"{total} schools within {radius}m"
+                if nearest:
+                    description += f". Nearest: {int(nearest.distance_m)}m"
+            else:
+                description = "No schools within range"
 
-        return SchoolsScore(
-            score=score,
-            total_within_2km=total,
-            by_level=by_level,
-            nearest=nearest,
-            description=description,
-        )
+            return SchoolsScore(
+                score=score,
+                total_within_2km=total,
+                by_level=by_level,
+                nearest=nearest,
+                description=description,
+            )
 
     def _parse_school_level(self, level_str: str) -> str:
         """Parse Thai school level to category."""
@@ -345,155 +404,203 @@ class LocationIntelligenceService:
         self, db: Session, lat: float, lon: float, radius: int = 800
     ) -> WalkabilityScore:
         """Calculate walkability score based on nearby amenities."""
-        categories_result: list[WalkabilityCategory] = []
-        total = 0
-        score = 0
+        with self._observe_stage("walkability"):
+            categories_result: list[WalkabilityCategory] = []
+            total = 0
+            score = 0
 
-        for category_name, poi_types in WALKABILITY_CATEGORIES:
-            query = text(
+            walkability_query = text(
                 """
-                SELECT name, type
+                SELECT
+                    CASE
+                        WHEN type = ANY(:restaurant_types) THEN 'restaurant'
+                        WHEN type = ANY(:cafe_types) THEN 'cafe'
+                        WHEN type = ANY(:grocery_types) THEN 'grocery'
+                        WHEN type = ANY(:pharmacy_types) THEN 'pharmacy'
+                        WHEN type = ANY(:bank_types) THEN 'bank'
+                        WHEN type = ANY(:park_types) THEN 'park'
+                        WHEN type = ANY(:gym_types) THEN 'gym'
+                        WHEN type = ANY(:retail_types) THEN 'retail'
+                    END AS category,
+                    LEAST(COUNT(*), 10) AS poi_count,
+                    ARRAY_REMOVE(ARRAY_AGG(name), NULL)[1:3] AS examples
                 FROM view_all_pois
-                WHERE type = ANY(:types)
-                  AND ST_DWithin(geometry::geography, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography, :radius)
-                LIMIT 10
+                WHERE ST_DWithin(
+                    geometry::geography,
+                    ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography,
+                    :radius
+                )
+                  AND geometry && ST_Expand(ST_SetSRID(ST_MakePoint(:lon, :lat), 4326), :radius_deg)
+                  AND (
+                    type = ANY(:restaurant_types)
+                    OR type = ANY(:cafe_types)
+                    OR type = ANY(:grocery_types)
+                    OR type = ANY(:pharmacy_types)
+                    OR type = ANY(:bank_types)
+                    OR type = ANY(:park_types)
+                    OR type = ANY(:gym_types)
+                    OR type = ANY(:retail_types)
+                  )
+                GROUP BY category
             """
             )
 
+            category_types = {
+                "restaurant_types": WALKABILITY_CATEGORIES[0][1],
+                "cafe_types": WALKABILITY_CATEGORIES[1][1],
+                "grocery_types": WALKABILITY_CATEGORIES[2][1],
+                "pharmacy_types": WALKABILITY_CATEGORIES[3][1],
+                "bank_types": WALKABILITY_CATEGORIES[4][1],
+                "park_types": WALKABILITY_CATEGORIES[5][1],
+                "gym_types": WALKABILITY_CATEGORIES[6][1],
+                "retail_types": WALKABILITY_CATEGORIES[7][1],
+            }
+
             try:
-                with db.bind.connect() as conn:
-                    result = conn.execute(
-                        query,
-                        {"lat": lat, "lon": lon, "radius": radius, "types": poi_types},
-                    )
-                    rows = result.fetchall()
-                    count = len(rows)
-                    examples = [r.name for r in rows[:3] if r.name]
+                result = db.execute(
+                    walkability_query,
+                    {
+                        "lat": lat,
+                        "lon": lon,
+                        "radius": radius,
+                        "radius_deg": self._radius_meters_to_degrees(radius),
+                        **category_types,
+                    },
+                )
+                for row in result:
+                    row_mapping = row._mapping
+                    category_name = row_mapping.get("category")
+                    count = int(row_mapping.get("poi_count", 0) or 0)
+                    examples = list(row_mapping.get("examples") or [])
 
-                    if count > 0:
-                        categories_result.append(
-                            WalkabilityCategory(
-                                category=category_name, count=count, examples=examples
-                            )
+                    if not category_name or count <= 0:
+                        continue
+
+                    categories_result.append(
+                        WalkabilityCategory(
+                            category=category_name,
+                            count=count,
+                            examples=examples,
                         )
-                        total += count
+                    )
+                    total += count
 
-                        # Add to score (each category can contribute up to 12.5 points)
-                        if count >= 3:
-                            score += 12.5
-                        elif count >= 1:
-                            score += 8
-
+                    # Add to score (each category can contribute up to 12.5 points)
+                    if count >= 3:
+                        score += 12.5
+                    elif count >= 1:
+                        score += 8
             except Exception as e:
-                logger.exception(f"Error querying {category_name}: {e}")
+                logger.exception(f"Error calculating walkability score: {e}")
 
-        score = min(100, int(score))
+            score = min(100, int(score))
 
-        # Description
-        if total >= 20:
-            description = "Excellent walkability - many amenities nearby"
-        elif total >= 10:
-            description = "Good walkability - most essentials within walking distance"
-        elif total >= 5:
-            description = "Moderate walkability - some amenities nearby"
-        else:
-            description = "Limited walkability - few amenities within walking distance"
+            # Description
+            if total >= 20:
+                description = "Excellent walkability - many amenities nearby"
+            elif total >= 10:
+                description = (
+                    "Good walkability - most essentials within walking distance"
+                )
+            elif total >= 5:
+                description = "Moderate walkability - some amenities nearby"
+            else:
+                description = (
+                    "Limited walkability - few amenities within walking distance"
+                )
 
-        return WalkabilityScore(
-            score=score,
-            categories=categories_result,
-            total_amenities=total,
-            description=description,
-        )
+            return WalkabilityScore(
+                score=score,
+                categories=categories_result,
+                total_amenities=total,
+                description=description,
+            )
 
     def calculate_flood_risk(
         self, db: Session, lat: float, lon: float
     ) -> FloodRiskScore:
         """Calculate flood risk based on district matching."""
-        # First, get the district for this location
-        district_query = text(
+        with self._observe_stage("flood"):
+            # First, get the district for this location
+            district_query = text(
+                """
+                SELECT amphur
+                FROM house_prices
+                WHERE amphur IS NOT NULL
+                  AND geometry IS NOT NULL
+                ORDER BY geometry <-> ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)
+                LIMIT 1
             """
-            SELECT amphur
-            FROM house_prices
-            WHERE amphur IS NOT NULL
-              AND geometry IS NOT NULL
-            ORDER BY ST_Distance(
-                geometry::geography,
-                ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography
             )
-            LIMIT 1
-        """
-        )
 
-        district = None
-        try:
-            with db.bind.connect() as conn:
-                result = conn.execute(district_query, {"lat": lat, "lon": lon})
+            district = None
+            try:
+                result = db.execute(district_query, {"lat": lat, "lon": lon})
                 row = result.fetchone()
                 if row:
                     district = row.amphur
-        except Exception as e:
-            logger.exception(f"Error finding district: {e}")
+            except Exception as e:
+                logger.exception(f"Error finding district: {e}")
 
-        # Load flood data and check for warnings
-        flood_data = self._load_flood_data()
-        warnings = []
-        risk_group = None
+            # Load flood data and check for warnings
+            flood_data = self._load_flood_data()
+            warnings = []
+            risk_group = None
 
-        if district:
-            for item in flood_data:
-                # Match district (may be in Thai like "เขตจตุจักร")
-                if district in item["district"] or item["district"] in district:
-                    warnings.append(item["area"])
-                    if risk_group is None or item["risk_group"] < risk_group:
-                        risk_group = item["risk_group"]
+            if district:
+                for item in flood_data:
+                    # Match district (may be in Thai like "เขตจตุจักร")
+                    if district in item["district"] or item["district"] in district:
+                        warnings.append(item["area"])
+                        if risk_group is None or item["risk_group"] < risk_group:
+                            risk_group = item["risk_group"]
 
-        # Determine level
-        if risk_group == 1:
-            level = "high"
-            description = (
-                f"High flood risk area. {len(warnings)} warning zones in district."
+            # Determine level
+            if risk_group == 1:
+                level = "high"
+                description = (
+                    f"High flood risk area. {len(warnings)} warning zones in district."
+                )
+            elif risk_group == 2:
+                level = "medium"
+                description = (
+                    f"Moderate flood risk. {len(warnings)} warning zones in district."
+                )
+            elif warnings:
+                level = "medium"
+                description = "Some flood warnings in the area."
+            else:
+                level = "low"
+                description = "No flood warnings on record for this area."
+
+            return FloodRiskScore(
+                level=level,
+                risk_group=risk_group,
+                district_warnings=warnings[:5],  # Limit to 5
+                description=description,
             )
-        elif risk_group == 2:
-            level = "medium"
-            description = (
-                f"Moderate flood risk. {len(warnings)} warning zones in district."
-            )
-        elif warnings:
-            level = "medium"
-            description = "Some flood warnings in the area."
-        else:
-            level = "low"
-            description = "No flood warnings on record for this area."
-
-        return FloodRiskScore(
-            level=level,
-            risk_group=risk_group,
-            district_warnings=warnings[:5],  # Limit to 5
-            description=description,
-        )
 
     def calculate_noise_level(self, db: Session, lat: float, lon: float) -> NoiseScore:
         """Estimate noise level based on proximity to major roads."""
-        # Use gas stations as proxy for major roads (they're usually on busy roads)
-        # Also check traffic management points
-        query = text(
+        with self._observe_stage("noise"):
+            # Use gas stations as proxy for major roads (they're usually on busy roads)
+            # Also check traffic management points
+            query = text(
+                """
+                SELECT
+                    (SELECT MIN(ST_Distance(geometry::geography, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography))
+                     FROM gas_stations) as nearest_gas,
+                    (SELECT MIN(ST_Distance(geometry::geography, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography))
+                     FROM traffic_points) as nearest_traffic
             """
-            SELECT
-                (SELECT MIN(ST_Distance(geometry::geography, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography))
-                 FROM gas_stations) as nearest_gas,
-                (SELECT MIN(ST_Distance(geometry::geography, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography))
-                 FROM traffic_points) as nearest_traffic
-        """
-        )
+            )
 
-        nearest_highway = None
-        nearest_major = None
-        level = "unknown"
+            nearest_highway = None
+            nearest_major = None
+            level = "unknown"
 
-        try:
-            with db.bind.connect() as conn:
-                result = conn.execute(query, {"lat": lat, "lon": lon})
+            try:
+                result = db.execute(query, {"lat": lat, "lon": lon})
                 row = result.fetchone()
                 if row:
                     nearest_gas = row.nearest_gas
@@ -506,78 +613,90 @@ class LocationIntelligenceService:
                         if nearest_major is None or nearest_traffic < nearest_major:
                             nearest_highway = nearest_traffic
 
-        except Exception as e:
-            logger.exception(f"Error calculating noise level: {e}")
+            except Exception as e:
+                logger.exception(f"Error calculating noise level: {e}")
 
-        # Determine level based on distance to major road proxy
-        min_dist = min(
-            d for d in [nearest_highway, nearest_major, 9999] if d is not None
-        )
+            # Determine level based on distance to major road proxy
+            min_dist = min(
+                d for d in [nearest_highway, nearest_major, 9999] if d is not None
+            )
 
-        if min_dist < 100:
-            level = "busy"
-            description = "Near major road - expect higher noise levels"
-        elif min_dist < 300:
-            level = "moderate"
-            description = "Moderate distance from major roads"
-        else:
-            level = "quiet"
-            description = "Away from major roads - quieter area"
+            if min_dist < 100:
+                level = "busy"
+                description = "Near major road - expect higher noise levels"
+            elif min_dist < 300:
+                level = "moderate"
+                description = "Moderate distance from major roads"
+            else:
+                level = "quiet"
+                description = "Away from major roads - quieter area"
 
-        return NoiseScore(
-            level=level,
-            nearest_highway_m=round(nearest_highway, 0) if nearest_highway else None,
-            nearest_major_road_m=round(nearest_major, 0) if nearest_major else None,
-            description=description,
-        )
+            return NoiseScore(
+                level=level,
+                nearest_highway_m=round(nearest_highway, 0)
+                if nearest_highway
+                else None,
+                nearest_major_road_m=round(nearest_major, 0) if nearest_major else None,
+                description=description,
+            )
 
     def analyze(
         self, db: Session, lat: float, lon: float, radius: int = 1000
     ) -> LocationIntelligenceResponse:
         """Perform complete location intelligence analysis."""
-        # Check cache
-        cache_key = self._get_cache_key(lat, lon, radius)
-        cached = self._get_cached(cache_key)
-        if cached:
-            return cached
+        with self._observe_stage("analyze_total"):
+            # Check cache
+            cache_key = self._get_cache_key(lat, lon, radius)
+            cached = self._get_cached(cache_key)
+            if cached:
+                location_intelligence_metrics.observe_stage(
+                    "cache_hit", duration_seconds=0.0
+                )
+                return cached
 
-        # Calculate all scores
-        transit = self.calculate_transit_score(db, lat, lon, radius)
-        schools = self.calculate_schools_score(db, lat, lon, min(radius * 2, 2000))
-        walkability = self.calculate_walkability_score(db, lat, lon, min(radius, 800))
-        flood_risk = self.calculate_flood_risk(db, lat, lon)
-        noise = self.calculate_noise_level(db, lat, lon)
+            location_intelligence_metrics.observe_stage(
+                "cache_miss", duration_seconds=0.0
+            )
 
-        # Calculate composite score
-        flood_score = {"low": 100, "medium": 50, "high": 20, "unknown": 50}.get(
-            flood_risk.level, 50
-        )
-        noise_score = {"quiet": 100, "moderate": 70, "busy": 40, "unknown": 50}.get(
-            noise.level, 50
-        )
+            # Calculate all scores
+            transit = self.calculate_transit_score(db, lat, lon, radius)
+            schools = self.calculate_schools_score(db, lat, lon, min(radius * 2, 2000))
+            walkability = self.calculate_walkability_score(
+                db, lat, lon, min(radius, 800)
+            )
+            flood_risk = self.calculate_flood_risk(db, lat, lon)
+            noise = self.calculate_noise_level(db, lat, lon)
 
-        composite = int(
-            transit.score * WEIGHTS["transit"]
-            + walkability.score * WEIGHTS["walkability"]
-            + schools.score * WEIGHTS["schools"]
-            + flood_score * WEIGHTS["flood"]
-            + noise_score * WEIGHTS["noise"]
-        )
+            # Calculate composite score
+            flood_score = {"low": 100, "medium": 50, "high": 20, "unknown": 50}.get(
+                flood_risk.level, 50
+            )
+            noise_score = {"quiet": 100, "moderate": 70, "busy": 40, "unknown": 50}.get(
+                noise.level, 50
+            )
 
-        response = LocationIntelligenceResponse(
-            transit=transit,
-            schools=schools,
-            walkability=walkability,
-            flood_risk=flood_risk,
-            noise=noise,
-            composite_score=composite,
-            location={"lat": lat, "lon": lon},
-        )
+            composite = int(
+                transit.score * WEIGHTS["transit"]
+                + walkability.score * WEIGHTS["walkability"]
+                + schools.score * WEIGHTS["schools"]
+                + flood_score * WEIGHTS["flood"]
+                + noise_score * WEIGHTS["noise"]
+            )
 
-        # Cache result
-        self._set_cached(cache_key, response)
+            response = LocationIntelligenceResponse(
+                transit=transit,
+                schools=schools,
+                walkability=walkability,
+                flood_risk=flood_risk,
+                noise=noise,
+                composite_score=composite,
+                location={"lat": lat, "lon": lon},
+            )
 
-        return response
+            # Cache result
+            self._set_cached(cache_key, response)
+
+            return response
 
 
 # Singleton instance
