@@ -1,5 +1,7 @@
 import json
 import re
+import time
+from collections import OrderedDict
 from datetime import timedelta
 from typing import Annotated, Any, Literal
 
@@ -15,6 +17,50 @@ from src.dependencies.auth import get_current_user_optional
 from src.models.user import User
 
 router = APIRouter(prefix="/listings", tags=["Listings"])
+
+_listings_tile_cache: OrderedDict[str, tuple[bytes, float]] = OrderedDict()
+_listings_tile_cache_hits = 0
+_listings_tile_cache_misses = 0
+
+
+def _get_cached_listings_tile(cache_key: str) -> bytes | None:
+    global _listings_tile_cache_hits, _listings_tile_cache_misses
+
+    cached = _listings_tile_cache.get(cache_key)
+    if not cached:
+        _listings_tile_cache_misses += 1
+        return None
+
+    payload, ts = cached
+    if time.time() - ts > settings.LISTINGS_TILE_CACHE_TTL_SECONDS:
+        del _listings_tile_cache[cache_key]
+        _listings_tile_cache_misses += 1
+        return None
+
+    _listings_tile_cache.move_to_end(cache_key)
+    _listings_tile_cache_hits += 1
+    return payload
+
+
+def _set_cached_listings_tile(cache_key: str, payload: bytes) -> None:
+    _listings_tile_cache[cache_key] = (payload, time.time())
+    _listings_tile_cache.move_to_end(cache_key)
+    while len(_listings_tile_cache) > settings.LISTINGS_TILE_CACHE_MAX_ENTRIES:
+        _listings_tile_cache.popitem(last=False)
+
+
+def get_listings_tile_cache_stats() -> dict[str, int | float]:
+    total = _listings_tile_cache_hits + _listings_tile_cache_misses
+    hit_rate = (_listings_tile_cache_hits / total) if total > 0 else 0.0
+    return {
+        "size": len(_listings_tile_cache),
+        "max_entries": settings.LISTINGS_TILE_CACHE_MAX_ENTRIES,
+        "ttl_seconds": settings.LISTINGS_TILE_CACHE_TTL_SECONDS,
+        "hits": _listings_tile_cache_hits,
+        "misses": _listings_tile_cache_misses,
+        "hit_rate": round(hit_rate, 4),
+    }
+
 
 ListingSourceType = Literal[
     "house_price",
@@ -808,6 +854,24 @@ def get_listings_tile(
     params["x"] = x
     params["y"] = y
 
+    cache_key = (
+        f"{z}:{x}:{y}|{amphur or ''}|{building_style or ''}|"
+        f"{min_price if min_price is not None else ''}|"
+        f"{max_price if max_price is not None else ''}|"
+        f"{min_area if min_area is not None else ''}|"
+        f"{max_area if max_area is not None else ''}"
+    )
+    cached_tile = _get_cached_listings_tile(cache_key)
+    if cached_tile is not None:
+        return Response(
+            content=cached_tile,
+            media_type="application/vnd.mapbox-vector-tile",
+            headers={
+                "Cache-Control": "public, max-age=600",
+                "X-Cache": "HIT",
+            },
+        )
+
     house_where = " AND ".join(house_filters)
     scraped_where = " AND ".join(scraped_filters)
     market_where = " AND ".join(market_filters)
@@ -916,8 +980,17 @@ def get_listings_tile(
     )
 
     result = db.execute(sql, params).scalar()
+    payload = bytes(result) if result else b""
+    _set_cached_listings_tile(cache_key, payload)
 
-    return Response(content=result, media_type="application/vnd.mapbox-vector-tile")
+    return Response(
+        content=payload,
+        media_type="application/vnd.mapbox-vector-tile",
+        headers={
+            "Cache-Control": "public, max-age=600",
+            "X-Cache": "MISS",
+        },
+    )
 
 
 @router.get("/images/{image_id}")

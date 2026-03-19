@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql://user:password@localhost:5435/gisdb"
     DB_POOL_SIZE: int = 20
     DB_MAX_OVERFLOW: int = 20
-    DB_POOL_TIMEOUT_SECONDS: int = 30
+    DB_POOL_TIMEOUT_SECONDS: int = 10
     DB_POOL_RECYCLE_SECONDS: int = 1800
     DB_STATEMENT_TIMEOUT_MS: int = 15000
 
@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     CONVERSATION_CACHE_MAX_MESSAGES_PER_SESSION: int = 200
 
     AGENT_RUNTIME_CACHE_MAX_ENTRIES: int = 8
+
+    LISTINGS_TILE_CACHE_TTL_SECONDS: int = 600
+    LISTINGS_TILE_CACHE_MAX_ENTRIES: int = 2000
 
     # Object storage for scraped listing images
     MINIO_ENDPOINT: str = "localhost:9000"

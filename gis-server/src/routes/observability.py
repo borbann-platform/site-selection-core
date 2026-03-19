@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Response
 
 from src.routes.analytics import get_analytics_cache_stats
+from src.routes.listings import get_listings_tile_cache_stats
 from src.services.agent_graph import agent_service
 from src.services.conversation_memory import conversation_memory
 from src.services.location_intelligence import location_intelligence_service
@@ -19,6 +20,7 @@ def get_metrics() -> Response:
     conversation_stats = conversation_memory.get_cache_stats()
     agent_runtime_stats = agent_service.get_cache_stats()
     analytics_cache_stats = get_analytics_cache_stats()
+    listings_tile_cache_stats = get_listings_tile_cache_stats()
 
     cache_lines = [
         "# HELP cache_location_intelligence_size Number of entries in location intelligence cache",
@@ -60,6 +62,12 @@ def get_metrics() -> Response:
             "# HELP cache_analytics_dataframe_evictions Total evictions from dataframe cache",
             "# TYPE cache_analytics_dataframe_evictions counter",
             f"cache_analytics_dataframe_evictions {df_stats['evictions']}",
+            "# HELP cache_listings_tile_size Number of entries in listings tile cache",
+            "# TYPE cache_listings_tile_size gauge",
+            f"cache_listings_tile_size {listings_tile_cache_stats['size']}",
+            "# HELP cache_listings_tile_hit_rate Listings tile cache hit rate",
+            "# TYPE cache_listings_tile_hit_rate gauge",
+            f"cache_listings_tile_hit_rate {listings_tile_cache_stats['hit_rate']}",
         ]
     )
 
