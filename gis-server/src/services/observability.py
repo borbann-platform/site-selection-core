@@ -6,6 +6,17 @@ from collections import defaultdict
 
 
 REQUEST_DURATION_BUCKETS_SECONDS = (0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0)
+LOCATION_INTELLIGENCE_DURATION_BUCKETS_SECONDS = (
+    0.01,
+    0.025,
+    0.05,
+    0.1,
+    0.25,
+    0.5,
+    1.0,
+    2.5,
+    5.0,
+)
 
 
 class RequestMetrics:
@@ -90,3 +101,81 @@ class RequestMetrics:
 
 
 request_metrics = RequestMetrics()
+
+
+class LocationIntelligenceMetrics:
+    def __init__(self) -> None:
+        self._stage_total: dict[str, int] = defaultdict(int)
+        self._stage_error_total: dict[str, int] = defaultdict(int)
+        self._stage_duration_sum_seconds: dict[str, float] = defaultdict(float)
+        self._stage_duration_bucket_counts: dict[str, dict[float, int]] = defaultdict(
+            lambda: defaultdict(int)
+        )
+
+    def observe_stage(
+        self, stage: str, duration_seconds: float, is_error: bool = False
+    ) -> None:
+        self._stage_total[stage] += 1
+        self._stage_duration_sum_seconds[stage] += duration_seconds
+        if is_error:
+            self._stage_error_total[stage] += 1
+
+        for bucket in LOCATION_INTELLIGENCE_DURATION_BUCKETS_SECONDS:
+            if duration_seconds <= bucket:
+                self._stage_duration_bucket_counts[stage][bucket] += 1
+        if duration_seconds > LOCATION_INTELLIGENCE_DURATION_BUCKETS_SECONDS[-1]:
+            self._stage_duration_bucket_counts[stage][float("inf")] += 1
+
+    def render_prometheus(self) -> str:
+        lines = [
+            "# HELP location_intelligence_stage_total Total executions by location intelligence stage",
+            "# TYPE location_intelligence_stage_total counter",
+        ]
+        for stage, count in sorted(self._stage_total.items()):
+            lines.append(
+                f'location_intelligence_stage_total{{stage="{stage}"}} {count}'
+            )
+
+        lines.extend(
+            [
+                "# HELP location_intelligence_stage_errors_total Total failures by location intelligence stage",
+                "# TYPE location_intelligence_stage_errors_total counter",
+            ]
+        )
+        for stage, count in sorted(self._stage_error_total.items()):
+            lines.append(
+                f'location_intelligence_stage_errors_total{{stage="{stage}"}} {count}'
+            )
+
+        lines.extend(
+            [
+                "# HELP location_intelligence_stage_duration_seconds_sum Total stage duration seconds",
+                "# TYPE location_intelligence_stage_duration_seconds_sum counter",
+            ]
+        )
+        for stage, value in sorted(self._stage_duration_sum_seconds.items()):
+            lines.append(
+                f'location_intelligence_stage_duration_seconds_sum{{stage="{stage}"}} {value:.6f}'
+            )
+
+        lines.extend(
+            [
+                "# HELP location_intelligence_stage_duration_bucket_seconds Stage duration histogram buckets",
+                "# TYPE location_intelligence_stage_duration_bucket_seconds counter",
+            ]
+        )
+
+        for stage, buckets in sorted(self._stage_duration_bucket_counts.items()):
+            for bucket in LOCATION_INTELLIGENCE_DURATION_BUCKETS_SECONDS:
+                count = buckets.get(bucket, 0)
+                lines.append(
+                    f'location_intelligence_stage_duration_bucket_seconds{{stage="{stage}",le="{bucket}"}} {count}'
+                )
+            lines.append(
+                f'location_intelligence_stage_duration_bucket_seconds{{stage="{stage}",le="+Inf"}} {buckets.get(float("inf"), 0)}'
+            )
+
+        return "\n".join(lines) + "\n"
+
+
+location_intelligence_metrics = LocationIntelligenceMetrics()

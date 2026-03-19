@@ -4,10 +4,14 @@ from fastapi import APIRouter, Response
 
 from src.routes.analytics import get_analytics_cache_stats
 from src.routes.listings import get_listings_tile_cache_stats
+from src.config.database import db_pool_metrics
 from src.services.agent_graph import agent_service
 from src.services.conversation_memory import conversation_memory
 from src.services.location_intelligence import location_intelligence_service
-from src.services.observability import request_metrics
+from src.services.observability import (
+    location_intelligence_metrics,
+    request_metrics,
+)
 
 router = APIRouter(prefix="/observability", tags=["Observability"])
 
@@ -71,5 +75,16 @@ def get_metrics() -> Response:
         ]
     )
 
-    payload = request_metrics_payload + "\n" + "\n".join(cache_lines) + "\n"
+    db_payload = db_pool_metrics.render_prometheus()
+    location_intelligence_payload = location_intelligence_metrics.render_prometheus()
+    payload = (
+        request_metrics_payload
+        + "\n"
+        + db_payload
+        + "\n"
+        + location_intelligence_payload
+        + "\n"
+        + "\n".join(cache_lines)
+        + "\n"
+    )
     return Response(content=payload, media_type="text/plain; version=0.0.4")
