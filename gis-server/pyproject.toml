@@ -45,6 +45,7 @@ dependencies = [
     "langchain-google-vertexai>=3.2.2",
     "transformers>=5.3.0",
     "pillow>=12.1.0",
+    "xgboost>=3.2.0",
 ]
 
 [project.optional-dependencies]

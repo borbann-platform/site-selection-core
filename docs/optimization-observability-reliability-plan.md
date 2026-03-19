@@ -18,6 +18,73 @@ Scope is to improve speed, stability, and operational visibility without breakin
 - Cache hit rate at least 70% for cacheable workloads.
 - No functional regressions in existing workflows.
 
+## Production Readiness Target (1000 Concurrent Users)
+
+### Definition of Ready
+
+- Concurrency target: 1000 active users with realistic mixed traffic.
+- SLO targets:
+  - API p95 latency < 500ms for critical read endpoints.
+  - API p99 latency < 1200ms for critical read endpoints.
+  - 5xx error rate < 1%.
+  - DB pool timeout incidents = 0 during sustained load.
+  - Cache hit rate >= 70% for tile/listing read traffic.
+
+### Traffic Model (for testing and capacity planning)
+
+- 70% map/listing read endpoints (tiles, listing summaries, details).
+- 20% property detail and intelligence endpoints.
+- 10% chat, prediction, and explainability endpoints.
+
+### Phase Plan
+
+#### Phase A - Foundation (must complete before claiming capacity)
+
+- [ ] Add PgBouncer in transaction mode between API and Postgres.
+- [ ] Introduce Redis L2 cache for cross-instance consistency.
+- [ ] Keep in-process cache as L1; define L1/L2 key and TTL policy.
+- [ ] Separate API and worker responsibilities for slow model/chat flows.
+- [ ] Enforce timeout and fallback policy for DB/Redis/provider calls.
+
+#### Phase B - Database and query hardening
+
+- [ ] Run EXPLAIN ANALYZE for top 10 hot endpoints and fix worst plans.
+- [ ] Complete spatial predicate optimization (index-friendly WHERE clauses).
+- [ ] Add missing composite and spatial indexes for top filters.
+- [ ] Define DB tuning profile for production + PgBouncer alignment.
+- [ ] Evaluate read-replica need for read-heavy routes.
+
+#### Phase C - Caching and edge delivery
+
+- [ ] Migrate hottest route caches to Redis-backed implementation.
+- [ ] Add CDN/edge caching for tile-heavy and static responses.
+- [ ] Add cache invalidation workflows and operational controls.
+- [ ] Add cache SLO dashboards (hit rate, fill latency, eviction churn).
+
+#### Phase D - Observability, reliability, and operations
+
+- [ ] Expand metrics to include DB checkout wait, pool utilization, query latency.
+- [ ] Add OpenTelemetry traces across API -> DB/Redis/model provider.
+- [ ] Add alerting for p95 regressions, 5xx spikes, cache collapse, pool stress.
+- [ ] Add runbooks for top incidents (pool exhaustion, Redis outage, slow query).
+- [ ] Add rate limits + backpressure policy (429/503 with retry hints).
+
+#### Phase E - Load validation and release gate
+
+- [ ] Build k6/Locust test suite for realistic mixed scenarios.
+- [ ] Run ramp test: 100 -> 300 -> 600 -> 1000 concurrent users.
+- [ ] Run soak test: 30-60 minutes at target concurrency.
+- [ ] Validate SLO pass criteria and no error regressions.
+- [ ] Establish release gate: no production rollout if SLOs fail.
+
+### Acceptance Criteria for 1000-Concurrency Claim
+
+- [ ] No DB pool timeout during 60-minute soak at 1000 concurrent users.
+- [ ] p95 and p99 targets met for critical read endpoints.
+- [ ] Error budget respected (<1% 5xx for critical endpoints).
+- [ ] Cache hit targets met for listing/tile routes.
+- [ ] System maintains at least 30% resource headroom at peak.
+
 ## Priority 0 (Highest ROI, Start Here)
 
 ### 1) Database connection resilience and timeout controls
@@ -97,7 +164,7 @@ Scope is to improve speed, stability, and operational visibility without breakin
 
 ### 6) Cache static/heavy analytics inputs
 
-- Status: In progress (phase 1 implemented).
+- Status: In progress (phase 1 implemented, Redis migration pending).
 - Hotspots:
   - `gis-server/src/routes/analytics.py`
 - Actions:
@@ -110,7 +177,7 @@ Scope is to improve speed, stability, and operational visibility without breakin
 
 ### 7) Bound all in-memory caches
 
-- Status: In progress (phase 1 implemented).
+- Status: In progress (phase 1 implemented, distributed cache pending).
 - Hotspots:
   - `gis-server/src/services/location_intelligence.py` [done]
   - `gis-server/src/services/conversation_memory.py` [done]
@@ -124,7 +191,7 @@ Scope is to improve speed, stability, and operational visibility without breakin
 
 ### 8) Spatial query index usage improvements
 
-- Status: Pending.
+- Status: In progress.
 - Hotspots:
   - `gis-server/src/routes/analytics.py`
   - `gis-server/src/routes/house_prices.py`
@@ -159,6 +226,27 @@ Scope is to improve speed, stability, and operational visibility without breakin
 - Why:
   - Reduce GPU/CPU load and keep pan/zoom smooth.
 
+### 15) Location intelligence endpoint throughput hardening
+
+- Status: In progress (spatial index optimization done, per-stage observability done).
+- Hotspots:
+  - `gis-server/src/services/location_intelligence.py`
+  - `gis-server/src/routes/location_intelligence.py`
+- Actions:
+  - Consolidate walkability POI lookups into a grouped query to reduce per-request query fanout. [done]
+  - Keep all location-intelligence DB operations on the request session to avoid extra ad-hoc checkouts. [done]
+  - Add spatial index hints (`geometry && ST_Expand(...)`) for proximity queries. [done]
+  - Switch nearest-district query to KNN operator (`geometry <-> point`). [done]
+  - Add per-stage timing metrics (transit/schools/walkability/flood/noise/cache hit/miss). [done]
+  - Prepare index review checklist for transit/POI proximity tables (`transit_stops`, `bus_shelters`, `water_transport_piers`, `view_all_pois`).
+- EXPLAIN ANALYZE findings (2026-03-19, after index hints):
+  - transit nearest rail: 213ms -> 3ms (Bitmap Index Scan on `idx_transit_stops_geometry`)
+  - bus shelters count: 54ms -> 46ms (Bitmap Index Scan on `idx_bus_shelters_geometry`)
+  - nearest district (flood): 270ms -> 4.5ms (Index Scan using `idx_house_prices_geometry`, KNN ordering)
+  - walkability grouped query: ~915ms (parallel seq scan on `mat_all_pois`); recommend materialized view or dedicated POI table with tighter schema.
+- Why:
+  - Current Sprint A runs show high latency concentrated on intelligence-heavy traffic slices.
+
 ## Priority 2 (Reliability/Operational Hardening)
 
 ### 11) Async/sync endpoint consistency
@@ -176,7 +264,7 @@ Scope is to improve speed, stability, and operational visibility without breakin
 
 ### 12) Add metrics and tracing
 
-- Status: In progress (metrics endpoint phase 1 done).
+- Status: In progress (metrics endpoint phase 1 done, tracing/alerting pending).
 - Actions:
   - Backend Prometheus metrics: request count/latency/error, cache metrics, DB timing. [partially done]
   - OpenTelemetry traces across HTTP, DB, and model/tool boundaries.
@@ -272,15 +360,21 @@ Scope is to improve speed, stability, and operational visibility without breakin
 
 ### Next immediate implementation focus
 
-1. Add cache stats/admin visibility to existing admin cache status endpoint.
-2. Add DB query timing instrumentation (simple middleware + logging buckets).
-3. Extend analytics tile queries to avoid `ST_Transform(column, 3857)` in WHERE.
-4. Start Redis adapter behind feature flag for distributed cache mode.
-5. Add frontend Web Vitals shipping endpoint integration.
+1. Add Redis adapter behind feature flag for listings/analytics/location caches.
+2. Add DB checkout wait + query latency metrics to observability endpoint.
+3. Optimize spatial WHERE clauses in tile endpoints for index-friendly execution.
+4. Run EXPLAIN ANALYZE on location-intelligence queries and add targeted indexes.
+5. Validate Sprint A in multi-worker staging profile with warmup-enabled load script.
+
+### Sprint A update (2026-03-19)
+
+- PgBouncer auth mismatch (`wrong password type`) fixed using SCRAM mode and compatible container image.
+- Baseline rerun confirms auth blocker resolved, but SLO still fails due to high p95 latency and elevated failure rate under local load profile.
+- Load script updated with warmup controls (`WARMUP_ENABLED`, `WARMUP_REQUESTS`) to improve repeatability for cache-sensitive endpoints.
 
 ## Ready-Next Checklist
 
-- [ ] Benchmark query counts before/after for house-price and valuation endpoints.
-- [ ] Add lightweight request counters + latency histograms.
-- [ ] Implement analytics dataframe cache and expose cache hit-rate logs.
-- [ ] Open follow-up PR for React Query defaults + overlay staleTime tuning.
+- [ ] Prepare staging profile with PgBouncer + Redis.
+- [ ] Capture baseline p95/p99/error metrics before next optimization wave.
+- [ ] Add and run first 300-concurrency load scenario.
+- [ ] Publish first capacity report with bottleneck ranking.
