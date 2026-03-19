@@ -104,6 +104,31 @@ Look for metrics prefixed with:
 - `cache_backend_operation_duration_*`
 - `cache_backend_selected`
 
+## Self-hosted Observability Stack
+
+The project includes a self-hosted observability stack via Docker Compose:
+
+- Prometheus: `http://localhost:9090`
+- Grafana: `http://localhost:3001` (default `admin/admin`)
+- Alertmanager: `http://localhost:9093`
+
+Start stack:
+
+```bash
+docker compose up -d prometheus grafana alertmanager postgres-exporter redis-exporter pgbouncer-exporter
+```
+
+Provisioned dashboard:
+
+- `Sprint A Overview` (folder: `Sprint A`)
+
+Prometheus targets include:
+
+- backend metrics (`/api/v1/observability/metrics`)
+- postgres exporter
+- redis exporter
+- pgbouncer exporter
+
 ## Data Sources
 
 The platform integrates multiple data sources:
