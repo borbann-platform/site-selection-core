@@ -1,12 +1,20 @@
 import logging
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from .settings import settings
 
 logger = logging.getLogger(__name__)
 
+
+_connect_args: dict[str, str] = {}
+if settings.DATABASE_URL.startswith("postgresql"):
+    # Set statement timeout at connection level without forcing a checkout in
+    # dependency setup for every request.
+    _connect_args["options"] = (
+        f"-c statement_timeout={settings.DB_STATEMENT_TIMEOUT_MS}"
+    )
 
 engine = create_engine(
     settings.DATABASE_URL,
@@ -15,6 +23,7 @@ engine = create_engine(
     max_overflow=settings.DB_MAX_OVERFLOW,
     pool_timeout=settings.DB_POOL_TIMEOUT_SECONDS,
     pool_recycle=settings.DB_POOL_RECYCLE_SECONDS,
+    connect_args=_connect_args,
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -32,7 +41,6 @@ def get_db_session():
     """
     db = SessionLocal()
     try:
-        db.execute(text(f"SET statement_timeout = {settings.DB_STATEMENT_TIMEOUT_MS}"))
         yield db
     finally:
         db.close()
