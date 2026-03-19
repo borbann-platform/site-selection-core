@@ -136,6 +136,23 @@ class PricePredictor(ABC):
             "available": self.is_available,
         }
 
+    def predict_local_shap(
+        self,
+        db: Session,
+        lat: float,
+        lon: float,
+        building_area: float | None = None,
+        land_area: float | None = None,
+        building_age: float | None = None,
+        no_of_floor: float | None = None,
+        building_style: str | None = None,
+        property_id: int | None = None,
+    ) -> PricePrediction:
+        """Generate prediction with per-request local SHAP explanations."""
+        raise NotImplementedError(
+            f"Local SHAP not supported for model '{self.model_type.value}'"
+        )
+
 
 class BaselinePredictor(PricePredictor):
     """
@@ -393,6 +410,58 @@ class BaselinePredictor(PricePredictor):
             )
         return contributions
 
+    def _get_local_shap_contributions(
+        self,
+        features: np.ndarray,
+        predicted_price: float,
+    ) -> list[FeatureContribution]:
+        """Get per-request local SHAP contributions for this feature vector."""
+        shap_with_base = self._model.predict(features, pred_contrib=True)[0]
+        shap_values = np.asarray(shap_with_base[:-1], dtype=float)
+        feature_values = features[0]
+
+        top_indices = np.argsort(np.abs(shap_values))[-5:][::-1]
+
+        name_map = {
+            "building_area": "Building Area (sqm)",
+            "land_area": "Land Area (sq wah)",
+            "building_age": "Building Age (years)",
+            "no_of_floor": "Number of Floors",
+            "dist_to_bts": "Distance to BTS/MRT",
+            "dist_to_cbd_min": "Distance to CBD",
+            "dist_to_siam_paragon": "Distance to Siam",
+            "dist_to_asoke": "Distance to Asoke",
+            "poi_total": "Nearby POIs",
+            "transit_total": "Transit Accessibility",
+            "property_count": "Area Development",
+        }
+
+        contributions: list[FeatureContribution] = []
+        for idx in top_indices:
+            shap_value = float(shap_values[idx])
+            feature_name = self._feature_names[idx]
+            without_feature_price = float(
+                np.expm1(np.log1p(predicted_price) - shap_value)
+            )
+            approx_price_impact = predicted_price - without_feature_price
+            direction = "positive" if shap_value >= 0 else "negative"
+            contributions.append(
+                FeatureContribution(
+                    feature=feature_name,
+                    feature_display=name_map.get(
+                        feature_name,
+                        feature_name.replace("_", " ").title(),
+                    ),
+                    value=float(feature_values[idx]),
+                    contribution=approx_price_impact,
+                    contribution_kind="local_shap",
+                    contribution_display=f"{approx_price_impact:+,.0f} THB",
+                    direction=direction,
+                )
+            )
+
+        return contributions
+
     def _get_comparison_metrics(
         self, db: Session, h3_index: str, lat: float, lon: float
     ) -> tuple[float | None, float | None, str | None]:
@@ -511,6 +580,83 @@ class BaselinePredictor(PricePredictor):
                 "global feature importance. They are not additive THB breakdowns or percentages."
             ),
             explanation_method="global_gain",
+            h3_cell_avg_price=h3_avg,
+            district_avg_price=district_avg,
+            price_vs_district=price_vs_district,
+            property_id=property_id,
+        )
+
+    def predict_local_shap(
+        self,
+        db: Session,
+        lat: float,
+        lon: float,
+        building_area: float | None = None,
+        land_area: float | None = None,
+        building_age: float | None = None,
+        no_of_floor: float | None = None,
+        building_style: str | None = None,
+        property_id: int | None = None,
+    ) -> PricePrediction:
+        """Generate price prediction with local SHAP values for this request."""
+        self._load_model()
+
+        h3_index = h3.latlng_to_cell(lat, lon, H3_RESOLUTION)
+
+        is_cold_start = True
+        if self._h3_features is not None:
+            cell = self._h3_features[self._h3_features["h3_index"] == h3_index]
+            if not cell.empty:
+                is_cold_start = bool(cell.iloc[0].get("is_cold_start", True))
+
+        features = self._build_features(
+            lat,
+            lon,
+            h3_index,
+            building_area,
+            land_area,
+            building_age,
+            no_of_floor,
+            building_style,
+        )
+
+        log_price = self._model.predict(features)[0]
+        predicted_price = float(np.expm1(log_price))
+
+        confidence = 0.8 if not is_cold_start else 0.6
+        if building_area is None:
+            confidence -= 0.1
+        if land_area is None:
+            confidence -= 0.05
+
+        h3_avg, district_avg, district = self._get_comparison_metrics(
+            db, h3_index, lat, lon
+        )
+
+        price_vs_district = None
+        if district_avg and district_avg > 0:
+            price_vs_district = ((predicted_price - district_avg) / district_avg) * 100
+
+        contributions = self._get_local_shap_contributions(features, predicted_price)
+
+        return PricePrediction(
+            predicted_price=predicted_price,
+            confidence=max(0.0, min(1.0, confidence)),
+            model_type=self.model_type.value,
+            h3_index=h3_index,
+            district=district,
+            is_cold_start=is_cold_start,
+            feature_contributions=contributions,
+            explanation_title="Local SHAP Signals",
+            explanation_summary=(
+                "These factors are calculated per property request and show local SHAP"
+                " impact converted to approximate THB effect."
+            ),
+            explanation_disclaimer=(
+                "Local SHAP effects are request-specific directional estimates and are"
+                " not an exact additive accounting ledger."
+            ),
+            explanation_method="local_shap",
             h3_cell_avg_price=h3_avg,
             district_avg_price=district_avg,
             price_vs_district=price_vs_district,
