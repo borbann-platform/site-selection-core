@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { MapViewState, PickingInfo } from "@deck.gl/core";
 import { api } from "@/lib/api";
@@ -91,10 +91,25 @@ export interface DeckGLObject {
 
 export const BANGKOK_LAT = 13.7563;
 export const BANGKOK_LON = 100.5018;
+const FILTER_DEBOUNCE_MS = 250;
 
 function toFiniteNumber(value: unknown): number | undefined {
   const num = Number(value);
   return Number.isFinite(num) ? num : undefined;
+}
+
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedValue(value);
+    }, delayMs);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [value, delayMs]);
+
+  return debouncedValue;
 }
 
 // ---- Hook ----
@@ -163,18 +178,36 @@ export function usePropertyExplorer(districtFromUrl?: string) {
 
   // ---- Data fetching ----
 
+  const debouncedFilters = useDebouncedValue(propertyFilters, FILTER_DEBOUNCE_MS);
+  const zoomTier = viewState.zoom < 13 ? "low" : "high";
+  const listingLimit = zoomTier === "low" ? 1000 : 250;
+  const listingsQueryKey = useMemo(
+    () => [
+      "listings",
+      debouncedFilters.district ?? "all",
+      debouncedFilters.buildingStyle ?? "all",
+      debouncedFilters.minPrice,
+      debouncedFilters.maxPrice,
+      debouncedFilters.minArea,
+      debouncedFilters.maxArea,
+      listingLimit,
+    ],
+    [debouncedFilters, listingLimit]
+  );
+
   const { data: listings } = useQuery({
-    queryKey: ["listings", propertyFilters],
+    queryKey: listingsQueryKey,
     queryFn: () =>
       api.getListings({
-        amphur: propertyFilters.district || undefined,
-        building_style: propertyFilters.buildingStyle || undefined,
-        min_price: propertyFilters.minPrice,
-        max_price: propertyFilters.maxPrice,
-        min_area: propertyFilters.minArea,
-        max_area: propertyFilters.maxArea,
-        limit: 1000,
+        amphur: debouncedFilters.district || undefined,
+        building_style: debouncedFilters.buildingStyle || undefined,
+        min_price: debouncedFilters.minPrice,
+        max_price: debouncedFilters.maxPrice,
+        min_area: debouncedFilters.minArea,
+        max_area: debouncedFilters.maxArea,
+        limit: listingLimit,
       }),
+    staleTime: 1000 * 30,
   });
 
   const { data: schools } = useQuery({
