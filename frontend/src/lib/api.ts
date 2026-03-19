@@ -1087,6 +1087,36 @@ export const api = {
 		return res.json();
 	},
 
+	getLocalShapExplanation: async (
+		propertyId: number,
+	): Promise<PriceExplanationResponse> => {
+		const res = await fetch(`${API_URL}/house-prices/${propertyId}/local-shap`);
+		if (!res.ok) {
+			if (res.status === 503) {
+				throw new Error("Model not trained yet");
+			}
+			throw new Error("Failed to get local SHAP explanation");
+		}
+		return res.json();
+	},
+
+	predictLocalShap: async (
+		request: PricePredictRequest,
+	): Promise<PriceExplanationResponse> => {
+		const res = await fetch(`${API_URL}/house-prices/local-shap/predict`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(request),
+		});
+		if (!res.ok) {
+			if (res.status === 503) {
+				throw new Error("Model not trained yet");
+			}
+			throw new Error("Failed to predict local SHAP");
+		}
+		return res.json();
+	},
+
 	getExplainabilityEvidence: async (
 		modelType: string,
 	): Promise<ExplainabilityEvidenceResponse> => {

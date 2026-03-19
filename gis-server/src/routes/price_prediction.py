@@ -8,6 +8,9 @@ Uses pluggable prediction service with support for:
 - Automatic model selection based on availability
 """
 
+import hashlib
+import json
+import time
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -27,6 +30,10 @@ from src.services.price_prediction import (
 )
 
 router = APIRouter(prefix="/house-prices", tags=["Price Prediction"])
+
+_local_shap_cache: dict[str, tuple[dict, float]] = {}
+_LOCAL_SHAP_CACHE_TTL_SECONDS = 900
+_LOCAL_SHAP_CACHE_MAX_SIZE = 300
 
 
 class FeatureContributionResponse(BaseModel):
@@ -113,6 +120,66 @@ class ModelStatusResponse(BaseModel):
 
     models: list[dict]
     default_model: str | None
+
+
+def _to_price_explanation_response(
+    prediction,
+    actual_price: float | None = None,
+    district_override: str | None = None,
+) -> PriceExplanationResponse:
+    return PriceExplanationResponse(
+        property_id=prediction.property_id,
+        predicted_price=round(prediction.predicted_price, 0),
+        confidence=prediction.confidence,
+        model_type=prediction.model_type,
+        actual_price=actual_price,
+        feature_contributions=[
+            FeatureContributionResponse(
+                feature=c.feature,
+                feature_display=c.feature_display,
+                value=c.value,
+                direction=c.direction,
+                contribution=c.contribution,
+                contribution_kind=c.contribution_kind,
+                contribution_display=c.contribution_display,
+            )
+            for c in prediction.feature_contributions
+        ],
+        explanation_title=prediction.explanation_title,
+        explanation_summary=prediction.explanation_summary,
+        explanation_disclaimer=prediction.explanation_disclaimer,
+        explanation_method=prediction.explanation_method,
+        explanation_narrative=generate_natural_language_explanation(
+            prediction, actual_price
+        ),
+        district=prediction.district or district_override,
+        district_avg_price=round(prediction.district_avg_price, 0)
+        if prediction.district_avg_price
+        else None,
+        price_vs_district=round(prediction.price_vs_district, 1)
+        if prediction.price_vs_district
+        else None,
+        h3_index=prediction.h3_index,
+        is_cold_start=prediction.is_cold_start,
+    )
+
+
+def _get_local_shap_cached(cache_key: str) -> dict | None:
+    cached = _local_shap_cache.get(cache_key)
+    if not cached:
+        return None
+    payload, ts = cached
+    if time.time() - ts < _LOCAL_SHAP_CACHE_TTL_SECONDS:
+        return payload
+    del _local_shap_cache[cache_key]
+    return None
+
+
+def _set_local_shap_cached(cache_key: str, payload: dict) -> None:
+    if len(_local_shap_cache) >= _LOCAL_SHAP_CACHE_MAX_SIZE:
+        oldest_key = min(_local_shap_cache, key=lambda k: _local_shap_cache[k][1])
+        del _local_shap_cache[oldest_key]
+    _local_shap_cache[cache_key] = (payload, time.time())
 
 
 @router.get("/models/status", response_model=ModelStatusResponse)
@@ -231,41 +298,142 @@ def explain_price(
         property_id,
     )
 
-    return PriceExplanationResponse(
-        property_id=property_id,
-        predicted_price=round(prediction.predicted_price, 0),
-        confidence=prediction.confidence,
-        model_type=prediction.model_type,
+    return _to_price_explanation_response(
+        prediction,
         actual_price=actual_price,
-        feature_contributions=[
-            FeatureContributionResponse(
-                feature=c.feature,
-                feature_display=c.feature_display,
-                value=c.value,
-                direction=c.direction,
-                contribution=c.contribution,
-                contribution_kind=c.contribution_kind,
-                contribution_display=c.contribution_display,
-            )
-            for c in prediction.feature_contributions
-        ],
-        explanation_title=prediction.explanation_title,
-        explanation_summary=prediction.explanation_summary,
-        explanation_disclaimer=prediction.explanation_disclaimer,
-        explanation_method=prediction.explanation_method,
-        explanation_narrative=generate_natural_language_explanation(
-            prediction, actual_price
-        ),
-        district=prediction.district or amphur,
-        district_avg_price=round(prediction.district_avg_price, 0)
-        if prediction.district_avg_price
-        else None,
-        price_vs_district=round(prediction.price_vs_district, 1)
-        if prediction.price_vs_district
-        else None,
-        h3_index=prediction.h3_index,
-        is_cold_start=prediction.is_cold_start,
+        district_override=amphur,
     )
+
+
+@router.get("/{property_id}/local-shap", response_model=PriceExplanationResponse)
+def explain_price_local_shap(
+    property_id: int,
+    model: PredictorType | None = Query(
+        PredictorType.BASELINE, description="Model to use for local SHAP explanation"
+    ),
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
+    db: Session = Depends(get_db_session),
+):
+    """Get per-property local SHAP explanation with short-lived cache."""
+    cache_key = f"property:{property_id}:model:{model.value if model else 'default'}"
+    cached = _get_local_shap_cached(cache_key)
+    if cached:
+        return PriceExplanationResponse(**cached)
+
+    result = db.execute(
+        text(
+            """
+            SELECT id, ST_X(geometry) as lon, ST_Y(geometry) as lat,
+                   building_area, land_area, building_age, no_of_floor,
+                   building_style_desc, amphur, total_price
+            FROM house_prices
+            WHERE id = :id
+            """
+        ),
+        {"id": property_id},
+    ).fetchone()
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Property not found")
+
+    (
+        _,
+        lon,
+        lat,
+        building_area,
+        land_area,
+        building_age,
+        no_of_floor,
+        building_style,
+        amphur,
+        actual_price,
+    ) = result
+
+    if lat is None or lon is None:
+        raise HTTPException(status_code=400, detail="Property has no location data")
+
+    try:
+        predictor = get_predictor(model)
+        prediction = predictor.predict_local_shap(
+            db,
+            lat,
+            lon,
+            building_area,
+            land_area,
+            building_age,
+            no_of_floor,
+            building_style,
+            property_id,
+        )
+    except NotImplementedError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"No prediction model available: {e}. Train baseline first.",
+        )
+
+    response = _to_price_explanation_response(
+        prediction,
+        actual_price=actual_price,
+        district_override=amphur,
+    )
+    payload = response.model_dump()
+    _set_local_shap_cached(cache_key, payload)
+    return response
+
+
+@router.post("/local-shap/predict", response_model=PriceExplanationResponse)
+def predict_price_local_shap(
+    request: PredictRequest,
+    model: PredictorType | None = Query(
+        PredictorType.BASELINE, description="Model to use for local SHAP explanation"
+    ),
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
+    db: Session = Depends(get_db_session),
+):
+    """Get local SHAP explanation for arbitrary listing features and location."""
+    cache_payload = {
+        "model": model.value if model else "default",
+        "lat": round(request.lat, 6),
+        "lon": round(request.lon, 6),
+        "building_area": request.building_area,
+        "land_area": request.land_area,
+        "building_age": request.building_age,
+        "no_of_floor": request.no_of_floor,
+        "building_style": request.building_style,
+    }
+    cache_key = hashlib.sha256(
+        json.dumps(cache_payload, sort_keys=True).encode("utf-8")
+    ).hexdigest()
+    cached = _get_local_shap_cached(cache_key)
+    if cached:
+        return PriceExplanationResponse(**cached)
+
+    try:
+        predictor = get_predictor(model)
+        prediction = predictor.predict_local_shap(
+            db,
+            request.lat,
+            request.lon,
+            request.building_area,
+            request.land_area,
+            request.building_age,
+            request.no_of_floor,
+            request.building_style,
+        )
+    except NotImplementedError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"No prediction model available: {e}. Train baseline first.",
+        )
+
+    response = _to_price_explanation_response(prediction)
+    payload = response.model_dump()
+    _set_local_shap_cached(cache_key, payload)
+    return response
 
 
 @router.post("/predict", response_model=PriceExplanationResponse)
@@ -302,34 +470,4 @@ def predict_price(
         request.building_style,
     )
 
-    return PriceExplanationResponse(
-        predicted_price=round(prediction.predicted_price, 0),
-        confidence=prediction.confidence,
-        model_type=prediction.model_type,
-        feature_contributions=[
-            FeatureContributionResponse(
-                feature=c.feature,
-                feature_display=c.feature_display,
-                value=c.value,
-                direction=c.direction,
-                contribution=c.contribution,
-                contribution_kind=c.contribution_kind,
-                contribution_display=c.contribution_display,
-            )
-            for c in prediction.feature_contributions
-        ],
-        explanation_title=prediction.explanation_title,
-        explanation_summary=prediction.explanation_summary,
-        explanation_disclaimer=prediction.explanation_disclaimer,
-        explanation_method=prediction.explanation_method,
-        explanation_narrative=generate_natural_language_explanation(prediction),
-        district=prediction.district,
-        district_avg_price=round(prediction.district_avg_price, 0)
-        if prediction.district_avg_price
-        else None,
-        price_vs_district=round(prediction.price_vs_district, 1)
-        if prediction.price_vs_district
-        else None,
-        h3_index=prediction.h3_index,
-        is_cold_start=prediction.is_cold_start,
-    )
+    return _to_price_explanation_response(prediction)

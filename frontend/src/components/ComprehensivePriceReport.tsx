@@ -704,7 +704,7 @@ export function ComprehensivePriceReport({
 	property,
 	predictionRequest,
 }: ComprehensivePriceReportProps) {
-	const [showFactors, setShowFactors] = useState(true);
+	const [showFactors, setShowFactors] = useState(false);
 	const [showComparables, setShowComparables] = useState(true);
 	const [showTrends, setShowTrends] = useState(false);
 	const [showEvidence, setShowEvidence] = useState(false);
@@ -726,6 +726,27 @@ export function ComprehensivePriceReport({
 			throw new Error("No property context for prediction");
 		},
 		enabled: typeof propertyId === "number" || !!predictionRequest,
+		staleTime: 1000 * 60 * 10,
+		retry: false,
+	});
+
+	const {
+		data: localShapData,
+		isLoading: isLocalShapLoading,
+		error: localShapError,
+	} = useQuery({
+		queryKey: ["localShap", propertyId ?? null, predictionRequest ?? null],
+		queryFn: () => {
+			if (typeof propertyId === "number") {
+				return api.getLocalShapExplanation(propertyId);
+			}
+			if (predictionRequest) {
+				return api.predictLocalShap(predictionRequest);
+			}
+			throw new Error("No property context for local SHAP");
+		},
+		enabled:
+			showFactors && (typeof propertyId === "number" || !!predictionRequest),
 		staleTime: 1000 * 60 * 10,
 		retry: false,
 	});
@@ -780,9 +801,11 @@ export function ComprehensivePriceReport({
 		return null;
 	}
 
+	const activeSignalData = localShapData || priceData;
+
 	const maxContribution = Math.max(
 		1,
-		...priceData.feature_contributions.map((c) => Math.abs(c.contribution)),
+		...activeSignalData.feature_contributions.map((c) => Math.abs(c.contribution)),
 	);
 
 	const actualPrice = property.total_price;
@@ -911,14 +934,31 @@ export function ComprehensivePriceReport({
 			<div className="bg-card border border-border rounded-lg p-4">
 				<SectionHeader
 					icon={Scale}
-					title="Model Signals"
+					title={
+						activeSignalData.explanation_method === "local_shap"
+							? "Local SHAP Signals"
+							: "Model Signals"
+					}
 					expandable
 					expanded={showFactors}
 					onToggle={() => setShowFactors(!showFactors)}
 				/>
 				{showFactors && (
 					<div className="mt-4">
-						{priceData.feature_contributions.map((contrib) => (
+						{isLocalShapLoading ? (
+							<div className="space-y-2">
+								<div className="h-4 w-48 animate-pulse rounded bg-muted" />
+								<div className="h-8 w-full animate-pulse rounded bg-muted" />
+								<div className="h-8 w-full animate-pulse rounded bg-muted" />
+								<div className="h-8 w-full animate-pulse rounded bg-muted" />
+							</div>
+						) : null}
+						{localShapError ? (
+							<p className="text-xs text-warning mb-3">
+								Fell back to baseline model signals because local SHAP could not be loaded.
+							</p>
+						) : null}
+						{activeSignalData.feature_contributions.map((contrib) => (
 							<ContributionBar
 								key={contrib.feature}
 								feature_display={contrib.feature_display}
@@ -931,8 +971,9 @@ export function ComprehensivePriceReport({
 							/>
 						))}
 						<p className="text-xs text-muted-foreground mb-3">
-							Signal bars show relative model influence for this estimate, not
-							additive THB components.
+							{activeSignalData.explanation_method === "local_shap"
+								? "Signal bars show local SHAP effects for this request, approximated in THB."
+								: "Signal bars show relative model influence for this estimate, not additive THB components."}
 						</p>
 						<div className="flex gap-4 text-xs text-muted-foreground mt-3 pt-3 border-t border-border">
 							<div className="flex items-center gap-1">
