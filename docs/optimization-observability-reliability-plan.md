@@ -22,63 +22,74 @@ Scope is to improve speed, stability, and operational visibility without breakin
 
 ### 1) Database connection resilience and timeout controls
 
-- Status: In progress (initial implementation done).
+- Status: Completed (phase 1).
 - Files:
   - `gis-server/src/config/database.py`
   - `gis-server/src/config/settings.py`
 - Actions:
-  - Configure SQLAlchemy pooling (`pool_pre_ping`, pool sizes, recycle, timeout).
-  - Apply per-session DB statement timeout.
-  - Add environment-controlled DB pool settings.
+  - Configure SQLAlchemy pooling (`pool_pre_ping`, pool sizes, recycle, timeout). [done]
+  - Apply per-session DB statement timeout. [done]
+  - Add environment-controlled DB pool settings. [done]
+- Implemented in:
+  - `gis-server/src/config/database.py`
+  - `gis-server/src/config/settings.py`
 - Why:
   - Prevent stale connections and long-tail latency spikes under load.
 
 ### 2) Request-level observability baseline
 
-- Status: In progress (initial implementation done).
+- Status: Completed (phase 1).
 - Files:
   - `gis-server/main.py`
 - Actions:
-  - Add request ID propagation (`X-Request-ID`).
-  - Add structured request completion and failure logs with duration.
-  - Standardize backend log level configuration.
+  - Add request ID propagation (`X-Request-ID`). [done]
+  - Add structured request completion and failure logs with duration. [done]
+  - Standardize backend log level configuration. [done]
+- Implemented in:
+  - `gis-server/main.py`
 - Why:
   - Needed to measure p95 latency, debug failures, and correlate incidents.
 
 ### 3) Remove backend N+1 query patterns
 
-- Status: Pending.
+- Status: Completed.
 - Hotspots:
-  - `gis-server/src/routes/house_prices.py`
-  - `gis-server/src/routes/valuation.py`
-  - `gis-server/src/services/agent_tools.py`
+  - `gis-server/src/routes/house_prices.py` [done]
+  - `gis-server/src/routes/valuation.py` [done]
+  - `gis-server/src/services/agent_tools.py` [done]
 - Actions:
-  - Inline `ST_X/ST_Y` in primary list queries instead of per-row follow-up queries.
+  - Inline `ST_X/ST_Y` in primary list queries instead of per-row follow-up queries. [done]
   - Validate query count reductions with benchmark logs.
+- Notes:
+  - Completed for house prices listing/detail, valuation user-property detail, and agent property search path.
 - Why:
   - Large reduction in DB round trips and response time.
 
 ### 4) Frontend filter/query storm control
 
-- Status: Pending.
+- Status: Completed (phase 1).
 - Hotspots:
   - `frontend/src/hooks/usePropertyExplorer.ts`
   - `frontend/src/components/PropertyFilters.tsx`
 - Actions:
-  - Debounce slider-driven filter updates.
-  - Replace mutable object query keys with stable primitive query keys.
+  - Debounce slider-driven filter updates. [done]
+  - Replace mutable object query keys with stable primitive query keys. [done]
+- Implemented in:
+  - `frontend/src/hooks/usePropertyExplorer.ts`
 - Why:
   - Prevent excessive refetching while dragging filters.
 
 ### 5) Avoid overfetching when map tiles are active
 
-- Status: Pending.
+- Status: Completed (phase 1).
 - Hotspots:
   - `frontend/src/hooks/usePropertyExplorer.ts`
   - `frontend/src/hooks/useMapLayers.ts`
 - Actions:
-  - Gate large listing fetches by zoom tier.
-  - Reduce default limits and fetch only what is needed for current viewport mode.
+  - Gate large listing fetches by zoom tier. [done]
+  - Reduce default limits and fetch only what is needed for current viewport mode. [done]
+- Implemented in:
+  - `frontend/src/hooks/usePropertyExplorer.ts`
 - Why:
   - Reduces payload size, parse time, and memory pressure.
 
@@ -86,26 +97,28 @@ Scope is to improve speed, stability, and operational visibility without breakin
 
 ### 6) Cache static/heavy analytics inputs
 
-- Status: Pending.
+- Status: In progress (phase 1 implemented).
 - Hotspots:
   - `gis-server/src/routes/analytics.py`
 - Actions:
-  - Cache parquet/csv-derived dataframes in memory with TTL and file mtime invalidation.
+  - Cache parquet/csv-derived dataframes in memory with TTL and file mtime invalidation. [done]
   - Optional Redis-backed cache for multi-instance deployments.
+- Implemented in:
+  - `gis-server/src/routes/analytics.py`
 - Why:
   - Avoid repeated disk I/O and parsing overhead on hot endpoints.
 
 ### 7) Bound all in-memory caches
 
-- Status: Pending.
+- Status: In progress (phase 1 implemented).
 - Hotspots:
-  - `gis-server/src/services/location_intelligence.py`
-  - `gis-server/src/services/conversation_memory.py`
-  - `gis-server/src/services/agent_graph.py`
+  - `gis-server/src/services/location_intelligence.py` [done]
+  - `gis-server/src/services/conversation_memory.py` [done]
+  - `gis-server/src/services/agent_graph.py` [done]
   - `gis-server/src/routes/price_prediction.py` (local SHAP cache)
 - Actions:
-  - Add TTL + max-size eviction consistently (LRU/TTL strategy).
-  - Add cache hit/miss and current size metrics.
+  - Add TTL + max-size eviction consistently (LRU/TTL strategy). [done for listed services]
+  - Add cache hit/miss and current size metrics. [done for listed services]
 - Why:
   - Prevent memory growth and stabilize long-running instances.
 
@@ -163,11 +176,15 @@ Scope is to improve speed, stability, and operational visibility without breakin
 
 ### 12) Add metrics and tracing
 
-- Status: Pending.
+- Status: In progress (metrics endpoint phase 1 done).
 - Actions:
-  - Backend Prometheus metrics: request count/latency/error, cache metrics, DB timing.
+  - Backend Prometheus metrics: request count/latency/error, cache metrics, DB timing. [partially done]
   - OpenTelemetry traces across HTTP, DB, and model/tool boundaries.
   - Frontend Web Vitals and error telemetry wiring.
+- Implemented in:
+  - `gis-server/src/services/observability.py`
+  - `gis-server/src/routes/observability.py`
+  - `gis-server/main.py`
 - Why:
   - Enables objective performance tuning and early regression detection.
 
@@ -221,9 +238,49 @@ Scope is to improve speed, stability, and operational visibility without breakin
 - Added DB pooling and timeout settings + statement timeout setup.
 - Added request-level timing and request-id logging middleware.
 - Added configurable backend log level.
+- Removed coordinate N+1 lookups in:
+  - `gis-server/src/routes/house_prices.py`
+  - `gis-server/src/routes/valuation.py`
+- Added frontend performance guards in:
+  - `frontend/src/hooks/usePropertyExplorer.ts`
+  - filter debounce (250ms)
+  - stable primitive React Query keys
+  - zoom-tier listing fetch limits
+- Added analytics dataframe cache:
+  - TTL + file mtime invalidation
+  - bounded cache size and cache stats
+  - implemented in `gis-server/src/routes/analytics.py`
+- Added bounded service caches and cache stats:
+  - `gis-server/src/services/location_intelligence.py`
+  - `gis-server/src/services/conversation_memory.py`
+  - `gis-server/src/services/agent_graph.py`
+- Added observability metrics endpoint:
+  - `GET /api/v1/observability/metrics`
+  - implemented in `gis-server/src/routes/observability.py`
+  - request/counter/histogram metrics implemented in `gis-server/src/services/observability.py`
+- Completed remaining N+1 cleanup in agent tools:
+  - `gis-server/src/services/agent_tools.py`
+- Tuned frontend React Query defaults and static overlay stale times:
+  - `frontend/src/integrations/tanstack-query/root-provider.tsx`
+  - `frontend/src/hooks/usePropertyExplorer.ts`
+
+### Commits
+
+- `61ba288` `chore(observability): add request timing and db pool safeguards`
+- `a481fcf` `perf(api): remove coordinate N+1 lookups in valuation routes`
+- `0d36984` `perf(frontend): debounce listing filters and stabilize query keys`
 
 ### Next immediate implementation focus
 
-1. Remove N+1 coordinate queries in house-price and valuation list endpoints.
-2. Add frontend filter debounce and stable query keys.
-3. Add listing fetch gating by zoom tier to avoid overfetching.
+1. Add cache stats/admin visibility to existing admin cache status endpoint.
+2. Add DB query timing instrumentation (simple middleware + logging buckets).
+3. Extend analytics tile queries to avoid `ST_Transform(column, 3857)` in WHERE.
+4. Start Redis adapter behind feature flag for distributed cache mode.
+5. Add frontend Web Vitals shipping endpoint integration.
+
+## Ready-Next Checklist
+
+- [ ] Benchmark query counts before/after for house-price and valuation endpoints.
+- [ ] Add lightweight request counters + latency histograms.
+- [ ] Implement analytics dataframe cache and expose cache hit-rate logs.
+- [ ] Open follow-up PR for React Query defaults + overlay staleTime tuning.
