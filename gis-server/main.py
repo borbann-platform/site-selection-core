@@ -29,6 +29,7 @@ from src.routes.teams import router as teams_router
 from src.routes.transit import router as transit_router
 from src.routes.valuation import router as valuation_router
 from src.services.observability import request_metrics
+from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
@@ -75,6 +76,27 @@ async def request_timing_middleware(request: Request, call_next):
 
     try:
         response = await call_next(request)
+    except SQLAlchemyTimeoutError:
+        duration_ms = (time.perf_counter() - start) * 1000
+        request_metrics.observe_request(
+            method=request.method,
+            path=request.url.path,
+            status_code=503,
+            duration_seconds=duration_ms / 1000,
+        )
+        logger.exception(
+            "request_failed_db_pool_timeout method=%s path=%s request_id=%s duration_ms=%.2f",
+            request.method,
+            request.url.path,
+            request_id,
+            duration_ms,
+        )
+        return Response(
+            content='{"detail":"Service temporarily overloaded"}',
+            status_code=503,
+            media_type="application/json",
+            headers={"X-Request-ID": request_id, "Retry-After": "1"},
+        )
     except Exception:
         duration_ms = (time.perf_counter() - start) * 1000
         request_metrics.observe_request(
