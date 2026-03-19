@@ -8,7 +8,9 @@ from src.config.database import db_pool_metrics
 from src.services.agent_graph import agent_service
 from src.services.conversation_memory import conversation_memory
 from src.services.location_intelligence import location_intelligence_service
+from src.services.cache_backend import cache_backend
 from src.services.observability import (
+    cache_backend_metrics,
     location_intelligence_metrics,
     request_metrics,
 )
@@ -26,7 +28,12 @@ def get_metrics() -> Response:
     analytics_cache_stats = get_analytics_cache_stats()
     listings_tile_cache_stats = get_listings_tile_cache_stats()
 
+    selected_backend = cache_backend.backend_name
     cache_lines = [
+        "# HELP cache_backend_selected Selected cache backend mode",
+        "# TYPE cache_backend_selected gauge",
+        f'cache_backend_selected{{backend="memory"}} {1 if selected_backend == "memory" else 0}',
+        f'cache_backend_selected{{backend="redis"}} {1 if selected_backend == "redis" else 0}',
         "# HELP cache_location_intelligence_size Number of entries in location intelligence cache",
         "# TYPE cache_location_intelligence_size gauge",
         f"cache_location_intelligence_size {location_stats['size']}",
@@ -77,12 +84,15 @@ def get_metrics() -> Response:
 
     db_payload = db_pool_metrics.render_prometheus()
     location_intelligence_payload = location_intelligence_metrics.render_prometheus()
+    cache_backend_payload = cache_backend_metrics.render_prometheus()
     payload = (
         request_metrics_payload
         + "\n"
         + db_payload
         + "\n"
         + location_intelligence_payload
+        + "\n"
+        + cache_backend_payload
         + "\n"
         + "\n".join(cache_lines)
         + "\n"

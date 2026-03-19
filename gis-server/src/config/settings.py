@@ -11,6 +11,11 @@ class Settings(BaseSettings):
     DB_STATEMENT_TIMEOUT_MS: int = 15000
     DB_USE_PGBOUNCER: bool = False
 
+    CACHE_BACKEND: str = "memory"
+    REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_KEY_PREFIX: str = "site_select_core"
+    REDIS_SOCKET_TIMEOUT_SECONDS: float = 0.2
+
     LOG_LEVEL: str = "INFO"
 
     ANALYTICS_DATAFRAME_CACHE_TTL_SECONDS: int = 600
@@ -26,6 +31,9 @@ class Settings(BaseSettings):
 
     LISTINGS_TILE_CACHE_TTL_SECONDS: int = 600
     LISTINGS_TILE_CACHE_MAX_ENTRIES: int = 2000
+
+    ANALYTICS_TILE_CACHE_TTL_SECONDS: int = 3600
+    ANALYTICS_TILE_CACHE_MAX_ENTRIES: int = 2000
 
     # Object storage for scraped listing images
     MINIO_ENDPOINT: str = "localhost:9000"

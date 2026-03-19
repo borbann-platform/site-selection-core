@@ -14,16 +14,21 @@ from src.config.database import get_db_session
 from src.config.settings import settings
 from src.dependencies.auth import get_current_user_optional
 from src.models.user import User
+from src.services.cache_backend import (
+    cache_clear_namespace,
+    cache_get_bytes,
+    cache_namespace_size,
+    cache_set_bytes,
+)
 from src.services.analytics import analytics_service
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
 logger = logging.getLogger(__name__)
 
 # In-memory tile cache with TTL (simple LRU, max 2000 tiles)
-# For production, consider Redis or similar distributed cache
 _tile_cache: dict[str, tuple[bytes, float]] = {}
-_TILE_CACHE_MAX_SIZE = 2000
-_TILE_CACHE_TTL_SECONDS = 3600  # 1 hour
+_TILE_CACHE_MAX_SIZE = settings.ANALYTICS_TILE_CACHE_MAX_ENTRIES
+_TILE_CACHE_TTL_SECONDS = settings.ANALYTICS_TILE_CACHE_TTL_SECONDS
 _tile_cache_hits = 0
 _tile_cache_misses = 0
 
@@ -36,11 +41,17 @@ _analytics_df_cache_evictions = 0
 
 def _get_cached_tile(cache_key: str) -> bytes | None:
     """Get tile from cache if exists and not expired."""
-    import time
+    global _tile_cache_hits
+
+    backend_cached = cache_get_bytes("analytics_tile", cache_key)
+    if backend_cached is not None:
+        _tile_cache_hits += 1
+        return backend_cached
 
     if cache_key in _tile_cache:
         data, timestamp = _tile_cache[cache_key]
         if time.time() - timestamp < _TILE_CACHE_TTL_SECONDS:
+            _tile_cache_hits += 1
             return data
         del _tile_cache[cache_key]
     return None
@@ -48,7 +59,12 @@ def _get_cached_tile(cache_key: str) -> bytes | None:
 
 def _set_cached_tile(cache_key: str, data: bytes) -> None:
     """Store tile in cache with timestamp."""
-    import time
+    cache_set_bytes(
+        "analytics_tile",
+        cache_key,
+        data,
+        ttl_seconds=_TILE_CACHE_TTL_SECONDS,
+    )
 
     # Simple LRU eviction: remove oldest entries if over max size
     if len(_tile_cache) >= _TILE_CACHE_MAX_SIZE:
@@ -101,7 +117,9 @@ def get_analytics_cache_stats() -> dict[str, dict[str, int | float]]:
     tile_hit_rate = (_tile_cache_hits / total_tile) if total_tile > 0 else 0.0
     return {
         "tile_cache": {
-            "size": len(_tile_cache),
+            "size": cache_namespace_size("analytics_tile")
+            if settings.CACHE_BACKEND.lower() == "redis"
+            else len(_tile_cache),
             "max_entries": _TILE_CACHE_MAX_SIZE,
             "ttl_seconds": _TILE_CACHE_TTL_SECONDS,
             "hits": _tile_cache_hits,
@@ -124,7 +142,8 @@ def clear_tile_cache() -> int:
     """Clear all cached tiles. Returns count of cleared entries."""
     count = len(_tile_cache)
     _tile_cache.clear()
-    return count
+    backend_cleared = cache_clear_namespace("analytics_tile")
+    return max(count, backend_cleared)
 
 
 class SiteLocation(BaseModel):
@@ -181,8 +200,7 @@ def get_pois_tile(
         FROM mvtgeom;
     """)
 
-    with db.bind.connect() as conn:
-        result = conn.execute(sql, {"z": z, "x": x, "y": y}).scalar()
+    result = db.execute(sql, {"z": z, "x": x, "y": y}).scalar()
 
     return Response(content=result, media_type="application/vnd.mapbox-vector-tile")
 
@@ -205,7 +223,6 @@ def get_all_pois_tile(
     # Check cache first
     cached = _get_cached_tile(cache_key)
     if cached is not None:
-        _tile_cache_hits += 1
         return Response(
             content=cached,
             media_type="application/vnd.mapbox-vector-tile",
@@ -238,8 +255,7 @@ def get_all_pois_tile(
         FROM mvtgeom;
     """)
 
-    with db.bind.connect() as conn:
-        result = conn.execute(sql, {"z": z, "x": x, "y": y}).scalar()
+    result = db.execute(sql, {"z": z, "x": x, "y": y}).scalar()
 
     # Cache the result
     if result:
@@ -288,8 +304,7 @@ def get_residential_tile(
         FROM mvtgeom;
     """)
 
-    with db.bind.connect() as conn:
-        result = conn.execute(sql, {"z": z, "x": x, "y": y}).scalar()
+    result = db.execute(sql, {"z": z, "x": x, "y": y}).scalar()
 
     return Response(content=result, media_type="application/vnd.mapbox-vector-tile")
 

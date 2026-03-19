@@ -3,6 +3,7 @@
 import csv
 import hashlib
 import logging
+import json
 import time
 from contextlib import contextmanager
 from collections import OrderedDict
@@ -21,6 +22,12 @@ from src.models.location_intelligence import (
     TransitScore,
     WalkabilityCategory,
     WalkabilityScore,
+)
+from src.services.cache_backend import (
+    cache_clear_namespace,
+    cache_get_bytes,
+    cache_namespace_size,
+    cache_set_bytes,
 )
 from src.services.observability import location_intelligence_metrics
 
@@ -70,7 +77,33 @@ class LocationIntelligenceService:
         key = f"{grid_lat}:{grid_lon}:{radius}"
         return hashlib.md5(key.encode()).hexdigest()
 
+    def _deserialize_response(self, raw: bytes) -> LocationIntelligenceResponse | None:
+        try:
+            payload = json.loads(raw)
+            return LocationIntelligenceResponse.model_validate(payload)
+        except Exception:
+            logger.exception(
+                "Failed to deserialize location intelligence cache payload"
+            )
+            return None
+
+    def _serialize_response(
+        self, response: LocationIntelligenceResponse
+    ) -> bytes | None:
+        try:
+            return response.model_dump_json().encode("utf-8")
+        except Exception:
+            logger.exception("Failed to serialize location intelligence response")
+            return None
+
     def _get_cached(self, cache_key: str) -> LocationIntelligenceResponse | None:
+        backend_value = cache_get_bytes("location_intelligence", cache_key)
+        if backend_value is not None:
+            cached = self._deserialize_response(backend_value)
+            if cached is not None:
+                self._cache_hits += 1
+                return cached
+
         now = time.time()
         cached = self._cache.get(cache_key)
         if not cached:
@@ -90,6 +123,15 @@ class LocationIntelligenceService:
     def _set_cached(
         self, cache_key: str, response: LocationIntelligenceResponse
     ) -> None:
+        serialized = self._serialize_response(response)
+        if serialized is not None:
+            cache_set_bytes(
+                "location_intelligence",
+                cache_key,
+                serialized,
+                ttl_seconds=self._cache_ttl_seconds,
+            )
+
         self._cache[cache_key] = (response, time.time())
         self._cache.move_to_end(cache_key)
         while len(self._cache) > self._cache_max_entries:
@@ -99,13 +141,21 @@ class LocationIntelligenceService:
         total = self._cache_hits + self._cache_misses
         hit_rate = (self._cache_hits / total) if total > 0 else 0.0
         return {
-            "size": len(self._cache),
+            "size": cache_namespace_size("location_intelligence")
+            if settings.CACHE_BACKEND.lower() == "redis"
+            else len(self._cache),
             "max_entries": self._cache_max_entries,
             "ttl_seconds": self._cache_ttl_seconds,
             "hits": self._cache_hits,
             "misses": self._cache_misses,
             "hit_rate": round(hit_rate, 4),
         }
+
+    def clear_cache(self) -> int:
+        cleared_memory = len(self._cache)
+        self._cache.clear()
+        cleared_backend = cache_clear_namespace("location_intelligence")
+        return max(cleared_memory, cleared_backend)
 
     def _load_flood_data(self) -> list[dict]:
         """Load flood warning data from CSV."""

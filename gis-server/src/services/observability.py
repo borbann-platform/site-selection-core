@@ -179,3 +179,84 @@ class LocationIntelligenceMetrics:
 
 
 location_intelligence_metrics = LocationIntelligenceMetrics()
+
+
+class CacheBackendMetrics:
+    def __init__(self) -> None:
+        self._operations_total: dict[tuple[str, str, str, str], int] = defaultdict(int)
+        self._duration_sum_seconds: dict[tuple[str, str, str], float] = defaultdict(
+            float
+        )
+        self._duration_bucket_counts: dict[tuple[str, str, str], dict[float, int]] = (
+            defaultdict(lambda: defaultdict(int))
+        )
+
+    def observe(
+        self,
+        backend: str,
+        cache_name: str,
+        op: str,
+        result: str,
+        duration_seconds: float,
+    ) -> None:
+        self._operations_total[(backend, cache_name, op, result)] += 1
+        duration_key = (backend, cache_name, op)
+        self._duration_sum_seconds[duration_key] += duration_seconds
+
+        for bucket in (0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1):
+            if duration_seconds <= bucket:
+                self._duration_bucket_counts[duration_key][bucket] += 1
+        if duration_seconds > 0.1:
+            self._duration_bucket_counts[duration_key][float("inf")] += 1
+
+    def render_prometheus(self) -> str:
+        lines = [
+            "# HELP cache_backend_operations_total Total cache backend operations",
+            "# TYPE cache_backend_operations_total counter",
+        ]
+
+        for (backend, cache_name, op, result), count in sorted(
+            self._operations_total.items()
+        ):
+            lines.append(
+                "cache_backend_operations_total"
+                f'{{backend="{backend}",cache_name="{cache_name}",op="{op}",result="{result}"}} {count}'
+            )
+
+        lines.extend(
+            [
+                "# HELP cache_backend_operation_duration_seconds_sum Total cache operation duration",
+                "# TYPE cache_backend_operation_duration_seconds_sum counter",
+            ]
+        )
+        for (backend, cache_name, op), value in sorted(
+            self._duration_sum_seconds.items()
+        ):
+            lines.append(
+                "cache_backend_operation_duration_seconds_sum"
+                f'{{backend="{backend}",cache_name="{cache_name}",op="{op}"}} {value:.6f}'
+            )
+
+        lines.extend(
+            [
+                "# HELP cache_backend_operation_duration_bucket_seconds Cache operation latency buckets",
+                "# TYPE cache_backend_operation_duration_bucket_seconds counter",
+            ]
+        )
+        for (backend, cache_name, op), buckets in sorted(
+            self._duration_bucket_counts.items()
+        ):
+            for bucket in (0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1):
+                lines.append(
+                    "cache_backend_operation_duration_bucket_seconds"
+                    f'{{backend="{backend}",cache_name="{cache_name}",op="{op}",le="{bucket}"}} {buckets.get(bucket, 0)}'
+                )
+            lines.append(
+                "cache_backend_operation_duration_bucket_seconds"
+                f'{{backend="{backend}",cache_name="{cache_name}",op="{op}",le="+Inf"}} {buckets.get(float("inf"), 0)}'
+            )
+
+        return "\n".join(lines) + "\n"
+
+
+cache_backend_metrics = CacheBackendMetrics()

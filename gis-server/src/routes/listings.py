@@ -15,6 +15,12 @@ from src.config.database import get_db_session
 from src.config.settings import settings
 from src.dependencies.auth import get_current_user_optional
 from src.models.user import User
+from src.services.cache_backend import (
+    cache_clear_namespace,
+    cache_get_bytes,
+    cache_namespace_size,
+    cache_set_bytes,
+)
 
 router = APIRouter(prefix="/listings", tags=["Listings"])
 
@@ -25,6 +31,11 @@ _listings_tile_cache_misses = 0
 
 def _get_cached_listings_tile(cache_key: str) -> bytes | None:
     global _listings_tile_cache_hits, _listings_tile_cache_misses
+
+    backend_cached = cache_get_bytes("listings_tile", cache_key)
+    if backend_cached is not None:
+        _listings_tile_cache_hits += 1
+        return backend_cached
 
     cached = _listings_tile_cache.get(cache_key)
     if not cached:
@@ -43,6 +54,13 @@ def _get_cached_listings_tile(cache_key: str) -> bytes | None:
 
 
 def _set_cached_listings_tile(cache_key: str, payload: bytes) -> None:
+    cache_set_bytes(
+        "listings_tile",
+        cache_key,
+        payload,
+        ttl_seconds=settings.LISTINGS_TILE_CACHE_TTL_SECONDS,
+    )
+
     _listings_tile_cache[cache_key] = (payload, time.time())
     _listings_tile_cache.move_to_end(cache_key)
     while len(_listings_tile_cache) > settings.LISTINGS_TILE_CACHE_MAX_ENTRIES:
@@ -53,13 +71,22 @@ def get_listings_tile_cache_stats() -> dict[str, int | float]:
     total = _listings_tile_cache_hits + _listings_tile_cache_misses
     hit_rate = (_listings_tile_cache_hits / total) if total > 0 else 0.0
     return {
-        "size": len(_listings_tile_cache),
+        "size": cache_namespace_size("listings_tile")
+        if settings.CACHE_BACKEND.lower() == "redis"
+        else len(_listings_tile_cache),
         "max_entries": settings.LISTINGS_TILE_CACHE_MAX_ENTRIES,
         "ttl_seconds": settings.LISTINGS_TILE_CACHE_TTL_SECONDS,
         "hits": _listings_tile_cache_hits,
         "misses": _listings_tile_cache_misses,
         "hit_rate": round(hit_rate, 4),
     }
+
+
+def clear_listings_tile_cache() -> int:
+    cleared_memory = len(_listings_tile_cache)
+    _listings_tile_cache.clear()
+    cleared_backend = cache_clear_namespace("listings_tile")
+    return max(cleared_memory, cleared_backend)
 
 
 ListingSourceType = Literal[
