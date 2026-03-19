@@ -511,36 +511,33 @@ def search_properties(
                 if max_price is not None:
                     query = query.filter(HousePrice.total_price <= max_price)
 
-                query = query.order_by(HousePrice.total_price).limit(limit)
-                results = query.all()
-
-                properties = []
-                for r in results:
-                    # Extract coordinates from geometry
-                    coords = db.execute(
-                        text(
-                            "SELECT ST_X(geometry), ST_Y(geometry) FROM house_prices WHERE id = :id"
-                        ),
-                        {"id": r.id},
-                    ).fetchone()
-
-                    lon, lat = (coords[0], coords[1]) if coords else (None, None)
-
-                    properties.append(
-                        {
-                            "id": r.id,
-                            "district": r.amphur,
-                            "subdistrict": r.tumbon,
-                            "building_style": r.building_style_desc,
-                            "building_area_sqm": r.building_area,
-                            "land_area_sqwah": r.land_area,
-                            "age_years": r.building_age,
-                            "price_thb": r.total_price,
-                            "floors": r.no_of_floor,
-                            "lat": lat,
-                            "lon": lon,
-                        }
+                results = (
+                    query.with_entities(
+                        HousePrice,
+                        func.ST_X(HousePrice.geometry).label("lon"),
+                        func.ST_Y(HousePrice.geometry).label("lat"),
                     )
+                    .order_by(HousePrice.total_price)
+                    .limit(limit)
+                    .all()
+                )
+
+                properties = [
+                    {
+                        "id": row.id,
+                        "district": row.amphur,
+                        "subdistrict": row.tumbon,
+                        "building_style": row.building_style_desc,
+                        "building_area_sqm": row.building_area,
+                        "land_area_sqwah": row.land_area,
+                        "age_years": row.building_age,
+                        "price_thb": row.total_price,
+                        "floors": row.no_of_floor,
+                        "lat": float(lat) if lat is not None else None,
+                        "lon": float(lon) if lon is not None else None,
+                    }
+                    for row, lon, lat in results
+                ]
 
             return json.dumps(
                 {
