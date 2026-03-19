@@ -4,6 +4,13 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     # Default to a placeholder, but will be overridden by .env file
     DATABASE_URL: str = "postgresql://user:password@localhost:5435/gisdb"
+    DB_POOL_SIZE: int = 20
+    DB_MAX_OVERFLOW: int = 20
+    DB_POOL_TIMEOUT_SECONDS: int = 30
+    DB_POOL_RECYCLE_SECONDS: int = 1800
+    DB_STATEMENT_TIMEOUT_MS: int = 15000
+
+    LOG_LEVEL: str = "INFO"
 
     # Object storage for scraped listing images
     MINIO_ENDPOINT: str = "localhost:9000"
