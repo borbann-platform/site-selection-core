@@ -23,12 +23,14 @@ import {
 	api,
 	type ExplainabilityEvidenceResponse,
 	type HousePriceItem,
+	type PricePredictRequest,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 interface ComprehensivePriceReportProps {
-	propertyId: number;
+	propertyId?: number;
 	property: HousePriceItem;
+	predictionRequest?: PricePredictRequest;
 }
 
 // Types for extended report data
@@ -700,6 +702,7 @@ function ErrorState({ message }: { message: string }) {
 export function ComprehensivePriceReport({
 	propertyId,
 	property,
+	predictionRequest,
 }: ComprehensivePriceReportProps) {
 	const [showFactors, setShowFactors] = useState(true);
 	const [showComparables, setShowComparables] = useState(true);
@@ -712,8 +715,17 @@ export function ComprehensivePriceReport({
 		isLoading: isPriceLoading,
 		error: priceError,
 	} = useQuery({
-		queryKey: ["priceExplanation", propertyId],
-		queryFn: () => api.getPriceExplanation(propertyId),
+		queryKey: ["priceExplanation", propertyId ?? null, predictionRequest ?? null],
+		queryFn: () => {
+			if (typeof propertyId === "number") {
+				return api.getPriceExplanation(propertyId);
+			}
+			if (predictionRequest) {
+				return api.predictPrice(predictionRequest);
+			}
+			throw new Error("No property context for prediction");
+		},
+		enabled: typeof propertyId === "number" || !!predictionRequest,
 		staleTime: 1000 * 60 * 10,
 		retry: false,
 	});
@@ -842,7 +854,9 @@ export function ComprehensivePriceReport({
 				{/* Market Position */}
 				<div className="grid grid-cols-2 gap-3 mb-4">
 					{/* District Comparison */}
-					{priceData.district_avg_price > 0 && (
+					{priceData.district_avg_price !== null &&
+						priceData.price_vs_district !== null &&
+						priceData.district_avg_price > 0 && (
 						<div className="bg-muted/50 rounded-lg p-3">
 							<div className="text-xs text-muted-foreground mb-1">
 								vs. District Avg
