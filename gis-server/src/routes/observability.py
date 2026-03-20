@@ -14,6 +14,7 @@ from src.services.observability import (
     location_intelligence_metrics,
     request_metrics,
 )
+from src.services.listings_tile_refresh import listings_tile_refresh_manager
 
 router = APIRouter(prefix="/observability", tags=["Observability"])
 
@@ -56,6 +57,7 @@ def get_metrics() -> Response:
 
     tile_stats = analytics_cache_stats["tile_cache"]
     df_stats = analytics_cache_stats["dataframe_cache"]
+    tile_refresh_stats = listings_tile_refresh_manager.get_stats()
     cache_lines.extend(
         [
             "# HELP cache_analytics_tile_size Number of entries in analytics tile cache",
@@ -79,6 +81,21 @@ def get_metrics() -> Response:
             "# HELP cache_listings_tile_hit_rate Listings tile cache hit rate",
             "# TYPE cache_listings_tile_hit_rate gauge",
             f"cache_listings_tile_hit_rate {listings_tile_cache_stats['hit_rate']}",
+            "# HELP listings_tile_source_refresh_success_total Total successful listings tile source refreshes",
+            "# TYPE listings_tile_source_refresh_success_total counter",
+            f"listings_tile_source_refresh_success_total {tile_refresh_stats.total_success}",
+            "# HELP listings_tile_source_refresh_failure_total Total failed listings tile source refreshes",
+            "# TYPE listings_tile_source_refresh_failure_total counter",
+            f"listings_tile_source_refresh_failure_total {tile_refresh_stats.total_failure}",
+            "# HELP listings_tile_source_refresh_duration_seconds Last listings tile source refresh duration",
+            "# TYPE listings_tile_source_refresh_duration_seconds gauge",
+            f"listings_tile_source_refresh_duration_seconds {tile_refresh_stats.last_duration_seconds:.6f}",
+            "# HELP listings_tile_source_age_seconds Age of last successful listings tile source refresh",
+            "# TYPE listings_tile_source_age_seconds gauge",
+            f"listings_tile_source_age_seconds {tile_refresh_stats.age_seconds if tile_refresh_stats.last_success_epoch > 0 else 0}",
+            "# HELP listings_tile_source_stale Whether listings tile source is stale",
+            "# TYPE listings_tile_source_stale gauge",
+            f"listings_tile_source_stale {1 if tile_refresh_stats.stale else 0}",
         ]
     )
 

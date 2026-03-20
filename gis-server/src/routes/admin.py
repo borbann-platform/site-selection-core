@@ -19,6 +19,7 @@ from src.models.user import User
 from src.routes.analytics import clear_tile_cache, get_analytics_cache_stats
 from src.routes.listings import clear_listings_tile_cache
 from src.services.location_intelligence import location_intelligence_service
+from src.services.listings_tile_refresh import listings_tile_refresh_manager
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -36,6 +37,9 @@ class CacheStatusResponse(BaseModel):
     analytics_tile_cache_size: int
     listings_tile_cache_size: int
     location_intelligence_cache_size: int
+    listings_tile_source_last_success: str | None = None
+    listings_tile_source_age_seconds: float | None = None
+    listings_tile_source_stale: bool | None = None
     timestamp: str
 
 
@@ -105,6 +109,34 @@ def clear_tile_cache_endpoint(
         cleared_locint,
     )
 
+
+@router.post("/refresh-listings-tile-source", response_model=RefreshResponse)
+def refresh_listings_tile_source(
+    current_user: Annotated[User, Depends(require_system_admin)],
+):
+    """Refresh materialized listings tile source and clear listings tile cache."""
+    try:
+        listings_tile_refresh_manager.refresh_now(concurrent=True)
+        cleared_listings = clear_listings_tile_cache()
+        stats = listings_tile_refresh_manager.get_stats()
+        return RefreshResponse(
+            success=True,
+            message="Listings tile materialized source refreshed",
+            timestamp=datetime.now(tz=timezone.utc).isoformat(),
+            details={
+                "listings_tiles_cleared": cleared_listings,
+                "last_success": stats.last_success_iso,
+                "last_duration_seconds": round(stats.last_duration_seconds, 3),
+                "refresh_failures": stats.total_failure,
+            },
+        )
+    except Exception:
+        logger.exception("Failed to refresh listings tile materialized source")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to refresh listings tile source. Check server logs for details.",
+        ) from None
+
     return RefreshResponse(
         success=True,
         message="Caches cleared successfully",
@@ -130,10 +162,16 @@ def get_cache_status(
     analytics_size = int(get_analytics_cache_stats()["tile_cache"]["size"])
     listings_size = int(get_listings_tile_cache_stats().get("size", 0))
     location_size = int(location_intelligence_service.get_cache_stats().get("size", 0))
+    tile_refresh_stats = listings_tile_refresh_manager.get_stats()
 
     return CacheStatusResponse(
         analytics_tile_cache_size=analytics_size,
         listings_tile_cache_size=listings_size,
         location_intelligence_cache_size=location_size,
+        listings_tile_source_last_success=tile_refresh_stats.last_success_iso or None,
+        listings_tile_source_age_seconds=round(tile_refresh_stats.age_seconds, 3)
+        if tile_refresh_stats.last_success_epoch > 0
+        else None,
+        listings_tile_source_stale=tile_refresh_stats.stale,
         timestamp=datetime.now(tz=timezone.utc).isoformat(),
     )

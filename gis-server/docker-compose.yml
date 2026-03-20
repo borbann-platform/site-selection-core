@@ -89,6 +89,7 @@ services:
       - MINIO_SECURE=false
       - MINIO_BUCKET=listing-images
       - MINIO_OBJECT_PREFIX=scraped-listings
+      - UV_LINK_MODE=copy
     ports:
       - "8000:8000"
     depends_on:
@@ -98,11 +99,7 @@ services:
         condition: service_healthy
       minio:
         condition: service_started
-    volumes:
-      - .:/app
-      - ./models:/app/models
-      - ./data:/app/data
-    command: uv run uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    command: uv run uvicorn main:app --host 0.0.0.0 --port 8000 --workers 2
     restart: unless-stopped
 
   frontend:

@@ -29,6 +29,7 @@ from src.routes.teams import router as teams_router
 from src.routes.transit import router as transit_router
 from src.routes.valuation import router as valuation_router
 from src.services.observability import request_metrics
+from src.services.listings_tile_refresh import listings_tile_refresh_manager
 from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 
 logging.basicConfig(
@@ -42,8 +43,10 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     # Load graph on startup
     catchment_service.load_graph()
+    listings_tile_refresh_manager.start()
     yield
     # Clean up resources if needed
+    listings_tile_refresh_manager.stop()
 
 
 app = FastAPI(
