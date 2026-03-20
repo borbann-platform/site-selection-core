@@ -1,5 +1,7 @@
 import json
 import re
+import time
+from collections import OrderedDict
 from datetime import timedelta
 from typing import Annotated, Any, Literal
 
@@ -13,8 +15,79 @@ from src.config.database import get_db_session
 from src.config.settings import settings
 from src.dependencies.auth import get_current_user_optional
 from src.models.user import User
+from src.services.cache_backend import (
+    cache_clear_namespace,
+    cache_get_bytes,
+    cache_namespace_size,
+    cache_set_bytes,
+)
 
 router = APIRouter(prefix="/listings", tags=["Listings"])
+
+_listings_tile_cache: OrderedDict[str, tuple[bytes, float]] = OrderedDict()
+_listings_tile_cache_hits = 0
+_listings_tile_cache_misses = 0
+
+
+def _get_cached_listings_tile(cache_key: str) -> bytes | None:
+    global _listings_tile_cache_hits, _listings_tile_cache_misses
+
+    backend_cached = cache_get_bytes("listings_tile", cache_key)
+    if backend_cached is not None:
+        _listings_tile_cache_hits += 1
+        return backend_cached
+
+    cached = _listings_tile_cache.get(cache_key)
+    if not cached:
+        _listings_tile_cache_misses += 1
+        return None
+
+    payload, ts = cached
+    if time.time() - ts > settings.LISTINGS_TILE_CACHE_TTL_SECONDS:
+        del _listings_tile_cache[cache_key]
+        _listings_tile_cache_misses += 1
+        return None
+
+    _listings_tile_cache.move_to_end(cache_key)
+    _listings_tile_cache_hits += 1
+    return payload
+
+
+def _set_cached_listings_tile(cache_key: str, payload: bytes) -> None:
+    cache_set_bytes(
+        "listings_tile",
+        cache_key,
+        payload,
+        ttl_seconds=settings.LISTINGS_TILE_CACHE_TTL_SECONDS,
+    )
+
+    _listings_tile_cache[cache_key] = (payload, time.time())
+    _listings_tile_cache.move_to_end(cache_key)
+    while len(_listings_tile_cache) > settings.LISTINGS_TILE_CACHE_MAX_ENTRIES:
+        _listings_tile_cache.popitem(last=False)
+
+
+def get_listings_tile_cache_stats() -> dict[str, int | float]:
+    total = _listings_tile_cache_hits + _listings_tile_cache_misses
+    hit_rate = (_listings_tile_cache_hits / total) if total > 0 else 0.0
+    return {
+        "size": cache_namespace_size("listings_tile")
+        if settings.CACHE_BACKEND.lower() == "redis"
+        else len(_listings_tile_cache),
+        "max_entries": settings.LISTINGS_TILE_CACHE_MAX_ENTRIES,
+        "ttl_seconds": settings.LISTINGS_TILE_CACHE_TTL_SECONDS,
+        "hits": _listings_tile_cache_hits,
+        "misses": _listings_tile_cache_misses,
+        "hit_rate": round(hit_rate, 4),
+    }
+
+
+def clear_listings_tile_cache() -> int:
+    cleared_memory = len(_listings_tile_cache)
+    _listings_tile_cache.clear()
+    cleared_backend = cache_clear_namespace("listings_tile")
+    return max(cleared_memory, cleared_backend)
+
 
 ListingSourceType = Literal[
     "house_price",
@@ -781,134 +854,85 @@ def get_listings_tile(
     current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
     db: Session = Depends(get_db_session),
 ):
-    (
-        house_filters,
-        scraped_filters,
-        market_filters,
-        condo_filters,
-        params,
-    ) = _build_common_filters(
-        amphur, building_style, min_price, max_price, min_area, max_area
-    )
-
-    house_filters.append(
-        "ST_Intersects(ST_Transform(h.geometry, 3857), ST_TileEnvelope(:z, :x, :y))"
-    )
-    scraped_filters.append(
-        "ST_Intersects(ST_Transform(s.geometry, 3857), ST_TileEnvelope(:z, :x, :y))"
-    )
-    market_filters.append(
-        "ST_Intersects(ST_Transform(r.geometry, 3857), ST_TileEnvelope(:z, :x, :y))"
-    )
-    condo_filters.append(
-        "ST_Intersects(ST_Transform(c.geometry, 3857), ST_TileEnvelope(:z, :x, :y))"
-    )
+    params: dict[str, Any] = {}
 
     params["z"] = z
     params["x"] = x
     params["y"] = y
 
-    house_where = " AND ".join(house_filters)
-    scraped_where = " AND ".join(scraped_filters)
-    market_where = " AND ".join(market_filters)
-    condo_where = " AND ".join(condo_filters)
+    cache_key = (
+        f"{z}:{x}:{y}|{amphur or ''}|{building_style or ''}|"
+        f"{min_price if min_price is not None else ''}|"
+        f"{max_price if max_price is not None else ''}|"
+        f"{min_area if min_area is not None else ''}|"
+        f"{max_area if max_area is not None else ''}"
+    )
+    cached_tile = _get_cached_listings_tile(cache_key)
+    if cached_tile is not None:
+        return Response(
+            content=cached_tile,
+            media_type="application/vnd.mapbox-vector-tile",
+            headers={
+                "Cache-Control": "public, max-age=600",
+                "X-Cache": "HIT",
+            },
+        )
+
+    predicates: list[str] = [
+        "src.geom_3857 IS NOT NULL",
+        "ST_Intersects(src.geom_3857, ST_TileEnvelope(:z, :x, :y))",
+    ]
+
+    if amphur:
+        predicates.append("src.amphur = :amphur")
+        params["amphur"] = amphur
+
+    if building_style:
+        predicates.append("src.building_style_desc = :building_style")
+        params["building_style"] = building_style
+
+    if min_price is not None:
+        predicates.append("COALESCE(src.total_price, 0) >= :min_price")
+        params["min_price"] = min_price
+
+    if max_price is not None:
+        predicates.append("COALESCE(src.total_price, 0) <= :max_price")
+        params["max_price"] = max_price
+
+    if min_area is not None:
+        predicates.append("COALESCE(src.building_area, 0) >= :min_area")
+        params["min_area"] = min_area
+
+    if max_area is not None:
+        predicates.append("COALESCE(src.building_area, 0) <= :max_area")
+        params["max_area"] = max_area
+
+    where_clause = " AND ".join(predicates)
 
     sql = text(
         f"""
         WITH merged AS (
             SELECT
                 ST_AsMVTGeom(
-                    ST_Transform(h.geometry, 3857),
+                    src.geom_3857,
                     ST_TileEnvelope(:z, :x, :y)
                 ) AS geom,
-                ('house:' || h.id::text) AS listing_key,
-                h.id::text AS id,
-                'house_price' AS source_type,
-                'treasury' AS source,
-                h.total_price,
-                h.building_area,
-                h.no_of_floor,
-                h.building_age,
-                h.building_style_desc,
-                h.amphur,
-                h.tumbon,
-                NULL::text AS image_url,
-                NULL::text AS detail_url,
-                COALESCE(h.village, h.amphur || ' ' || COALESCE(h.building_style_desc, 'Property')) AS title
-            FROM house_prices h
-            WHERE {house_where}
-
-            UNION ALL
-
-            SELECT
-                ST_AsMVTGeom(
-                    ST_Transform(s.geometry, 3857),
-                    ST_TileEnvelope(:z, :x, :y)
-                ) AS geom,
-                ('scraped:' || s.source || ':' || s.id::text) AS listing_key,
-                s.source_listing_id AS id,
-                'scraped_project' AS source_type,
-                s.source,
-                COALESCE(s.price_start, s.price_end) AS total_price,
-                NULL::double precision AS building_area,
-                NULL::double precision AS no_of_floor,
-                NULL::double precision AS building_age,
-                s.property_type AS building_style_desc,
-                s.district AS amphur,
-                s.subdistrict AS tumbon,
-                s.main_image_url AS image_url,
-                s.detail_url,
-                COALESCE(s.title, s.title_en, s.title_th) AS title
-            FROM scraped_listings s
-            WHERE {scraped_where}
-
-            UNION ALL
-
-            SELECT
-                ST_AsMVTGeom(
-                    ST_Transform(r.geometry, 3857),
-                    ST_TileEnvelope(:z, :x, :y)
-                ) AS geom,
-                ('market:' || r.id::text) AS listing_key,
-                r.id::text AS id,
-                'market_listing' AS source_type,
-                'baania' AS source,
-                COALESCE(NULLIF(regexp_replace(r.price, '[^0-9.]', '', 'g'), '')::double precision, 0) AS total_price,
-                COALESCE(NULLIF(regexp_replace(r.usable_area_sqm, '[^0-9.]', '', 'g'), '')::double precision, NULL) AS building_area,
-                COALESCE(NULLIF(regexp_replace(r.floors, '[^0-9.]', '', 'g'), '')::double precision, NULL) AS no_of_floor,
-                NULL::double precision AS building_age,
-                r.property_type AS building_style_desc,
-                NULL::text AS amphur,
-                NULL::text AS tumbon,
-                substring(r.images from '(https?://[^,\s\]"\'']+)') AS image_url,
-                NULL::text AS detail_url,
-                r.title
-            FROM real_estate_listings r
-            WHERE {market_where}
-
-            UNION ALL
-
-            SELECT
-                ST_AsMVTGeom(
-                    ST_Transform(c.geometry, 3857),
-                    ST_TileEnvelope(:z, :x, :y)
-                ) AS geom,
-                ('condo:' || c.id::text) AS listing_key,
-                c.id::text AS id,
-                'condo_project' AS source_type,
-                'hipflat' AS source,
-                COALESCE(NULLIF(regexp_replace(c.price_sale, '[^0-9.]', '', 'g'), '')::double precision, 0) AS total_price,
-                NULL::double precision AS building_area,
-                NULL::double precision AS no_of_floor,
-                NULL::double precision AS building_age,
-                'Condominium' AS building_style_desc,
-                NULL::text AS amphur,
-                NULL::text AS tumbon,
-                NULL::text AS image_url,
-                c.project_base_url AS detail_url,
-                c.name AS title
-            FROM condo_projects c
-            WHERE {condo_where}
+                src.listing_key,
+                src.id,
+                src.source_type,
+                src.source,
+                src.total_price,
+                src.building_area,
+                src.no_of_floor,
+                src.building_age,
+                src.building_style_desc,
+                src.amphur,
+                src.tumbon,
+                src.image_url,
+                src.detail_url,
+                src.title
+            FROM mat_listings_tile_source src
+            WHERE {where_clause}
         )
         SELECT ST_AsMVT(merged.*, 'listings', 4096, 'geom') AS mvt
         FROM merged;
@@ -916,8 +940,17 @@ def get_listings_tile(
     )
 
     result = db.execute(sql, params).scalar()
+    payload = bytes(result) if result else b""
+    _set_cached_listings_tile(cache_key, payload)
 
-    return Response(content=result, media_type="application/vnd.mapbox-vector-tile")
+    return Response(
+        content=payload,
+        media_type="application/vnd.mapbox-vector-tile",
+        headers={
+            "Cache-Control": "public, max-age=600",
+            "X-Cache": "MISS",
+        },
+    )
 
 
 @router.get("/images/{image_id}")

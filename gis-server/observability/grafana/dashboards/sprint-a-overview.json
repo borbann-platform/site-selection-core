@@ -1,0 +1,90 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "5xx / total requests over 5m",
+      "fieldConfig": {
+        "defaults": {"unit": "percentunit", "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 0.01}]}},
+        "overrides": []
+      },
+      "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0},
+      "id": 1,
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "orientation": "auto", "textMode": "auto", "colorMode": "value"},
+      "targets": [{"expr": "sum(rate(api_request_errors_total[5m])) / clamp_min(sum(rate(api_requests_total[5m])), 1)", "refId": "A"}],
+      "title": "API Error Rate (5m)",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0},
+      "id": 2,
+      "targets": [{"expr": "histogram_quantile(0.95, sum by (le) (rate(api_request_duration_bucket_seconds[5m])))", "refId": "A"}],
+      "title": "API p95 Latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0},
+      "id": 3,
+      "targets": [{"expr": "sum(rate(api_requests_total[1m]))", "refId": "A"}],
+      "title": "Request Throughput",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 6, "x": 18, "y": 0},
+      "id": 4,
+      "targets": [{"expr": "db_pool_checked_out", "refId": "A"}, {"expr": "db_pool_size", "refId": "B"}],
+      "title": "DB Pool Checked Out vs Size",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "gridPos": {"h": 9, "w": 8, "x": 0, "y": 8},
+      "id": 5,
+      "targets": [{"expr": "cache_backend_operations_total{op=\"get\",result=\"hit\"}", "refId": "A"}, {"expr": "cache_backend_operations_total{op=\"get\",result=\"miss\"}", "refId": "B"}],
+      "title": "Cache GET Hits/Misses",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "gridPos": {"h": 9, "w": 8, "x": 8, "y": 8},
+      "id": 6,
+      "targets": [{"expr": "location_intelligence_stage_duration_seconds_sum{stage=\"transit\"} / clamp_min(location_intelligence_stage_total{stage=\"transit\"}, 1)", "refId": "A"}],
+      "title": "Transit Stage Avg Duration",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "gridPos": {"h": 9, "w": 8, "x": 16, "y": 8},
+      "id": 7,
+      "targets": [{"expr": "db_query_errors_total", "refId": "A"}, {"expr": "db_pool_checkout_timeout_total", "refId": "B"}],
+      "title": "DB Error Counters",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "15s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": ["sprint-a", "observability"],
+  "templating": {"list": []},
+  "time": {"from": "now-30m", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Sprint A Overview",
+  "uid": "sprint-a-overview",
+  "version": 1,
+  "weekStart": ""
+}

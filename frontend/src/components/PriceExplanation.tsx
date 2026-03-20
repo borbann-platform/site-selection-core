@@ -226,7 +226,9 @@ export function PriceExplanation({
 			</div>
 
 			{/* District Comparison */}
-			{data.district_avg_price > 0 && (
+			{data.district_avg_price !== null &&
+				data.price_vs_district !== null &&
+				data.district_avg_price > 0 && (
 				<div className="bg-muted/50 rounded-lg p-3 mb-4">
 					<div className="flex justify-between items-center">
 						<span className="text-muted-foreground text-sm">

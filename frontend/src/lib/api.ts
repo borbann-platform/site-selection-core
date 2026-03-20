@@ -591,8 +591,10 @@ export interface FeatureContribution {
 }
 
 export interface PriceExplanationResponse {
-	property_id: number;
+	property_id: number | null;
 	predicted_price: number;
+	confidence: number;
+	model_type: string;
 	actual_price: number | null;
 	feature_contributions: FeatureContribution[];
 	explanation_title: string;
@@ -600,8 +602,21 @@ export interface PriceExplanationResponse {
 	explanation_disclaimer: string;
 	explanation_method: string;
 	explanation_narrative?: string | null;
+	district?: string | null;
 	district_avg_price: number | null;
 	price_vs_district: number | null;
+	h3_index: string;
+	is_cold_start: boolean;
+}
+
+export interface PricePredictRequest {
+	lat: number;
+	lon: number;
+	building_area?: number;
+	land_area?: number;
+	building_age?: number;
+	no_of_floor?: number;
+	building_style?: string;
 }
 
 export interface ExplainabilityTopFeature {
@@ -1051,6 +1066,53 @@ export const api = {
 				throw new Error("Model not trained yet");
 			}
 			throw new Error("Failed to get price explanation");
+		}
+		return res.json();
+	},
+
+	predictPrice: async (
+		request: PricePredictRequest,
+	): Promise<PriceExplanationResponse> => {
+		const res = await fetch(`${API_URL}/house-prices/predict`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(request),
+		});
+		if (!res.ok) {
+			if (res.status === 503) {
+				throw new Error("Model not trained yet");
+			}
+			throw new Error("Failed to predict price");
+		}
+		return res.json();
+	},
+
+	getLocalShapExplanation: async (
+		propertyId: number,
+	): Promise<PriceExplanationResponse> => {
+		const res = await fetch(`${API_URL}/house-prices/${propertyId}/local-shap`);
+		if (!res.ok) {
+			if (res.status === 503) {
+				throw new Error("Model not trained yet");
+			}
+			throw new Error("Failed to get local SHAP explanation");
+		}
+		return res.json();
+	},
+
+	predictLocalShap: async (
+		request: PricePredictRequest,
+	): Promise<PriceExplanationResponse> => {
+		const res = await fetch(`${API_URL}/house-prices/local-shap/predict`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(request),
+		});
+		if (!res.ok) {
+			if (res.status === 503) {
+				throw new Error("Model not trained yet");
+			}
+			throw new Error("Failed to predict local SHAP");
 		}
 		return res.json();
 	},

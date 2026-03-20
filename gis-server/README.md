@@ -76,6 +76,59 @@ A FastAPI backend for real estate information, price prediction AI, and property
 - **Data Processing:** [docs/data_processing.md](docs/data_processing.md)
 - **Data Catalog:** [data/DATA_CATALOG.md](data/DATA_CATALOG.md)
 
+## Cache Backend (Memory or Redis)
+
+The API supports cache backend selection via environment variables.
+
+- `CACHE_BACKEND=memory` (default) uses in-process LRU/TTL caches.
+- `CACHE_BACKEND=redis` uses Redis for shared cache across workers/instances.
+
+Redis-related settings:
+
+```bash
+CACHE_BACKEND=redis
+REDIS_URL=redis://localhost:6379/0
+REDIS_KEY_PREFIX=site_select_core
+REDIS_SOCKET_TIMEOUT_SECONDS=0.2
+```
+
+When running via Docker Compose in this repo, Redis is included and backend is preconfigured to use it.
+
+Cache telemetry is exposed at:
+
+- `GET /api/v1/observability/metrics`
+
+Look for metrics prefixed with:
+
+- `cache_backend_operations_total`
+- `cache_backend_operation_duration_*`
+- `cache_backend_selected`
+
+## Self-hosted Observability Stack
+
+The project includes a self-hosted observability stack via Docker Compose:
+
+- Prometheus: `http://localhost:9090`
+- Grafana: `http://localhost:3001` (default `admin/admin`)
+- Alertmanager: `http://localhost:9093`
+
+Start stack:
+
+```bash
+docker compose up -d prometheus grafana alertmanager postgres-exporter redis-exporter pgbouncer-exporter
+```
+
+Provisioned dashboard:
+
+- `Sprint A Overview` (folder: `Sprint A`)
+
+Prometheus targets include:
+
+- backend metrics (`/api/v1/observability/metrics`)
+- postgres exporter
+- redis exporter
+- pgbouncer exporter
+
 ## Data Sources
 
 The platform integrates multiple data sources:

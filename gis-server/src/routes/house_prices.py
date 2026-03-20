@@ -109,18 +109,19 @@ def list_house_prices(
         query = query.filter(HousePrice.building_area <= max_area)
 
     total = query.count()
-    items = query.offset(offset).limit(limit).all()
+    items = (
+        query.with_entities(
+            HousePrice,
+            func.ST_X(HousePrice.geometry).label("lon"),
+            func.ST_Y(HousePrice.geometry).label("lat"),
+        )
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
 
     result_items = []
-    for item in items:
-        # Extract coordinates from geometry
-        coords = db.execute(
-            text(
-                "SELECT ST_X(geometry), ST_Y(geometry) FROM house_prices WHERE id = :id"
-            ),
-            {"id": item.id},
-        ).fetchone()
-
+    for item, lon, lat in items:
         result_items.append(
             HousePriceItem(
                 id=item.id,
@@ -135,8 +136,8 @@ def list_house_prices(
                 building_area=item.building_area,
                 no_of_floor=item.no_of_floor,
                 total_price=item.total_price,
-                lon=coords[0],
-                lat=coords[1],
+                lon=float(lon) if lon is not None else 0.0,
+                lat=float(lat) if lat is not None else 0.0,
             )
         )
 
@@ -444,17 +445,21 @@ def get_property_by_id(
     """
     Get a single property by ID with full details.
     """
-    item = db.query(HousePrice).filter(HousePrice.id == property_id).first()
-    if not item:
+    row = (
+        db.query(
+            HousePrice,
+            func.ST_X(HousePrice.geometry).label("lon"),
+            func.ST_Y(HousePrice.geometry).label("lat"),
+        )
+        .filter(HousePrice.id == property_id)
+        .first()
+    )
+    if not row:
         from fastapi import HTTPException
 
         raise HTTPException(status_code=404, detail="Property not found")
 
-    # Extract coordinates from geometry
-    coords = db.execute(
-        text("SELECT ST_X(geometry), ST_Y(geometry) FROM house_prices WHERE id = :id"),
-        {"id": item.id},
-    ).fetchone()
+    item, lon, lat = row
 
     return {
         "id": item.id,
@@ -469,6 +474,6 @@ def get_property_by_id(
         "building_area": item.building_area,
         "no_of_floor": item.no_of_floor,
         "total_price": item.total_price,
-        "lon": coords[0],
-        "lat": coords[1],
+        "lon": float(lon) if lon is not None else 0.0,
+        "lat": float(lat) if lat is not None else 0.0,
     }

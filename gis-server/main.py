@@ -1,7 +1,13 @@
 from contextlib import asynccontextmanager
+import logging
+import time
+import uuid
 
 from fastapi import FastAPI
+from fastapi import Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
+from src.config.settings import settings
 from src.routes.admin import router as admin_router
 from src.routes.analytics import router as analytics_router
 from src.routes.auth import router as auth_router
@@ -14,6 +20,7 @@ from src.routes.house_prices import router as house_prices_router
 from src.routes.invitations import router as invitations_router
 from src.routes.location_intelligence import router as location_intelligence_router
 from src.routes.listings import router as listings_router
+from src.routes.observability import router as observability_router
 from src.routes.organizations import router as organizations_router
 from src.routes.price_prediction import router as price_prediction_router
 from src.routes.projects import router as projects_router
@@ -21,14 +28,25 @@ from src.routes.site import router as site_router
 from src.routes.teams import router as teams_router
 from src.routes.transit import router as transit_router
 from src.routes.valuation import router as valuation_router
+from src.services.observability import request_metrics
+from src.services.listings_tile_refresh import listings_tile_refresh_manager
+from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
+
+logging.basicConfig(
+    level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Load graph on startup
     catchment_service.load_graph()
+    listings_tile_refresh_manager.start()
     yield
     # Clean up resources if needed
+    listings_tile_refresh_manager.stop()
 
 
 app = FastAPI(
@@ -52,6 +70,72 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def request_timing_middleware(request: Request, call_next):
+    request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
+    start = time.perf_counter()
+    response: Response
+
+    try:
+        response = await call_next(request)
+    except SQLAlchemyTimeoutError:
+        duration_ms = (time.perf_counter() - start) * 1000
+        request_metrics.observe_request(
+            method=request.method,
+            path=request.url.path,
+            status_code=503,
+            duration_seconds=duration_ms / 1000,
+        )
+        logger.exception(
+            "request_failed_db_pool_timeout method=%s path=%s request_id=%s duration_ms=%.2f",
+            request.method,
+            request.url.path,
+            request_id,
+            duration_ms,
+        )
+        return Response(
+            content='{"detail":"Service temporarily overloaded"}',
+            status_code=503,
+            media_type="application/json",
+            headers={"X-Request-ID": request_id, "Retry-After": "1"},
+        )
+    except Exception:
+        duration_ms = (time.perf_counter() - start) * 1000
+        request_metrics.observe_request(
+            method=request.method,
+            path=request.url.path,
+            status_code=500,
+            duration_seconds=duration_ms / 1000,
+        )
+        logger.exception(
+            "request_failed method=%s path=%s request_id=%s duration_ms=%.2f",
+            request.method,
+            request.url.path,
+            request_id,
+            duration_ms,
+        )
+        raise
+
+    duration_ms = (time.perf_counter() - start) * 1000
+    request_metrics.observe_request(
+        method=request.method,
+        path=request.url.path,
+        status_code=response.status_code,
+        duration_seconds=duration_ms / 1000,
+    )
+    response.headers["X-Request-ID"] = request_id
+    logger.info(
+        "request_complete method=%s path=%s status=%s request_id=%s duration_ms=%.2f",
+        request.method,
+        request.url.path,
+        response.status_code,
+        request_id,
+        duration_ms,
+    )
+    return response
+
+
 # Include routers from the routes module
 app.include_router(site_router, prefix="/api/v1", tags=["Site Analysis"])
 app.include_router(catchment_router, prefix="/api/v1", tags=["Catchment Analysis"])
@@ -72,6 +156,7 @@ app.include_router(transit_router, prefix="/api/v1", tags=["Transit"])
 app.include_router(admin_router, prefix="/api/v1", tags=["Admin"])
 app.include_router(auth_router, prefix="/api/v1", tags=["Authentication"])
 app.include_router(valuation_router, prefix="/api/v1", tags=["Property Valuation"])
+app.include_router(observability_router, prefix="/api/v1", tags=["Observability"])
 
 # Enterprise auth routers
 app.include_router(organizations_router, prefix="/api/v1", tags=["Organizations"])

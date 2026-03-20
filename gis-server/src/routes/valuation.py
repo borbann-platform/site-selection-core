@@ -522,18 +522,20 @@ def get_user_property(
     db: Session = Depends(get_db_session),
 ):
     """Get details of a user-submitted property."""
-    property = db.query(UserProperty).filter(UserProperty.id == property_id).first()
+    row = (
+        db.query(
+            UserProperty,
+            func.ST_X(UserProperty.geometry).label("lon"),
+            func.ST_Y(UserProperty.geometry).label("lat"),
+        )
+        .filter(UserProperty.id == property_id)
+        .first()
+    )
 
-    if not property:
+    if not row:
         raise HTTPException(status_code=404, detail="Property not found")
 
-    # Get coordinates
-    coords = db.execute(
-        text(
-            "SELECT ST_X(geometry), ST_Y(geometry) FROM user_properties WHERE id = :id"
-        ),
-        {"id": str(property_id)},
-    ).fetchone()
+    property, lon, lat = row
 
     return {
         "id": str(property.id),
@@ -555,8 +557,8 @@ def get_user_property(
         "is_cold_start": property.is_cold_start,
         "valuation_factors": property.valuation_factors,
         "market_insights": property.market_insights,
-        "latitude": coords[1] if coords else None,
-        "longitude": coords[0] if coords else None,
+        "latitude": float(lat) if lat is not None else None,
+        "longitude": float(lon) if lon is not None else None,
         "created_at": property.created_at.isoformat(),
         "updated_at": property.updated_at.isoformat(),
     }

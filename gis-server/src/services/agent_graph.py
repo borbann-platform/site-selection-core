@@ -6,15 +6,16 @@ from __future__ import annotations
 
 import json
 import logging
+from collections import OrderedDict
 from collections.abc import AsyncIterator
 from typing import Any, TypedDict, cast
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
-from langchain_core.runnables import RunnableConfig
 from langgraph.errors import GraphRecursionError
 from langgraph.prebuilt import create_react_agent
 
 from src.config.agent_settings import agent_settings
+from src.config.settings import settings
 from src.services.agent_tools import ALL_TOOLS
 from src.services.model_provider import (
     RuntimeModelConfig,
@@ -71,9 +72,35 @@ class AgentService:
     """Service for running the Plan-and-Execute LangGraph agent."""
 
     def __init__(self):
-        self._agents: dict[str, Any] = {}
-        self._planner_llms: dict[str, Any] = {}
+        self._agents: OrderedDict[str, Any] = OrderedDict()
+        self._planner_llms: OrderedDict[str, Any] = OrderedDict()
         self._planner = TaskPlanner()
+        self._cache_max_entries = settings.AGENT_RUNTIME_CACHE_MAX_ENTRIES
+        self._cache_hits = 0
+        self._cache_misses = 0
+
+    def _touch_cache_key(self, cache_key: str) -> None:
+        if cache_key in self._agents:
+            self._agents.move_to_end(cache_key)
+        if cache_key in self._planner_llms:
+            self._planner_llms.move_to_end(cache_key)
+
+    def _trim_runtime_cache(self) -> None:
+        while len(self._agents) > self._cache_max_entries:
+            oldest_key, _ = self._agents.popitem(last=False)
+            self._planner_llms.pop(oldest_key, None)
+            logger.info("Evicted runtime model cache key=%s", oldest_key)
+
+    def get_cache_stats(self) -> dict[str, int | float]:
+        total = self._cache_hits + self._cache_misses
+        hit_rate = (self._cache_hits / total) if total > 0 else 0.0
+        return {
+            "entries": len(self._agents),
+            "max_entries": self._cache_max_entries,
+            "hits": self._cache_hits,
+            "misses": self._cache_misses,
+            "hit_rate": round(hit_rate, 4),
+        }
 
     def _ensure_initialized(
         self,
@@ -93,7 +120,11 @@ class AgentService:
 
         cache_key = resolved.cache_key()
         if cache_key in self._agents and cache_key in self._planner_llms:
+            self._cache_hits += 1
+            self._touch_cache_key(cache_key)
             return cache_key, effective_runtime
+
+        self._cache_misses += 1
 
         provider = get_model_provider(resolved.provider)
 
@@ -117,6 +148,8 @@ class AgentService:
 
         self._agents[cache_key] = agent
         self._planner_llms[cache_key] = planner_llm
+        self._touch_cache_key(cache_key)
+        self._trim_runtime_cache()
 
         logger.info(
             "Agent initialized provider=%s model=%s reasoning=%s",
@@ -141,7 +174,7 @@ class AgentService:
 
         lc_messages = self._convert_to_lc_messages(messages)
 
-        run_config: RunnableConfig = {
+        run_config = {
             "recursion_limit": agent_settings.AGENT_MAX_ITERATIONS * 2 + 1,
             **(config or {}),
         }
@@ -282,7 +315,7 @@ class AgentService:
                 )
                 lc_messages = lc_messages[:-1] + [dag_context]
 
-        run_config: RunnableConfig = {
+        run_config = {
             "recursion_limit": self._compute_recursion_limit(),
             **(config or {}),
         }
@@ -357,7 +390,10 @@ class AgentService:
                         output_messages = output.get("messages", [])
                         if output_messages:
                             last_message = output_messages[-1]
-                            if hasattr(last_message, "content") and last_message.content:
+                            if (
+                                hasattr(last_message, "content")
+                                and last_message.content
+                            ):
                                 yield {
                                     "type": "final",
                                     "content": str(last_message.content),
