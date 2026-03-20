@@ -328,6 +328,17 @@ function PropertyExplorer() {
               transitionDuration: 500,
             }));
           }
+
+          explorer.setSelectedProperty((current) => {
+            if (!current || current.id !== property.id) {
+              return current;
+            }
+            return {
+              ...current,
+              lat: latitude ?? current.lat,
+              lon: longitude ?? current.lon,
+            };
+          });
         }}
       />
     </>

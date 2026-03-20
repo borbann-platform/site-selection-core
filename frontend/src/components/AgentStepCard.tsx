@@ -1,13 +1,14 @@
 import { useState } from "react";
 import {
-  Wrench,
+  Binary,
   CheckCircle2,
-  AlertCircle,
-  Loader2,
   ChevronDown,
   ChevronRight,
-  Brain,
+  Loader2,
   MessageCircleQuestion,
+  Sparkles,
+  Wrench,
+  XCircle,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import type { AgentStep, AgentStepStatus } from "../lib/api";
@@ -24,128 +25,133 @@ interface AgentStepCardProps {
 }
 
 function getStatusIcon(status: AgentStepStatus) {
-  switch (status) {
-    case "running":
-      return <Loader2 size={14} className="animate-spin text-warning" />;
-    case "complete":
-      return <CheckCircle2 size={14} className="text-success" />;
-    case "error":
-      return <AlertCircle size={14} className="text-red-400" />;
-    case "waiting":
-      return <MessageCircleQuestion size={14} className="text-sky-400" />;
-    default:
-      return <Loader2 size={14} className="text-muted-foreground" />;
+  if (status === "running") {
+    return <Loader2 size={14} className="animate-spin text-brand" />;
   }
+  if (status === "complete") {
+    return <CheckCircle2 size={14} className="text-emerald-600 dark:text-emerald-400" />;
+  }
+  if (status === "error") {
+    return <XCircle size={14} className="text-rose-600 dark:text-rose-400" />;
+  }
+  if (status === "waiting") {
+    return <MessageCircleQuestion size={14} className="text-amber-600 dark:text-amber-400" />;
+  }
+  return <Binary size={14} className="text-muted-foreground" />;
 }
 
 function getStepIcon(type: "tool_call" | "thinking" | "waiting_user") {
   if (type === "thinking") {
-    return <Brain size={14} className="text-purple-400" />;
+    return <Sparkles size={14} className="text-brand" />;
   }
   if (type === "waiting_user") {
-    return <MessageCircleQuestion size={14} className="text-sky-400" />;
+    return <MessageCircleQuestion size={14} className="text-amber-600 dark:text-amber-400" />;
   }
-  return <Wrench size={14} className="text-blue-400" />;
+  return <Wrench size={14} className="text-foreground/72" />;
 }
 
-function formatDuration(startTime: number, endTime?: number): string {
-  const end = endTime ?? Date.now();
-  const duration = end - startTime;
-  if (duration < 1000) return `${duration}ms`;
-  return `${(duration / 1000).toFixed(1)}s`;
+function formatDuration(startTime: number, endTime?: number) {
+  const duration = (endTime ?? Date.now()) - startTime;
+  if (duration < 1000) {
+    return `${duration}ms`;
+  }
+  return `${(duration / 1000).toFixed(duration >= 10_000 ? 0 : 1)}s`;
 }
 
 export function AgentStepCard({ step, className }: AgentStepCardProps) {
   const [isOpen, setIsOpen] = useState(false);
   const hasDetails =
-    (step.input && Object.keys(step.input).length > 0) || step.output;
+    Boolean(step.output) || Boolean(step.input && Object.keys(step.input).length > 0);
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <div
         className={cn(
-          "rounded-lg border border-border bg-muted/50 overflow-hidden",
-          step.status === "running" && "border-amber-500/30",
-          step.status === "error" && "border-red-500/30",
+          "overflow-hidden rounded-[1.35rem] border border-black/8 bg-white/80 shadow-[0_10px_24px_rgba(15,23,42,0.05)] dark:border-white/10 dark:bg-white/[0.04] dark:shadow-none",
+          step.status === "running" &&
+            "border-brand/18 bg-brand/[0.045] dark:bg-brand/[0.08]",
+          step.status === "error" && "border-rose-500/18 bg-rose-500/[0.04]",
           className
         )}
       >
         <CollapsibleTrigger asChild>
           <button
             type="button"
-            className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted/50 transition-colors"
+            className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-black/[0.025] dark:hover:bg-white/[0.03]"
           >
-            {/* Expand/collapse indicator */}
             {hasDetails ? (
               isOpen ? (
-                <ChevronDown size={12} className="text-muted-foreground shrink-0" />
+                <ChevronDown size={14} className="shrink-0 text-muted-foreground" />
               ) : (
-                <ChevronRight size={12} className="text-muted-foreground shrink-0" />
+                <ChevronRight size={14} className="shrink-0 text-muted-foreground" />
               )
             ) : (
-              <div className="w-3" />
+              <span className="w-[14px]" />
             )}
 
-            {/* Step type icon */}
-            <div className="shrink-0">{getStepIcon(step.type)}</div>
-
-            {/* Step name */}
-            <span className="flex-1 text-xs font-medium text-foreground/90 truncate">
-              {step.name}
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-black/8 bg-black/[0.03] dark:border-white/10 dark:bg-white/[0.05]">
+              {getStepIcon(step.type)}
             </span>
 
-            {/* Duration */}
-            <span className="text-[10px] text-muted-foreground shrink-0">
-              {formatDuration(step.startTime, step.endTime)}
-            </span>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[13px] font-medium text-foreground">
+                {step.name}
+              </div>
+              <div className="mt-0.5 text-[11px] uppercase tracking-[0.14em] text-foreground/45">
+                {step.type === "thinking"
+                  ? "reasoning"
+                  : step.type === "waiting_user"
+                    ? "awaiting input"
+                    : "tool execution"}
+              </div>
+            </div>
 
-            {/* Status icon */}
-            <div className="shrink-0">{getStatusIcon(step.status)}</div>
+            <div className="text-right">
+              <div className="text-[11px] font-medium text-foreground/52">
+                {formatDuration(step.startTime, step.endTime)}
+              </div>
+            </div>
+
+            <span className="shrink-0">{getStatusIcon(step.status)}</span>
           </button>
         </CollapsibleTrigger>
 
         <CollapsibleContent>
-          <div className="px-3 pb-2 space-y-2 border-t border-border">
-            {/* Input parameters */}
+          <div className="space-y-3 border-t border-black/6 px-4 pb-4 pt-3 dark:border-white/8">
             {step.input && Object.keys(step.input).length > 0 && (
-              <div className="pt-2">
-                <div className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">
+              <section>
+                <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-foreground/45">
                   Input
                 </div>
-                <div className="text-xs text-muted-foreground font-mono bg-popover rounded px-2 py-1.5 overflow-x-auto">
-                  <pre className="whitespace-pre-wrap break-all">
-                    {JSON.stringify(step.input, null, 2)}
-                  </pre>
-                </div>
-              </div>
+                <pre className="overflow-x-auto rounded-[1rem] border border-black/8 bg-black/[0.03] px-3 py-2 text-[11px] leading-5 text-foreground/72 dark:border-white/10 dark:bg-white/[0.04]">
+                  {JSON.stringify(step.input, null, 2)}
+                </pre>
+              </section>
             )}
 
-            {/* Output/Result */}
             {step.output && (
-              <div>
-                <div className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">
-                  Result
+              <section>
+                <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-foreground/45">
+                  Output
                 </div>
-                {step.type === "thinking" ? (
-                  <div className="text-xs bg-popover rounded px-2 py-1.5 max-h-40 overflow-y-auto custom-scrollbar">
+                {step.type === "thinking" || step.type === "waiting_user" ? (
+                  <div className="rounded-[1rem] border border-black/8 bg-black/[0.02] px-3 py-2 dark:border-white/10 dark:bg-white/[0.03]">
                     <StreamingMarkdown
                       content={step.output}
                       isStreaming={step.status === "running"}
                     />
                   </div>
                 ) : (
-                  <div
+                  <pre
                     className={cn(
-                      "text-xs font-mono bg-popover rounded px-2 py-1.5 overflow-x-auto max-h-32 overflow-y-auto custom-scrollbar",
-                      step.status === "error" ? "text-red-300" : "text-muted-foreground"
+                      "max-h-56 overflow-auto rounded-[1rem] border border-black/8 bg-black/[0.03] px-3 py-2 text-[11px] leading-5 text-foreground/72 dark:border-white/10 dark:bg-white/[0.04]",
+                      step.status === "error" && "text-rose-700 dark:text-rose-300"
                     )}
                   >
-                    <pre className="whitespace-pre-wrap break-all">
-                      {step.output}
-                    </pre>
-                  </div>
+                    {step.output}
+                  </pre>
                 )}
-              </div>
+              </section>
             )}
           </div>
         </CollapsibleContent>
@@ -154,7 +160,6 @@ export function AgentStepCard({ step, className }: AgentStepCardProps) {
   );
 }
 
-// Compact inline badge version for collapsed view
 interface AgentStepBadgeProps {
   step: AgentStep;
   onClick?: () => void;
@@ -166,14 +171,14 @@ export function AgentStepBadge({ step, onClick }: AgentStepBadgeProps) {
       type="button"
       onClick={onClick}
       className={cn(
-        "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-medium transition-colors",
-        "bg-muted/50 border border-border hover:bg-muted",
-        step.status === "running" && "border-amber-500/30 bg-amber-500/10",
-        step.status === "error" && "border-red-500/30 bg-red-500/10"
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-medium transition-colors",
+        "border-black/8 bg-white/80 text-foreground/72 hover:bg-black/[0.03] dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.07]",
+        step.status === "running" && "border-brand/18 bg-brand/10 text-brand",
+        step.status === "error" && "border-rose-500/18 bg-rose-500/10 text-rose-700 dark:text-rose-300"
       )}
     >
       {getStepIcon(step.type)}
-      <span className="text-foreground/80 max-w-20 truncate">{step.name}</span>
+      <span className="max-w-28 truncate">{step.name}</span>
       {getStatusIcon(step.status)}
     </button>
   );

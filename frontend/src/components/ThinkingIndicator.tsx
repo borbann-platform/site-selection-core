@@ -1,142 +1,140 @@
-import { useEffect, useRef, useState } from "react";
-import {
-  Brain,
-  Loader2,
-  Search,
-  Database,
-  Globe,
-  Cpu,
-} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Activity, Binary, Orbit, Search, Sparkles } from "lucide-react";
 import { cn } from "../lib/utils";
 
-// --- Types ---
 interface ThinkingProcessProps {
   className?: string;
   startTime?: number;
-  message?: string;
 }
 
 const PROCESS_STEPS = [
-  { text: "Analyzing user intent...", icon: Brain },
-  { text: "Identifying key entities...", icon: Search },
-  { text: "Querying spatial database...", icon: Database },
-  { text: "Processing geometric constraints...", icon: Globe },
-  { text: "Synthesizing market data...", icon: Cpu },
-];
+  { label: "Parsing prompt geometry", icon: Search },
+  { label: "Reconciling market evidence", icon: Activity },
+  { label: "Cross-checking tool outputs", icon: Binary },
+  { label: "Composing final answer", icon: Sparkles },
+  { label: "Aligning spatial context", icon: Orbit },
+] as const;
 
-export function ThinkingProcess({
-  className,
-  startTime,
-}: ThinkingProcessProps) {
-  const [stepIndex, setStepIndex] = useState(0);
-  const logIdRef = useRef(0);
-  const [logs, setLogs] = useState<Array<{ id: number; text: string }>>([]);
+function formatElapsed(ms: number) {
+  const seconds = ms / 1000;
+  return `${seconds.toFixed(seconds >= 10 ? 0 : 1)}s`;
+}
+
+export function ThinkingProcess({ className, startTime }: ThinkingProcessProps) {
   const [elapsed, setElapsed] = useState(0);
+  const [stepIndex, setStepIndex] = useState(0);
 
-  // Cycle through fake "process steps" to show activity
   useEffect(() => {
-    const interval = setInterval(() => {
-      setStepIndex((prev) => (prev + 1) % PROCESS_STEPS.length);
-      setLogs((prev) => {
-        logIdRef.current += 1;
-        const newLog = {
-          id: logIdRef.current,
-          text: PROCESS_STEPS[stepIndex % PROCESS_STEPS.length].text,
-        };
-        return [...prev.slice(-2), newLog]; // Keep last 3 logs
-      });
-    }, 2000);
-    return () => clearInterval(interval);
-  }, [stepIndex]);
+    if (!startTime) {
+      return undefined;
+    }
 
-  // Track elapsed time
-  useEffect(() => {
-    if (!startTime) return;
-    const interval = setInterval(() => {
+    const interval = window.setInterval(() => {
       setElapsed(Date.now() - startTime);
-    }, 100);
-    return () => clearInterval(interval);
+    }, 120);
+
+    return () => window.clearInterval(interval);
   }, [startTime]);
 
-  const CurrentIcon = PROCESS_STEPS[stepIndex].icon;
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setStepIndex((current) => (current + 1) % PROCESS_STEPS.length);
+    }, 1800);
+
+    return () => window.clearInterval(interval);
+  }, []);
+
+  const visibleSteps = useMemo(() => {
+    return PROCESS_STEPS.map((step, index) => ({
+      ...step,
+      state:
+        index < stepIndex ? "complete" : index === stepIndex ? "active" : "idle",
+    }));
+  }, [stepIndex]);
+
+  const ActiveIcon = PROCESS_STEPS[stepIndex]?.icon ?? Activity;
 
   return (
     <div
       className={cn(
-        "flex flex-col gap-2 p-3 rounded-lg",
-        "bg-purple-500/5 border border-purple-500/20",
-        "animate-in fade-in duration-300",
+        "rounded-[1.25rem] border border-black/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(250,247,242,0.96))] p-3 shadow-[0_14px_32px_rgba(23,27,33,0.08)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(24,28,33,0.92),rgba(15,17,20,0.96))] dark:shadow-[0_18px_44px_rgba(0,0,0,0.35)]",
         className
       )}
     >
-      {/* Header with Timer */}
-      <div className="flex items-center justify-between text-xs text-purple-600 dark:text-purple-300/80">
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <Loader2 size={14} className="animate-spin text-purple-500 dark:text-purple-400" />
-            <div className="absolute inset-0 animate-ping opacity-50">
-              <div className="w-full h-full rounded-full bg-purple-500/20" />
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-[10px] font-semibold uppercase tracking-[0.28em] text-foreground/45">
+            Live Reasoning
+          </div>
+          <div className="mt-1 flex items-center gap-2 text-sm font-medium text-foreground">
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-brand/20 bg-brand/10 text-brand">
+              <ActiveIcon className="h-4 w-4" />
+            </span>
+            <span>{PROCESS_STEPS[stepIndex]?.label}</span>
+          </div>
+        </div>
+
+        <div className="rounded-full border border-black/8 bg-black/[0.03] px-3 py-1 text-[11px] font-medium text-foreground/55 dark:border-white/10 dark:bg-white/[0.05]">
+          {formatElapsed(elapsed)}
+        </div>
+      </div>
+
+      <div className="mt-3 grid gap-1.5">
+        {visibleSteps.map((step) => {
+          const Icon = step.icon;
+          return (
+            <div
+              key={step.label}
+              className={cn(
+                "flex items-center gap-3 rounded-xl px-3 py-2 transition-all",
+                step.state === "active" &&
+                  "bg-black/[0.045] text-foreground dark:bg-white/[0.07]",
+                step.state === "complete" &&
+                  "text-foreground/62 dark:text-foreground/70",
+                step.state === "idle" && "text-foreground/38"
+              )}
+            >
+              <span
+                className={cn(
+                  "relative flex h-7 w-7 items-center justify-center rounded-full border transition-all",
+                  step.state === "active" &&
+                    "border-brand/30 bg-brand/12 text-brand shadow-[0_0_0_6px_rgba(24,163,127,0.08)]",
+                  step.state === "complete" &&
+                    "border-black/8 bg-black/[0.04] text-foreground/70 dark:border-white/10 dark:bg-white/[0.04]",
+                  step.state === "idle" &&
+                    "border-black/6 bg-transparent text-foreground/35 dark:border-white/8"
+                )}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {step.state === "active" && (
+                  <span className="absolute inset-0 rounded-full border border-brand/30 animate-ping" />
+                )}
+              </span>
+              <span className="text-[13px] font-medium">{step.label}</span>
             </div>
-          </div>
-          <span className="font-medium tracking-wide">AI REASONING</span>
-        </div>
-        <span className="font-mono text-purple-500/60 dark:text-purple-400/60">
-          {(elapsed / 1000).toFixed(1)}s
-        </span>
-      </div>
-
-      {/* Dynamic Step Display */}
-      <div className="flex items-center gap-3 py-1">
-        <div className="w-8 h-8 rounded bg-purple-500/10 flex items-center justify-center shrink-0 border border-purple-500/20">
-          <CurrentIcon size={16} className="text-purple-500 dark:text-purple-400" />
-        </div>
-        <div className="flex-1 min-w-0 flex flex-col justify-center h-8">
-          <span className="text-xs font-medium text-purple-700 dark:text-purple-200 truncate animate-pulse">
-            {PROCESS_STEPS[stepIndex].text}
-          </span>
-          <div className="w-full bg-purple-500/10 h-1 mt-1 rounded-full overflow-hidden">
-            <div className="h-full bg-purple-500/50 w-1/3 animate-loading-bar rounded-full" />
-          </div>
-        </div>
-      </div>
-
-      {/* Mini Terminal Log */}
-      <div className="mt-1 space-y-0.5 font-mono text-[10px] text-purple-600/50 dark:text-purple-300/50 pl-1 border-l-2 border-purple-500/10">
-        {logs.map((log) => (
-          <div key={log.id} className="truncate animate-in slide-in-from-left-2 fade-in duration-300">
-            <span className="opacity-50 mr-2">{">"}</span>
-            {log.text}
-          </div>
-        ))}
-        <div className="truncate opacity-50">
-          <span className="mr-2 animate-pulse">_</span>
-        </div>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-// Minimal inline version (Legacy support / minimal view)
-export function ThinkingIndicator({ className }: { className?: string; startTime?: number; message?: string }) {
-  // Legacy wrapper to keep existing code working if it imports ThinkingIndicator
+export function ThinkingIndicator({ className }: { className?: string }) {
   return <ThinkingProcess className={className} startTime={Date.now()} />;
 }
 
 export function ThinkingDots({ className }: { className?: string }) {
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 text-muted-foreground text-xs font-mono",
-        className
-      )}
-    >
-      <Loader2 size={10} className="animate-spin" />
-      <span className="animate-pulse">thinking...</span>
+    <span className={cn("inline-flex items-center gap-2 text-xs text-muted-foreground", className)}>
+      <span className="relative flex h-2 w-2">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand/40" />
+        <span className="relative inline-flex h-2 w-2 rounded-full bg-brand/80" />
+      </span>
+      processing
     </span>
   );
 }
 
-// Streaming text with cursor
 interface StreamingTextProps {
   text: string;
   isStreaming?: boolean;
@@ -153,12 +151,14 @@ export function StreamingText({
   useEffect(() => {
     if (!isStreaming) {
       setShowCursor(false);
-      return;
+      return undefined;
     }
-    const interval = setInterval(() => {
-      setShowCursor((prev) => !prev);
-    }, 530);
-    return () => clearInterval(interval);
+
+    const interval = window.setInterval(() => {
+      setShowCursor((current) => !current);
+    }, 520);
+
+    return () => window.clearInterval(interval);
   }, [isStreaming]);
 
   return (
@@ -167,7 +167,7 @@ export function StreamingText({
       {isStreaming && (
         <span
           className={cn(
-            "inline-block w-1.5 h-4 bg-brand ml-0.5 align-middle shadow-brand/50",
+            "ml-1 inline-block h-4 w-2 rounded-full bg-brand/70 align-middle transition-opacity",
             showCursor ? "opacity-100" : "opacity-0"
           )}
         />

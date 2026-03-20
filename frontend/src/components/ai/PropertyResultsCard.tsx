@@ -23,6 +23,10 @@ export interface PropertyResult {
   lon?: number;
 }
 
+function buildFallbackId(index: number) {
+  return `prop-${index}`;
+}
+
 interface PropertyResultsCardProps {
   results: PropertyResult[];
   totalCount?: number;
@@ -181,7 +185,7 @@ function PropertyMiniCard({
           to="/listing/$listingKey"
           params={{ listingKey: property.listing_key }}
           onClick={(e) => e.stopPropagation()}
-          className="mt-1 flex items-center gap-1 text-[10px] text-brand opacity-0 group-hover:opacity-100 transition-opacity"
+          className="mt-1 inline-flex items-center gap-1 text-[10px] font-medium text-brand opacity-0 transition-opacity group-hover:opacity-100"
         >
           View details
           <ExternalLink size={10} />
@@ -191,7 +195,7 @@ function PropertyMiniCard({
           to="/property/$propertyId"
           params={{ propertyId: String(property.id) }}
           onClick={(e) => e.stopPropagation()}
-          className="mt-1 flex items-center gap-1 text-[10px] text-brand opacity-0 group-hover:opacity-100 transition-opacity"
+          className="mt-1 inline-flex items-center gap-1 text-[10px] font-medium text-brand opacity-0 transition-opacity group-hover:opacity-100"
         >
           View details
           <ExternalLink size={10} />
@@ -219,8 +223,11 @@ export function parsePropertyResults(content: string): PropertyResult[] | null {
     const data = JSON.parse(jsonStr);
 
     if (Array.isArray(data)) {
-      return data.map((item) => ({
-        id: item.id || `prop-${Math.random().toString(36).slice(2, 8)}`,
+      return data.map((item, index) => ({
+        id:
+          typeof item.id === "string" || typeof item.id === "number"
+            ? item.id
+            : buildFallbackId(index),
         listing_key:
           typeof item.listing_key === "string" ? item.listing_key : undefined,
         source_type:

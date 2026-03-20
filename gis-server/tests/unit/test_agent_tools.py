@@ -35,6 +35,38 @@ class TestSearchProperties:
         assert isinstance(data["properties"], list)
 
     @patch("src.services.agent_tools.SessionLocal")
+    def test_search_properties_returns_reference_fields(self, mock_session_local):
+        from src.services.agent_tools import search_properties
+
+        mock_db = MagicMock()
+        mock_session_local.return_value.__enter__.return_value = mock_db
+        query = MagicMock()
+        query.filter.return_value = query
+        query.with_entities.return_value.order_by.return_value.limit.return_value.all.return_value = []
+        mock_db.query.return_value = query
+        row = MagicMock()
+        row.id = 42
+        row.amphur = "บางกะปิ"
+        row.tumbon = "หัวหมาก"
+        row.building_style_desc = "บ้านเดี่ยว"
+        row.building_area = 240
+        row.land_area = 80
+        row.building_age = 4
+        row.total_price = 9500000
+        row.no_of_floor = 2
+        query.with_entities.return_value.order_by.return_value.limit.return_value.all.return_value = [
+            (row, 100.61, 13.77)
+        ]
+
+        result = search_properties.invoke({"district": "บางกะปิ", "limit": 1})
+
+        data = json.loads(result)
+        assert data["count"] == 1
+        assert data["properties"][0]["listing_key"] == "house:42"
+        assert data["properties"][0]["house_ref"] == "house:42"
+        assert data["properties"][0]["locator"] == "house:42"
+
+    @patch("src.services.agent_tools.SessionLocal")
     def test_search_with_bbox_uses_spatial_filter(self, mock_session_local):
         """Test that search_properties with bbox uses PostGIS spatial filtering."""
         from src.services.agent_tools import search_properties
@@ -69,15 +101,14 @@ class TestSearchProperties:
 
         mock_db = MagicMock()
         mock_session_local.return_value.__enter__.return_value = mock_db
-        mock_db.query.return_value.filter.return_value.order_by.return_value.limit.return_value.all.return_value = []
+        query = mock_db.query.return_value.filter.return_value
+        query.with_entities.return_value.order_by.return_value.limit.return_value.all.return_value = []
 
         # Test with limit over max (50)
         search_properties.invoke({"limit": 100})
 
         # Verify limit was capped to 50
-        limit_call = (
-            mock_db.query.return_value.filter.return_value.order_by.return_value.limit
-        )
+        limit_call = query.with_entities.return_value.order_by.return_value.limit
         limit_call.assert_called_with(50)
 
 
@@ -239,6 +270,91 @@ class TestValidateHouseReference:
         data = json.loads(result)
         assert isinstance(data, dict)
         assert "is_valid" in data or "error" in data
+
+
+class TestFinancialAndLegalTools:
+    def test_compute_financial_projection_shape(self):
+        from src.services.agent_tools import compute_financial_projection
+
+        result = compute_financial_projection.invoke(
+            {
+                "asset_price_thb": 20000000,
+                "loan_ratio": 0.5,
+                "annual_interest_rate": 0.06,
+                "annual_revenue_thb": 1800000,
+                "annual_expense_thb": 600000,
+            }
+        )
+        data = json.loads(result)
+        assert "inputs" in data
+        assert "derived" in data
+        assert "timeline" in data
+
+    def test_compute_dsr_shape(self):
+        from src.services.agent_tools import compute_dsr_and_affordability
+
+        result = compute_dsr_and_affordability.invoke(
+            {
+                "monthly_income_thb": 80000,
+                "existing_monthly_debt_thb": 12000,
+                "annual_interest_rate": 0.06,
+                "tenure_years": 30,
+            }
+        )
+        data = json.loads(result)
+        assert "results" in data
+        assert "estimated_max_loan_thb" in data["results"]
+
+    def test_legal_checklist_has_disclaimer(self):
+        from src.services.agent_tools import legal_estate_sale_checklist_th
+
+        result = legal_estate_sale_checklist_th.invoke({})
+        data = json.loads(result)
+        assert "steps" in data
+        assert "disclaimer" in data
+
+    def test_compare_candidates_scores(self):
+        from src.services.agent_tools import compare_candidates_by_criteria
+
+        candidates = json.dumps(
+            [
+                {"name": "A", "price": 5000000, "district": "อารีย์"},
+                {"name": "B", "price": 7000000, "district": "สะพานควาย"},
+            ],
+            ensure_ascii=False,
+        )
+        criteria = json.dumps(
+            [
+                {"field": "price", "op": "lte", "value": 6000000, "weight": 2},
+                {
+                    "field": "district",
+                    "op": "contains",
+                    "value": "อารีย์",
+                    "weight": 1,
+                },
+            ],
+            ensure_ascii=False,
+        )
+
+        result = compare_candidates_by_criteria.invoke(
+            {"candidates_json": candidates, "criteria_json": criteria}
+        )
+        data = json.loads(result)
+        assert data["count"] == 2
+        assert data["ranked"][0]["candidate"]["name"] == "A"
+
+    def test_query_internal_knowledge_returns_fixture_match(self):
+        from src.services.agent_tools import query_internal_knowledge
+
+        result = query_internal_knowledge.invoke(
+            {
+                "query": "ผู้จัดการมรดก เงินมัดจำ",
+                "domain": "legal_guidelines_th",
+                "limit": 3,
+            }
+        )
+        data = json.loads(result)
+        assert data["count"] >= 1
 
 
 class TestBuildSpatialContext:
