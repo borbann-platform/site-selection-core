@@ -1,0 +1,15 @@
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+ENV/
+node_modules/
+tests/
+docs/
+notebooks/
+mlruns/
+reports/
+data/
+models/
+*.log

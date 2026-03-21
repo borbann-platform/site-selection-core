@@ -60,7 +60,7 @@ make test
 ```
 
 **Requirements:**
-- Python 3.11+
+- Python 3.13+
 - PostgreSQL with PostGIS extension
 - uv package manager
 
@@ -86,6 +86,9 @@ make db-up        # Start PostGIS only
 make stack-up     # Start app stack (db + backend + frontend)
 make stack-up-all # Start app stack + MLflow services
 make mlflow-up    # Start MLflow (Postgres backend) on http://localhost:5001
+make prod-config  # Validate production compose configuration
+make prod-up      # Start production compose stack using .env.production
+make prod-down    # Stop production compose stack
 make test         # Run backend + frontend tests
 make lint         # Run backend + frontend lint
 make dagger-ci    # Run Dagger pilot CI (backend + frontend)
@@ -94,8 +97,15 @@ make dagger-ci    # Run Dagger pilot CI (backend + frontend)
 Dagger pilot details: `docs/DAGGER_PILOT.md`
 
 **Requirements:**
-- Node.js 18+
+- Node.js 20+
 - npm or yarn
+
+## Production Deployment
+
+- Production deployment assets live in `docker-compose.prod.yml`, `frontend/Dockerfile.prod`, `gis-server/Dockerfile.prod`, and `deploy/nginx/site-select-core.conf`.
+- Follow `docs/production-deployment-runbook.md` for the VPS hardening, Tailscale, Nginx, CI/CD, backup, and rollback flow.
+- Minimum VPS for a single-node production pilot: `4 vCPU`, `8 GB RAM`, `160 GB SSD`, plus `2 GB` swap.
+- Recommended VPS for safer headroom with PostGIS, Redis, MinIO, and runtime ML assets: `6 vCPU`, `16 GB RAM`, `250 GB SSD`.
 
 ## Git LFS (Required for Model/Data Files)
 

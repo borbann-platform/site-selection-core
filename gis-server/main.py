@@ -6,8 +6,11 @@ import uuid
 from fastapi import FastAPI
 from fastapi import Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.responses import Response
+from sqlalchemy import text
 from src.config.settings import settings
+from src.config.database import engine
 from src.routes.admin import router as admin_router
 from src.routes.analytics import router as analytics_router
 from src.routes.auth import router as auth_router
@@ -134,6 +137,28 @@ async def request_timing_middleware(request: Request, call_next):
         duration_ms,
     )
     return response
+
+
+@app.get("/healthz", tags=["Health"])
+def healthz():
+    """Lightweight liveness probe for load balancers and container healthchecks."""
+    return {"status": "ok"}
+
+
+@app.get("/readyz", tags=["Health"])
+def readyz():
+    """Readiness probe that verifies the API can reach its database."""
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+    except Exception as exc:
+        logger.warning("readiness_check_failed error=%s", exc)
+        return JSONResponse(
+            status_code=503,
+            content={"status": "degraded", "detail": "database unavailable"},
+        )
+
+    return {"status": "ready"}
 
 
 # Include routers from the routes module
