@@ -34,6 +34,25 @@ For this repository as it exists now, a realistic floor is higher than a typical
 - `deploy/nginx/site-select-core.conf`
 - `deploy/scripts/deploy.sh`
 - `deploy/scripts/rollback.sh`
+- `deploy/bootstrap/*.sh`
+- `deploy/config/fail2ban/jail.local`
+- `deploy/config/ssh/sshd_config.tailscale.conf`
+- `deploy/config/netdata/netdata.conf`
+
+## Fast Setup Path
+
+If you want the quickest operator flow:
+
+1. provision Ubuntu VPS
+2. run bootstrap scripts from `deploy/bootstrap/`
+3. install your SSH public key for the `deploy` user
+4. verify Tailscale SSH works
+5. move SSH to Tailscale-only
+6. clone repo into `/opt/app`
+7. create `/opt/app/.env.production`
+8. copy runtime data/models into `/opt/app/runtime/gis-server/`
+9. install host nginx config and issue Certbot certificate
+10. add GitHub secrets and let CI/CD deploy
 
 ## Phase 1 - Harden the VPS
 
@@ -43,6 +62,13 @@ For this repository as it exists now, a realistic floor is higher than a typical
 4. Add `2 GB` swap minimum.
 5. Install Docker and Docker Compose plugin.
 6. Configure Docker log rotation.
+
+You can automate most of that with:
+
+```bash
+sudo bash deploy/bootstrap/01-base-system.sh
+sudo bash deploy/bootstrap/02-docker.sh
+```
 
 ## Phase 2 - Join Tailscale
 
@@ -55,6 +81,14 @@ tailscale ip -4
 ```
 
 After you verify Tailscale SSH works, bind SSH to the Tailscale IP only and remove public port 22 from UFW.
+
+Helper:
+
+```bash
+sudo TAILSCALE_AUTHKEY=tskey-auth-xxxxx bash deploy/bootstrap/03-tailscale.sh
+```
+
+Then append the template from `deploy/config/ssh/sshd_config.tailscale.conf` into `/etc/ssh/sshd_config`, replacing `100.x.x.x` with the actual VPS Tailscale IP.
 
 ## Phase 3 - Prepare runtime files on the VPS
 
@@ -77,6 +111,15 @@ Important:
 - sync required trained models into `runtime/gis-server/models`
 
 The production compose file intentionally mounts data/models from `runtime/` so the image stays smaller and deploys are code-focused.
+
+Recommended layout:
+
+```bash
+/opt/app
+  /.env.production
+  /runtime/gis-server/data
+  /runtime/gis-server/models
+```
 
 ## Phase 4 - Build registry strategy
 
@@ -101,6 +144,13 @@ Recommended flow:
 4. enable the site and validate with `nginx -t`
 5. run Certbot for your domain
 
+Bootstrap helper:
+
+```bash
+sudo APP_DOMAIN=example.com APP_DOMAIN_WWW=www.example.com CERTBOT_EMAIL=ops@example.com \
+  bash deploy/bootstrap/07-certbot-nginx.sh
+```
+
 Only loopback ports should be published by Docker:
 
 - frontend on `127.0.0.1:3000`
@@ -120,6 +170,8 @@ Suggested host-level Netdata binding:
 [web]
     bind to = 100.x.x.x
 ```
+
+You can copy `deploy/config/netdata/netdata.conf` and replace the placeholder IP with the VPS Tailscale address.
 
 For direct SQL access from your laptop over Tailscale, `docker-compose.prod.yml` binds PgBouncer to `${TS_TAILSCALE_IP}:6432` only. Populate `TS_TAILSCALE_IP` in `.env.production` with the VPS Tailscale address.
 
@@ -155,6 +207,14 @@ The intended deploy order is:
 8. `IMAGE_TAG=<sha> deploy/scripts/deploy.sh`
 9. run public health check
 10. if health check fails, run `deploy/scripts/rollback.sh`
+
+The deploy workflow is also tightened to:
+
+- serialize production deploys with GitHub Actions `concurrency`
+- fail early if `.env.production` still contains `change-me`
+- verify runtime data/model directories exist before deploy
+- run local backend/frontend health checks on the VPS before marking success
+- store only the last healthy image tag for simple rollback
 
 ## Phase 9 - First deployment checklist
 

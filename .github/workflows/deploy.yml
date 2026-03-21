@@ -1,5 +1,9 @@
 name: Deploy Production
 
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
 on:
   push:
     branches: [main]
@@ -12,6 +16,7 @@ env:
 
 jobs:
   backend-test:
+    timeout-minutes: 20
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -53,6 +58,7 @@ jobs:
         run: uv run pytest tests/integration -v --tb=short
 
   frontend-test:
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -81,6 +87,7 @@ jobs:
         run: npm run build
 
   build-and-push:
+    timeout-minutes: 45
     needs: [backend-test, frontend-test]
     runs-on: ubuntu-latest
     permissions:
@@ -130,6 +137,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   deploy:
+    timeout-minutes: 20
     needs: build-and-push
     runs-on: ubuntu-latest
     environment:
@@ -154,6 +162,7 @@ jobs:
           script: |
             set -euo pipefail
             cd /opt/app
+            git checkout main
             git pull --ff-only origin main
             echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u "${{ secrets.GHCR_USERNAME }}" --password-stdin
             IMAGE_TAG="$IMAGE_TAG" APP_ENV_FILE=/opt/app/.env.production bash deploy/scripts/deploy.sh
