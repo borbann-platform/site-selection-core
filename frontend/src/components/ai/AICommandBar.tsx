@@ -1,13 +1,12 @@
 import { useEffect, useRef } from "react";
+import type { ReactNode } from "react";
 import {
   ArrowUp,
   ChevronDown,
   ChevronUp,
-  Crosshair,
-  MapPin,
-  Square,
   X,
 } from "lucide-react";
+import { BoundingBox, MapPinLine, NavigationArrow } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 
 export type SelectionMode = "none" | "location" | "bbox";
@@ -21,11 +20,18 @@ export interface Attachment {
   label: string;
 }
 
+function adjustTextareaHeight(textarea: HTMLTextAreaElement, value: string) {
+  textarea.style.height = "0px";
+  const nextHeight = value.length === 0 ? 44 : Math.min(textarea.scrollHeight, 132);
+  textarea.style.height = `${nextHeight}px`;
+}
+
 interface AICommandBarProps {
   input: string;
   onInputChange: (value: string) => void;
   onSubmit: () => void;
   attachments: Attachment[];
+  recentSelections?: Attachment[];
   selectionMode: SelectionMode;
   isExpanded: boolean;
   isRunning: boolean;
@@ -33,19 +39,15 @@ interface AICommandBarProps {
   onPickLocation?: () => void;
   onPickBbox?: () => void;
   onRemoveAttachment?: (id: string) => void;
+  onReuseRecentSelection?: (attachmentId: string) => void;
 }
-
-const EXAMPLE_PROMPTS = [
-  "Find livable homes near BTS with better resale liquidity.",
-  "Compare Ari and Saphan Khwai for low-rise condos under 6M.",
-  "Summarize this selected property like an acquisition memo.",
-] as const;
 
 export function AICommandBar({
   input,
   onInputChange,
   onSubmit,
   attachments,
+  recentSelections = [],
   selectionMode,
   isExpanded,
   isRunning,
@@ -53,6 +55,7 @@ export function AICommandBar({
   onPickLocation,
   onPickBbox,
   onRemoveAttachment,
+  onReuseRecentSelection,
 }: AICommandBarProps) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -78,22 +81,19 @@ export function AICommandBar({
       return;
     }
 
-    textarea.style.height = "0px";
-    const nextHeight = input.length === 0 ? 48 : Math.min(textarea.scrollHeight, 180);
-    textarea.style.height = `${nextHeight}px`;
+    adjustTextareaHeight(textarea, input);
   }, [input]);
 
   const isBlocked = isRunning || selectionMode !== "none";
   const canSend = input.trim().length > 0 && !isBlocked;
-  const showExamples = input.trim().length === 0 && attachments.length === 0 && !isExpanded;
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 px-3 pb-3 sm:px-4 sm:pb-4">
-      <div className="mx-auto w-full max-w-4xl">
+    <div className="pointer-events-none fixed bottom-0 left-1/2 z-50 w-[min(calc(100vw-1.5rem),56rem)] -translate-x-1/2 pb-3 sm:w-[min(calc(100vw-2rem),56rem)] sm:pb-4 lg:w-[min(calc(100vw-34rem),56rem)] xl:w-[min(calc(100vw-38rem),58rem)]">
+      <div className="w-full">
         {selectionMode !== "none" && (
-          <div className="pointer-events-auto mb-3 animate-slide-up rounded-full border border-brand/20 bg-[color:rgba(245,250,247,0.96)] px-4 py-2 text-xs text-foreground shadow-[0_14px_30px_rgba(15,23,42,0.08)] dark:bg-[color:rgba(16,20,18,0.94)] dark:text-foreground">
+          <div className="pointer-events-auto mb-3 animate-slide-up rounded-full border border-border/80 bg-card/95 px-4 py-2 text-xs text-foreground shadow-xl backdrop-blur-xl">
             <div className="flex items-center gap-2 font-medium">
-              <Crosshair className="h-3.5 w-3.5 text-brand" />
+              <NavigationArrow className="h-3.5 w-3.5 text-brand" weight="duotone" />
               {selectionMode === "location"
                 ? "Click once on the map to anchor this prompt."
                 : "Click four corners to define the analysis area."}
@@ -108,23 +108,20 @@ export function AICommandBar({
               onSubmit();
             }
           }}
-          className="pointer-events-auto overflow-hidden rounded-[1.6rem] border border-black/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(249,246,239,0.98))] shadow-[0_20px_56px_rgba(23,27,33,0.12)] backdrop-blur-xl transition-all duration-200 focus-within:-translate-y-0.5 focus-within:shadow-[0_26px_72px_rgba(23,27,33,0.16)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(26,30,34,0.96),rgba(15,18,20,0.98))]"
+          className="pointer-events-auto overflow-hidden rounded-[30px] border border-border/90 bg-card/96 shadow-xl backdrop-blur-xl transition-all duration-200 focus-within:border-brand/20 focus-within:shadow-2xl"
         >
-          <div className="border-b border-black/6 px-4 pb-2.5 pt-3 dark:border-white/8 sm:px-5">
+          <div className="border-b border-border/50 px-4 py-2.5 sm:px-5">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <div className="text-[10px] font-semibold uppercase tracking-[0.28em] text-foreground/42">
-                  Property Reasoning Workspace
-                </div>
-                <div className="mt-0.5 text-[13px] text-foreground/68">
-                  Ask for valuation logic, market comparison, legal checks, or place-based recommendations.
+                <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                  Workspace
                 </div>
               </div>
 
               <button
                 type="button"
                 onClick={onToggleExpanded}
-                className="inline-flex items-center gap-1 rounded-full border border-black/8 bg-black/[0.03] px-3 py-1.5 text-[11px] font-medium text-foreground/58 transition-colors hover:bg-black/[0.05] dark:border-white/10 dark:bg-white/[0.05] dark:hover:bg-white/[0.09]"
+                className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-muted/40 px-3 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted"
               >
                 {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
                 {isExpanded ? "Collapse trace" : "Open trace"}
@@ -144,31 +141,15 @@ export function AICommandBar({
             </div>
           )}
 
-          <div className="flex gap-3 px-4 py-3 sm:px-5">
-            <div className="flex shrink-0 flex-col gap-2 pt-0.5">
-              <ToolbarButton
-                label="Pin"
-                title="Pick location"
-                onClick={onPickLocation}
-                disabled={selectionMode !== "none"}
-                active={selectionMode === "location"}
-                icon={<MapPin className="h-4 w-4" />}
-              />
-              <ToolbarButton
-                label="Area"
-                title="Draw area"
-                onClick={onPickBbox}
-                disabled={selectionMode !== "none"}
-                active={selectionMode === "bbox"}
-                icon={<Square className="h-4 w-4" />}
-              />
-            </div>
-
-            <div className="min-w-0 flex-1">
+          <div className="px-4 py-3 sm:px-5">
+            <div className="space-y-3">
               <textarea
                 ref={inputRef}
                 value={input}
-                onChange={(event) => onInputChange(event.target.value)}
+                onChange={(event) => {
+                  onInputChange(event.target.value);
+                  adjustTextareaHeight(event.currentTarget, event.currentTarget.value);
+                }}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && !event.shiftKey) {
                     event.preventDefault();
@@ -180,43 +161,75 @@ export function AICommandBar({
                 placeholder={
                   selectionMode !== "none"
                     ? "Finish the map selection to continue..."
-                    : "Ask anything about this market, this property, or the area you are exploring..."
+                    : "Ask about this market, this property, or the area you are exploring..."
                 }
                 disabled={isBlocked}
                 rows={1}
-                className="min-h-11 max-h-[148px] w-full resize-none bg-transparent text-[14px] leading-6 text-foreground outline-none placeholder:text-foreground/38 disabled:cursor-not-allowed disabled:opacity-45"
+                className="min-h-[72px] max-h-[144px] w-full resize-none rounded-[24px] border border-border/70 bg-background/50 px-4 py-3.5 text-[15px] leading-7 text-foreground outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-45"
               />
 
-              <div className="mt-2.5 flex flex-wrap items-center justify-between gap-3 text-[11px] text-foreground/45">
-                <div className="flex flex-wrap gap-2">
-                  {showExamples
-                    ? EXAMPLE_PROMPTS.map((prompt) => (
-                        <button
-                          key={prompt}
-                          type="button"
-                          onClick={() => onInputChange(prompt)}
-                          className="rounded-full border border-black/8 bg-black/[0.03] px-2.5 py-1 text-left transition-colors hover:bg-black/[0.05] dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.08]"
-                        >
-                          {prompt}
-                        </button>
-                      ))
-                    : [
-                        <span key="hint">Enter to send</span>,
-                        <span key="divider">/</span>,
-                        <span key="newline">Shift + Enter for new line</span>,
-                      ]}
+              {recentSelections.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 px-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                    Recent
+                  </span>
+                  {recentSelections.slice(0, 4).map((attachment) => (
+                    <button
+                      key={attachment.id}
+                      type="button"
+                      onClick={() => onReuseRecentSelection?.(attachment.id)}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-muted/25 px-3 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    >
+                      {attachment.type === "bbox" ? (
+                        <BoundingBox className="h-3.5 w-3.5" weight="duotone" />
+                      ) : (
+                        <MapPinLine className="h-3.5 w-3.5" weight="duotone" />
+                      )}
+                      <span className="max-w-48 truncate">{attachment.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex flex-wrap items-center justify-between gap-3 px-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <ToolbarButton
+                    label="Pin"
+                    title="Pick location"
+                    onClick={onPickLocation}
+                    disabled={selectionMode !== "none"}
+                    active={selectionMode === "location"}
+                    icon={<MapPinLine className="h-4 w-4" weight="duotone" />}
+                  />
+                  <ToolbarButton
+                    label="Area"
+                    title="Draw area"
+                    onClick={onPickBbox}
+                    disabled={selectionMode !== "none"}
+                    active={selectionMode === "bbox"}
+                    icon={<BoundingBox className="h-4 w-4" weight="duotone" />}
+                  />
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <span>{attachments.length > 0 ? `${attachments.length} map refs attached` : "No map refs attached"}</span>
+                <div className="flex flex-1 flex-wrap items-center justify-end gap-3 text-[11px] text-muted-foreground sm:justify-between">
+                  <div className="flex flex-wrap gap-2 md:gap-3">
+                    <span>
+                      {attachments.length > 0
+                        ? `${attachments.length} map refs attached`
+                        : "Enter to send"}
+                    </span>
+                    <span className="opacity-50">/</span>
+                    <span>Shift + Enter for new line</span>
+                  </div>
+
                   <button
                     type="submit"
                     disabled={!canSend}
                     className={cn(
-                      "inline-flex h-9 w-9 items-center justify-center rounded-full transition-all",
+                      "inline-flex h-10 w-10 items-center justify-center rounded-full transition-all",
                       canSend
-                        ? "bg-foreground text-background shadow-[0_12px_24px_rgba(15,23,42,0.18)] hover:-translate-y-0.5"
-                        : "bg-black/[0.08] text-foreground/28 dark:bg-white/[0.08]"
+                        ? "bg-brand text-brand-foreground shadow-lg shadow-brand/25 hover:bg-brand/90"
+                        : "bg-muted text-muted-foreground",
                     )}
                     title="Send message"
                   >
@@ -245,7 +258,7 @@ function ToolbarButton({
   onClick?: () => void;
   disabled: boolean;
   active: boolean;
-  icon: React.ReactNode;
+  icon: ReactNode;
 }) {
   return (
     <button
@@ -254,10 +267,10 @@ function ToolbarButton({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "inline-flex items-center gap-2 rounded-full border px-2.5 py-2 text-xs font-medium transition-all",
+        "inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-medium transition-all",
         active
-          ? "border-brand/28 bg-brand/12 text-brand"
-          : "border-black/8 bg-black/[0.03] text-foreground/65 hover:bg-black/[0.05] dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.08]",
+          ? "border-brand/28 bg-brand/10 text-brand"
+          : "border-border/70 bg-muted/35 text-muted-foreground hover:bg-muted hover:text-foreground",
         disabled && !active && "cursor-not-allowed opacity-40"
       )}
     >
@@ -279,7 +292,7 @@ function AttachmentChip({
       ? "border-amber-600/18 bg-amber-500/10 text-amber-900 dark:text-amber-200"
       : attachment.type === "bbox"
         ? "border-sky-600/18 bg-sky-500/10 text-sky-900 dark:text-sky-200"
-        : "border-emerald-600/18 bg-emerald-500/10 text-emerald-900 dark:text-emerald-200";
+        : "border-brand/18 bg-brand/10 text-brand";
 
   return (
     <div className={cn("inline-flex max-w-full items-center gap-2 rounded-full border px-2.5 py-1 text-[11px]", tone)}>

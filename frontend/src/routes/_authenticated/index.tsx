@@ -297,6 +297,7 @@ function PropertyExplorer() {
         onInputChange={explorer.setAiInput}
         onSubmit={explorer.handleAISubmit}
         attachments={explorer.chatAttachments}
+        recentSelections={explorer.recentMapSelections}
         selectionMode={explorer.selectionMode}
         isExpanded={explorer.isAIExpanded}
         isRunning={explorer.isAIRunning}
@@ -310,37 +311,38 @@ function PropertyExplorer() {
             prev.filter((a) => a.id !== id)
           )
         }
+        onReuseRecentSelection={explorer.handleReuseRecentSelection}
       />
 
       {/* AI Expanded Panel -- conversation history */}
-      <AIExpandedPanel
-        isExpanded={explorer.isAIExpanded}
-        messages={explorer.aiMessages}
-        onPropertyClick={(property) => {
-          const latitude = property.lat;
-          const longitude = property.lon;
-          if (latitude != null && longitude != null) {
-            explorer.setViewState((prev) => ({
-              ...prev,
-              latitude,
-              longitude,
-              zoom: 15,
-              transitionDuration: 500,
-            }));
-          }
-
-          explorer.setSelectedProperty((current) => {
-            if (!current || current.id !== property.id) {
-              return current;
+        <AIExpandedPanel
+          isExpanded={explorer.isAIExpanded}
+          messages={explorer.aiMessages}
+          onPropertyClick={(property) => {
+            const latitude = property.lat;
+            const longitude = property.lon;
+            if (latitude != null && longitude != null) {
+              explorer.setViewState((prev) => ({
+                ...prev,
+                latitude,
+                longitude,
+                zoom: 15,
+                transitionDuration: 500,
+              }));
             }
-            return {
-              ...current,
-              lat: latitude ?? current.lat,
-              lon: longitude ?? current.lon,
-            };
-          });
-        }}
-      />
+
+            explorer.setSelectedProperty((current) => {
+              if (!current || current.id !== property.id) {
+                return current;
+              }
+              return {
+                ...current,
+                lat: latitude ?? current.lat,
+                lon: longitude ?? current.lon,
+              };
+            });
+          }}
+        />
     </>
   );
 }

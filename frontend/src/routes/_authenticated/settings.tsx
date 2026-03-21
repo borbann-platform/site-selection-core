@@ -1,31 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
-  Settings as SettingsIcon,
-  Database,
-  Bell,
-  Shield,
-  User,
-  RefreshCw,
-  Trash2,
+  KeyRound,
   Loader2,
   LogOut,
-  KeyRound,
+  Shield,
   Sparkles,
+  Trash2,
+  User,
 } from "lucide-react";
-import { useState, useEffect, useCallback } from "react";
-import { api, type AdminCacheStatusResponse } from "../../lib/api";
-import {
-  chatApi,
-  type ProviderCatalogResponse,
-} from "../../lib/chatApi";
-import {
-  maskApiKey,
-  type AgentProvider,
-  type AgentRuntimeConfig,
-} from "../../lib/agentRuntimeConfig";
-import { useAuth } from "../../contexts/AuthContext";
+import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -33,9 +19,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { toast } from "sonner";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { useAuth } from "../../contexts/AuthContext";
+import {
+  type AgentProvider,
+  type AgentRuntimeConfig,
+  maskApiKey,
+} from "../../lib/agentRuntimeConfig";
+import { chatApi, type ProviderCatalogResponse } from "../../lib/chatApi";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsPage,
@@ -46,7 +36,7 @@ const DEFAULT_OPENAI_COMPAT_MODEL = "deepseek-chat";
 const DEFAULT_OPENAI_COMPAT_BASE_URL = "https://api.deepseek.com/v1";
 
 function getDefaultRuntimeConfig(
-  provider: AgentProvider = "openai_compatible"
+  provider: AgentProvider = "openai_compatible",
 ): AgentRuntimeConfig {
   if (provider === "gemini") {
     return {
@@ -58,6 +48,7 @@ function getDefaultRuntimeConfig(
       vertex_location: "us-central1",
     };
   }
+
   return {
     provider: "openai_compatible",
     model: DEFAULT_OPENAI_COMPAT_MODEL,
@@ -70,32 +61,17 @@ function getDefaultRuntimeConfig(
 
 function SettingsPage() {
   const { user, logout } = useAuth();
-  const [cacheStatus, setCacheStatus] =
-    useState<AdminCacheStatusResponse | null>(null);
   const [providerCatalog, setProviderCatalog] =
     useState<ProviderCatalogResponse | null>(null);
-  const [isRefreshingPOIs, setIsRefreshingPOIs] = useState(false);
-  const [isClearingCache, setIsClearingCache] = useState(false);
   const [isSavingProvider, setIsSavingProvider] = useState(false);
   const [isValidatingProvider, setIsValidatingProvider] = useState(false);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [isochroneMode, setIsochroneMode] = useState<"walk" | "drive">("walk");
   const [runtimeConfigSource, setRuntimeConfigSource] = useState<
     "database" | "environment" | "none"
   >("none");
   const [savedApiKeyMask, setSavedApiKeyMask] = useState("");
   const [runtimeConfig, setRuntimeConfig] = useState<AgentRuntimeConfig>(
-    getDefaultRuntimeConfig()
+    getDefaultRuntimeConfig(),
   );
-
-  const fetchCacheStatus = useCallback(async () => {
-    try {
-      const status = await api.getCacheStatus();
-      setCacheStatus(status);
-    } catch {
-      // no-op
-    }
-  }, []);
 
   const fetchProviderCatalog = useCallback(async () => {
     try {
@@ -105,10 +81,6 @@ function SettingsPage() {
       // no-op
     }
   }, []);
-
-  useEffect(() => {
-    fetchCacheStatus();
-  }, [fetchCacheStatus]);
 
   useEffect(() => {
     const loadRuntimeConfig = async () => {
@@ -133,34 +105,9 @@ function SettingsPage() {
         fetchProviderCatalog();
       }
     };
+
     loadRuntimeConfig();
   }, [fetchProviderCatalog]);
-
-  const handleRefreshPOIs = async () => {
-    setIsRefreshingPOIs(true);
-    try {
-      const result = await api.refreshPOIs();
-      toast.success(result.message);
-      fetchCacheStatus();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to refresh POI data");
-    } finally {
-      setIsRefreshingPOIs(false);
-    }
-  };
-
-  const handleClearCache = async () => {
-    setIsClearingCache(true);
-    try {
-      const result = await api.clearTileCache();
-      toast.success(result.message);
-      fetchCacheStatus();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to clear cache");
-    } finally {
-      setIsClearingCache(false);
-    }
-  };
 
   const setProvider = (provider: AgentProvider) => {
     if (provider === "openai_compatible") {
@@ -205,10 +152,14 @@ function SettingsPage() {
           ...saved.runtime,
           api_key: "",
         }));
-        toast.success("BYOK model config saved securely");
+        toast.success("Provider config saved securely");
       })
-      .catch((e) => {
-        toast.error(e instanceof Error ? e.message : "Failed to save BYOK config");
+      .catch((error) => {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Failed to save provider config",
+        );
       })
       .finally(() => {
         setIsSavingProvider(false);
@@ -224,10 +175,14 @@ function SettingsPage() {
         setRuntimeConfig(getDefaultRuntimeConfig(fallbackProvider));
         setSavedApiKeyMask("");
         setRuntimeConfigSource("none");
-        toast.success("Stored BYOK model config cleared");
+        toast.success("Stored provider config cleared");
       })
-      .catch((e) => {
-        toast.error(e instanceof Error ? e.message : "Failed to clear BYOK config");
+      .catch((error) => {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Failed to clear provider config",
+        );
       });
   };
 
@@ -240,9 +195,11 @@ function SettingsPage() {
       } else {
         toast.error("Provider config is incomplete. Please add credentials.");
       }
-    } catch (e) {
+    } catch (error) {
       toast.error(
-        e instanceof Error ? e.message : "Failed to validate provider config"
+        error instanceof Error
+          ? error.message
+          : "Failed to validate provider config",
       );
     } finally {
       setIsValidatingProvider(false);
@@ -253,431 +210,272 @@ function SettingsPage() {
   const maskedKey = maskApiKey(runtimeConfig.api_key) || savedApiKeyMask;
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] w-full bg-background text-foreground overflow-y-auto custom-scrollbar">
-      <div className="max-w-4xl mx-auto py-12 px-6">
-        <PageHeader
-          icon={SettingsIcon}
-          title="Settings"
-          subtitle="Manage your preferences, account, and AI provider configuration"
-          className="mb-8"
-        />
-
-        <div className="grid gap-8">
-          <section className="space-y-4">
-            <h2 className="text-xl font-semibold flex items-center gap-2">
-              <User size={20} className="text-brand" />
-              Profile & Account
-            </h2>
-            <div className="bg-card border border-border rounded-2xl overflow-hidden">
-              <div className="p-6 border-b border-border flex items-center justify-between">
-                <div>
-                  <div className="font-medium">Display Name</div>
-                  <div className="text-sm text-muted-foreground">
-                    How you appear to others
-                  </div>
-                </div>
-                <div className="text-muted-foreground">
-                  {user?.first_name} {user?.last_name}
+    <div className="min-h-[calc(100vh-4rem)] w-full overflow-y-auto bg-background text-foreground custom-scrollbar">
+      <div className="mx-auto grid max-w-4xl gap-8 px-6 py-12">
+        <section className="space-y-4">
+          <h2 className="flex items-center gap-2 text-xl font-semibold">
+            <User size={20} className="text-brand" />
+            Profile & Account
+          </h2>
+          <div className="overflow-hidden rounded-2xl border border-border bg-card">
+            <div className="flex items-center justify-between border-b border-border p-6">
+              <div>
+                <div className="font-medium">Display Name</div>
+                <div className="text-sm text-muted-foreground">
+                  How your account appears in the workspace
                 </div>
               </div>
-              <div className="p-6 border-b border-border flex items-center justify-between">
-                <div>
-                  <div className="font-medium">Email Address</div>
-                  <div className="text-sm text-muted-foreground">
-                    Used for notifications
-                  </div>
-                </div>
-                <div className="text-muted-foreground">{user?.email}</div>
-              </div>
-              <div className="p-6 flex items-center justify-between">
-                <div>
-                  <div className="font-medium">Sign Out</div>
-                  <div className="text-sm text-muted-foreground">
-                    End your current session
-                  </div>
-                </div>
-                <Button variant="destructive" size="sm" onClick={logout}>
-                  <LogOut size={16} />
-                  Sign Out
-                </Button>
+              <div className="text-muted-foreground">
+                {user?.first_name} {user?.last_name}
               </div>
             </div>
-          </section>
-
-          <section className="space-y-4">
-            <h2 className="text-xl font-semibold flex items-center gap-2">
-              <Sparkles size={20} className="text-ai-accent" />
-              AI Model Orchestration (BYOK)
-            </h2>
-            <div className="bg-card border border-border rounded-2xl overflow-hidden">
-              <div className="p-6 border-b border-border space-y-4">
-                <div className="grid gap-2">
-                  <div className="text-sm font-medium">Provider</div>
-                  <Select
-                    value={runtimeConfig.provider}
-                    onValueChange={(value) => setProvider(value as AgentProvider)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="gemini">Google Gemini</SelectItem>
-                      <SelectItem value="openai_compatible">
-                        OpenAI-Compatible (Ollama/vLLM/Groq/DeepSeek)
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="grid gap-2">
-                  <div className="text-sm font-medium">Model</div>
-                  <Input
-                    value={runtimeConfig.model || ""}
-                    onChange={(e) =>
-                      setRuntimeConfig((prev) => ({
-                        ...prev,
-                        model: e.target.value,
-                      }))
-                    }
-                    placeholder={
-                      isOpenAICompatible ? DEFAULT_OPENAI_COMPAT_MODEL : DEFAULT_GEMINI_MODEL
-                    }
-                  />
-                </div>
-
-                <div className="grid gap-2">
-                  <div className="text-sm font-medium">API Key</div>
-                  <Input
-                    type="password"
-                    value={runtimeConfig.api_key || ""}
-                    onChange={(e) =>
-                      setRuntimeConfig((prev) => ({
-                        ...prev,
-                        api_key: e.target.value,
-                      }))
-                    }
-                    placeholder="Paste your provider API key"
-                  />
-                  {maskedKey ? (
-                    <div className="text-xs text-muted-foreground">
-                      Current key: {maskedKey}
-                    </div>
-                  ) : null}
-                </div>
-
-                {isOpenAICompatible ? (
-                  <>
-                    <div className="grid gap-2">
-                      <div className="text-sm font-medium">OpenAI-Compatible Base URL</div>
-                      <Input
-                        value={runtimeConfig.base_url || ""}
-                        onChange={(e) =>
-                          setRuntimeConfig((prev) => ({
-                            ...prev,
-                            base_url: e.target.value,
-                          }))
-                        }
-                        placeholder={DEFAULT_OPENAI_COMPAT_BASE_URL}
-                      />
-                    </div>
-
-                    <div className="grid gap-2">
-                      <div className="text-sm font-medium">Organization (optional)</div>
-                      <Input
-                        value={runtimeConfig.organization || ""}
-                        onChange={(e) =>
-                          setRuntimeConfig((prev) => ({
-                            ...prev,
-                            organization: e.target.value,
-                          }))
-                        }
-                        placeholder="org_xxx"
-                      />
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex items-center justify-between py-1">
-                      <div>
-                        <div className="text-sm font-medium">Use Vertex AI</div>
-                        <div className="text-xs text-muted-foreground">
-                          Enable this when authenticating via GCP project/location.
-                        </div>
-                      </div>
-                      <Switch
-                        checked={Boolean(runtimeConfig.use_vertex_ai)}
-                        onCheckedChange={(checked) =>
-                          setRuntimeConfig((prev) => ({
-                            ...prev,
-                            use_vertex_ai: checked,
-                          }))
-                        }
-                      />
-                    </div>
-
-                    {runtimeConfig.use_vertex_ai ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div className="grid gap-2">
-                          <div className="text-sm font-medium">GCP Project ID</div>
-                          <Input
-                            value={runtimeConfig.vertex_project || ""}
-                            onChange={(e) =>
-                              setRuntimeConfig((prev) => ({
-                                ...prev,
-                                vertex_project: e.target.value,
-                              }))
-                            }
-                            placeholder="my-gcp-project"
-                          />
-                        </div>
-                        <div className="grid gap-2">
-                          <div className="text-sm font-medium">Vertex Location</div>
-                          <Input
-                            value={runtimeConfig.vertex_location || ""}
-                            onChange={(e) =>
-                              setRuntimeConfig((prev) => ({
-                                ...prev,
-                                vertex_location: e.target.value,
-                              }))
-                            }
-                            placeholder="us-central1"
-                          />
-                        </div>
-                      </div>
-                    ) : null}
-                  </>
-                )}
-
-                <div className="grid gap-2">
-                  <div className="text-sm font-medium">Reasoning Strategy</div>
-                  <Select
-                    value={runtimeConfig.reasoning_mode || "hybrid"}
-                    onValueChange={(value) =>
-                      setRuntimeConfig((prev) => ({
-                        ...prev,
-                        reasoning_mode: value as "react" | "cot" | "hybrid",
-                      }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="hybrid">Hybrid (recommended)</SelectItem>
-                      <SelectItem value="react">ReAct (tool-heavy)</SelectItem>
-                      <SelectItem value="cot">CoT (logic-heavy)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="text-xs text-muted-foreground bg-muted/40 border border-border rounded-lg px-3 py-2">
-                  API keys are encrypted and stored server-side in your account runtime
-                  profile. They are never returned in plaintext.
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Source: {runtimeConfigSource}
+            <div className="flex items-center justify-between border-b border-border p-6">
+              <div>
+                <div className="font-medium">Email Address</div>
+                <div className="text-sm text-muted-foreground">
+                  Used for account access
                 </div>
               </div>
-
-              <div className="p-6 flex flex-wrap items-center gap-2">
-                <Button
-                  type="button"
-                  onClick={handleSaveRuntimeConfig}
-                  disabled={isSavingProvider}
-                >
-                  {isSavingProvider ? (
-                    <Loader2 size={16} className="animate-spin" />
-                  ) : (
-                    <KeyRound size={16} />
-                  )}
-                  {isSavingProvider ? "Saving..." : "Save BYOK Config"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleValidateRuntimeConfig}
-                  disabled={isValidatingProvider}
-                >
-                  {isValidatingProvider ? (
-                    <Loader2 size={16} className="animate-spin" />
-                  ) : (
-                    <Sparkles size={16} />
-                  )}
-                  {isValidatingProvider ? "Validating..." : "Validate Config"}
-                </Button>
-                <Button type="button" variant="ghost" onClick={handleClearRuntimeConfig}>
-                  <Trash2 size={16} />
-                  Clear
-                </Button>
-              </div>
+              <div className="text-muted-foreground">{user?.email}</div>
             </div>
-
-            {providerCatalog ? (
-              <div className="text-xs text-muted-foreground border border-border rounded-lg p-3 bg-muted/30">
-                Supported providers: {providerCatalog.supported_providers.map((p) => p.label).join(", ")}
-              </div>
-            ) : null}
-          </section>
-
-          <section className="space-y-4">
-            <h2 className="text-xl font-semibold flex items-center gap-2">
-              <Database size={20} className="text-ai-accent" />
-              Data & Analysis
-            </h2>
-            <div className="bg-card border border-border rounded-2xl overflow-hidden">
-              <div className="p-6 border-b border-border flex items-center justify-between">
-                <div>
-                  <div className="font-medium">Default Search Radius</div>
-                  <div className="text-sm text-muted-foreground">
-                    Base radius for site analysis
-                  </div>
+            <div className="flex items-center justify-between p-6">
+              <div>
+                <div className="font-medium">Sign Out</div>
+                <div className="text-sm text-muted-foreground">
+                  End your current session on this device
                 </div>
-                <Select defaultValue="1">
-                  <SelectTrigger size="sm">
+              </div>
+              <Button variant="destructive" size="sm" onClick={logout}>
+                <LogOut size={16} />
+                Sign Out
+              </Button>
+            </div>
+          </div>
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="flex items-center gap-2 text-xl font-semibold">
+            <Sparkles size={20} className="text-ai-accent" />
+            AI Provider (BYOK)
+          </h2>
+          <div className="overflow-hidden rounded-2xl border border-border bg-card">
+            <div className="space-y-4 border-b border-border p-6">
+              <div className="grid gap-2">
+                <div className="text-sm font-medium">Provider</div>
+                <Select
+                  value={runtimeConfig.provider}
+                  onValueChange={(value) => setProvider(value as AgentProvider)}
+                >
+                  <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="1">1 km</SelectItem>
-                    <SelectItem value="2">2 km</SelectItem>
-                    <SelectItem value="5">5 km</SelectItem>
+                    <SelectItem value="gemini">Google Gemini</SelectItem>
+                    <SelectItem value="openai_compatible">
+                      OpenAI-Compatible (Ollama/vLLM/Groq/DeepSeek)
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <div className="p-6 flex items-center justify-between">
-                <div>
-                  <div className="font-medium">Isochrone Mode</div>
-                  <div className="text-sm text-muted-foreground">
-                    Default travel mode for catchments
-                  </div>
-                </div>
-                <div className="flex gap-1">
-                  <Button
-                    variant={isochroneMode === "walk" ? "secondary" : "ghost"}
-                    size="sm"
-                    onClick={() => setIsochroneMode("walk")}
-                  >
-                    Walk
-                  </Button>
-                  <Button
-                    variant={isochroneMode === "drive" ? "secondary" : "ghost"}
-                    size="sm"
-                    onClick={() => setIsochroneMode("drive")}
-                  >
-                    Drive
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </section>
 
-          <section className="space-y-4">
-            <h2 className="text-xl font-semibold flex items-center gap-2">
-              <Bell size={20} className="text-warning" />
-              Notifications
-            </h2>
-            <div className="bg-card border border-border rounded-2xl overflow-hidden">
-              <div className="p-6 flex items-center justify-between">
-                <div>
-                  <div className="font-medium">Report Ready Alerts</div>
-                  <div className="text-sm text-muted-foreground">
-                    Email me when large reports are done
-                  </div>
-                </div>
-                <Switch
-                  checked={notificationsEnabled}
-                  onCheckedChange={setNotificationsEnabled}
+              <div className="grid gap-2">
+                <div className="text-sm font-medium">Model</div>
+                <Input
+                  value={runtimeConfig.model || ""}
+                  onChange={(event) =>
+                    setRuntimeConfig((prev) => ({
+                      ...prev,
+                      model: event.target.value,
+                    }))
+                  }
+                  placeholder={
+                    isOpenAICompatible
+                      ? DEFAULT_OPENAI_COMPAT_MODEL
+                      : DEFAULT_GEMINI_MODEL
+                  }
                 />
               </div>
-            </div>
-          </section>
 
-          <section className="space-y-4">
-            <h2 className="text-xl font-semibold flex items-center gap-2">
-              <Shield size={20} className="text-destructive" />
-              Security
-            </h2>
-            <div className="bg-card border border-border rounded-2xl overflow-hidden">
-              <div className="p-6 flex items-center justify-between">
-                <div>
-                  <div className="font-medium">API Keys</div>
-                  <div className="text-sm text-muted-foreground">
-                    Manage BYOK credentials for model providers
+              <div className="grid gap-2">
+                <div className="text-sm font-medium">API Key</div>
+                <Input
+                  type="password"
+                  value={runtimeConfig.api_key || ""}
+                  onChange={(event) =>
+                    setRuntimeConfig((prev) => ({
+                      ...prev,
+                      api_key: event.target.value,
+                    }))
+                  }
+                  placeholder="Paste your provider API key"
+                />
+                {maskedKey ? (
+                  <div className="text-xs text-muted-foreground">
+                    Current key: {maskedKey}
                   </div>
-                </div>
-                <span className="text-xs text-muted-foreground">Managed above</span>
-              </div>
-            </div>
-          </section>
-
-          <section className="space-y-4">
-            <h2 className="text-xl font-semibold flex items-center gap-2">
-              <RefreshCw size={20} className="text-brand" />
-              Data Management
-            </h2>
-
-            <div className="bg-card border border-border rounded-2xl overflow-hidden">
-              <div className="p-6 border-b border-border flex items-center justify-between">
-                <div>
-                  <div className="font-medium">Tile Cache Status</div>
-                  <div className="text-sm text-muted-foreground">
-                    Cached tiles for faster map loading
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-lg font-mono text-brand">
-                    {cacheStatus?.tile_cache_size ?? "—"}
-                  </div>
-                  <div className="text-xs text-muted-foreground">tiles cached</div>
-                </div>
+                ) : null}
               </div>
 
-              <div className="p-6 border-b border-border flex items-center justify-between">
-                <div>
-                  <div className="font-medium">Refresh POI Data</div>
-                  <div className="text-sm text-muted-foreground">
-                    Update materialized view from source tables
-                  </div>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleRefreshPOIs}
-                  disabled={isRefreshingPOIs}
+              <div className="grid gap-2">
+                <div className="text-sm font-medium">Reasoning Strategy</div>
+                <Select
+                  value={runtimeConfig.reasoning_mode || "hybrid"}
+                  onValueChange={(value) =>
+                    setRuntimeConfig((prev) => ({
+                      ...prev,
+                      reasoning_mode: value as "react" | "cot" | "hybrid",
+                    }))
+                  }
                 >
-                  {isRefreshingPOIs ? (
-                    <Loader2 size={16} className="animate-spin" />
-                  ) : (
-                    <RefreshCw size={16} />
-                  )}
-                  {isRefreshingPOIs ? "Refreshing..." : "Refresh POIs"}
-                </Button>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="hybrid">Hybrid (recommended)</SelectItem>
+                    <SelectItem value="react">ReAct (tool-heavy)</SelectItem>
+                    <SelectItem value="cot">CoT (logic-heavy)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
-              <div className="p-6 flex items-center justify-between">
-                <div>
-                  <div className="font-medium">Clear Tile Cache</div>
-                  <div className="text-sm text-muted-foreground">
-                    Force fresh tile generation on next load
+              {isOpenAICompatible ? (
+                <>
+                  <div className="grid gap-2">
+                    <div className="text-sm font-medium">Base URL</div>
+                    <Input
+                      value={runtimeConfig.base_url || ""}
+                      onChange={(event) =>
+                        setRuntimeConfig((prev) => ({
+                          ...prev,
+                          base_url: event.target.value,
+                        }))
+                      }
+                      placeholder={DEFAULT_OPENAI_COMPAT_BASE_URL}
+                    />
+                  </div>
+
+                  <div className="grid gap-2">
+                    <div className="text-sm font-medium">
+                      Organization (optional)
+                    </div>
+                    <Input
+                      value={runtimeConfig.organization || ""}
+                      onChange={(event) =>
+                        setRuntimeConfig((prev) => ({
+                          ...prev,
+                          organization: event.target.value,
+                        }))
+                      }
+                      placeholder="org_xxx"
+                    />
+                  </div>
+                </>
+              ) : (
+                <div className="grid gap-2 md:grid-cols-2 md:gap-3">
+                  <div className="grid gap-2">
+                    <div className="text-sm font-medium">GCP Project ID</div>
+                    <Input
+                      value={runtimeConfig.vertex_project || ""}
+                      onChange={(event) =>
+                        setRuntimeConfig((prev) => ({
+                          ...prev,
+                          vertex_project: event.target.value,
+                        }))
+                      }
+                      placeholder="my-gcp-project"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <div className="text-sm font-medium">Vertex Location</div>
+                    <Input
+                      value={runtimeConfig.vertex_location || ""}
+                      onChange={(event) =>
+                        setRuntimeConfig((prev) => ({
+                          ...prev,
+                          vertex_location: event.target.value,
+                        }))
+                      }
+                      placeholder="us-central1"
+                    />
                   </div>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleClearCache}
-                  disabled={isClearingCache}
-                  className="text-destructive"
-                >
-                  {isClearingCache ? (
-                    <Loader2 size={16} className="animate-spin" />
-                  ) : (
-                    <Trash2 size={16} />
-                  )}
-                  {isClearingCache ? "Clearing..." : "Clear Cache"}
-                </Button>
+              )}
+
+              <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                API keys are encrypted and stored in your account runtime
+                profile. They are never returned in plaintext.
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Source: {runtimeConfigSource}
               </div>
             </div>
-          </section>
-        </div>
+
+            <div className="flex flex-wrap items-center gap-2 p-6">
+              <Button
+                type="button"
+                onClick={handleSaveRuntimeConfig}
+                disabled={isSavingProvider}
+              >
+                {isSavingProvider ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <KeyRound size={16} />
+                )}
+                {isSavingProvider ? "Saving..." : "Save Provider Config"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleValidateRuntimeConfig}
+                disabled={isValidatingProvider}
+              >
+                {isValidatingProvider ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Sparkles size={16} />
+                )}
+                {isValidatingProvider ? "Validating..." : "Validate Config"}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={handleClearRuntimeConfig}
+              >
+                <Trash2 size={16} />
+                Clear
+              </Button>
+            </div>
+          </div>
+
+          {providerCatalog ? (
+            <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+              Supported providers:{" "}
+              {providerCatalog.supported_providers
+                .map((provider) => provider.label)
+                .join(", ")}
+            </div>
+          ) : null}
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="flex items-center gap-2 text-xl font-semibold">
+            <Shield size={20} className="text-destructive" />
+            Security
+          </h2>
+          <div className="overflow-hidden rounded-2xl border border-border bg-card">
+            <div className="flex items-center justify-between p-6">
+              <div>
+                <div className="font-medium">API Keys</div>
+                <div className="text-sm text-muted-foreground">
+                  Provider credentials are managed in your BYOK section above
+                </div>
+              </div>
+              <span className="text-xs text-muted-foreground">
+                Managed above
+              </span>
+            </div>
+          </div>
+        </section>
       </div>
     </div>
   );

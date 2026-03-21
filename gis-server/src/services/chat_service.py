@@ -17,6 +17,23 @@ from src.services.model_provider import get_model_provider, resolve_runtime_conf
 logger = logging.getLogger(__name__)
 
 
+def _llm_response_to_text(response: Any) -> str:
+    content = response.content if hasattr(response, "content") else str(response)
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for item in content:
+            if isinstance(item, str):
+                parts.append(item)
+            elif isinstance(item, dict):
+                text = item.get("text")
+                if isinstance(text, str):
+                    parts.append(text)
+        return "".join(parts)
+    return str(content)
+
+
 class ChatService:
     """Service for managing chat sessions and messages."""
 
@@ -181,6 +198,130 @@ class ChatService:
         messages = self.get_messages(session_id, limit)
         return [{"role": m.role, "content": m.content} for m in messages]
 
+    def get_messages_for_agent_context(
+        self,
+        session_id: uuid.UUID,
+        user_id: uuid.UUID,
+        recent_limit: int = 10,
+    ) -> list[dict[str, str]]:
+        """
+        Build hybrid context for the agent: rolling summary + recent messages.
+        """
+        session = self.get_session(session_id, user_id, include_messages=False)
+        if not session:
+            return []
+
+        payload: list[dict[str, str]] = []
+        metadata = session.extra_data or {}
+        rolling_summary_raw = metadata.get("rolling_summary")
+        rolling_summary = (
+            rolling_summary_raw.strip() if isinstance(rolling_summary_raw, str) else ""
+        )
+        if rolling_summary:
+            payload.append(
+                {
+                    "role": "system",
+                    "content": (
+                        "[SESSION SUMMARY]\n"
+                        f"{rolling_summary}\n"
+                        "Use this as high-level memory; prefer recent messages for immediate intent."
+                    ),
+                }
+            )
+
+        payload.extend(self.get_messages_for_agent(session_id, limit=recent_limit))
+        return payload
+
+    def _heuristic_rolling_summary(
+        self,
+        existing_summary: str,
+        messages: list[ChatMessage],
+    ) -> str:
+        user_lines = [
+            m.content.strip() for m in messages if m.role == "user" and m.content
+        ]
+        recent_user_lines = user_lines[-6:]
+        if not recent_user_lines and existing_summary:
+            return existing_summary
+        summary_bits = []
+        if existing_summary:
+            summary_bits.append(existing_summary.strip())
+        if recent_user_lines:
+            summary_bits.append(
+                "Recent user constraints: "
+                + " | ".join(line[:180] for line in recent_user_lines)
+            )
+        return "\n".join(summary_bits)[:2000]
+
+    async def refresh_rolling_summary(
+        self,
+        session_id: uuid.UUID,
+        user_id: uuid.UUID,
+        force: bool = False,
+        every_n_user_turns: int = 4,
+    ) -> bool:
+        """
+        Refresh rolling summary every N user turns (or when forced).
+        Returns True when summary is updated.
+        """
+        session = self.get_session(session_id, user_id, include_messages=True)
+        if not session:
+            return False
+
+        metadata = dict(session.extra_data or {})
+        messages = session.messages or []
+        user_turns = sum(1 for m in messages if m.role == "user")
+        summarized_user_turns = int(metadata.get("summarized_user_turns") or 0)
+
+        should_update = (
+            force or (user_turns - summarized_user_turns) >= every_n_user_turns
+        )
+        if not should_update:
+            return False
+
+        existing_summary = str(metadata.get("rolling_summary") or "").strip()
+        new_summary: str | None = None
+
+        try:
+            resolved = resolve_runtime_config()
+            if resolved.is_configured:
+                provider = get_model_provider(resolved.provider)
+                llm = provider.create_chat_model(
+                    resolved,
+                    temperature=0.1,
+                    max_tokens=220,
+                )
+
+                transcript = "\n".join(
+                    f"{m.role}: {m.content[:300]}" for m in messages[-20:] if m.content
+                )
+                prompt = (
+                    "Summarize this property-search conversation memory in <= 8 bullet points. "
+                    "Keep stable preferences and constraints (budget, area, type, exclusions, goals). "
+                    "Avoid temporary filler. Keep user language.\n\n"
+                    f"Previous summary:\n{existing_summary or '(none)'}\n\n"
+                    f"Recent transcript:\n{transcript}\n\n"
+                    "Return plain text bullets only."
+                )
+                response = await llm.ainvoke(prompt)
+                content = _llm_response_to_text(response).strip()
+                if content:
+                    new_summary = content[:2000]
+        except Exception as exc:
+            logger.warning(
+                "LLM rolling summary failed, falling back to heuristic: %s", exc
+            )
+
+        if not new_summary:
+            new_summary = self._heuristic_rolling_summary(existing_summary, messages)
+
+        metadata["rolling_summary"] = new_summary
+        metadata["summarized_user_turns"] = user_turns
+        metadata["summary_updated_at"] = datetime.now(timezone.utc).isoformat()
+        session.extra_data = metadata
+        self.db.commit()
+        return True
+
     # ============= Title Generation =============
 
     async def generate_title(
@@ -222,7 +363,8 @@ User's first message: {first_user_msg.content[:500]}
 Title:"""
 
             response = await llm.ainvoke(prompt)
-            title = response.content.strip()[:50] if response.content else None
+            title_text = _llm_response_to_text(response).strip()
+            title = title_text[:50] if title_text else None
 
             if title:
                 session.title = title

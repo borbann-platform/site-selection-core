@@ -67,9 +67,9 @@ export function AgentStepCard({ step, className }: AgentStepCardProps) {
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <div
         className={cn(
-          "overflow-hidden rounded-[1.35rem] border border-black/8 bg-white/80 shadow-[0_10px_24px_rgba(15,23,42,0.05)] dark:border-white/10 dark:bg-white/[0.04] dark:shadow-none",
+          "overflow-hidden rounded-[1.15rem] border border-border/70 bg-card/90 shadow-sm",
           step.status === "running" &&
-            "border-brand/18 bg-brand/[0.045] dark:bg-brand/[0.08]",
+            "border-brand/18 bg-brand/[0.045]",
           step.status === "error" && "border-rose-500/18 bg-rose-500/[0.04]",
           className
         )}
@@ -77,7 +77,7 @@ export function AgentStepCard({ step, className }: AgentStepCardProps) {
         <CollapsibleTrigger asChild>
           <button
             type="button"
-            className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-black/[0.025] dark:hover:bg-white/[0.03]"
+            className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/35"
           >
             {hasDetails ? (
               isOpen ? (
@@ -89,7 +89,7 @@ export function AgentStepCard({ step, className }: AgentStepCardProps) {
               <span className="w-[14px]" />
             )}
 
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-black/8 bg-black/[0.03] dark:border-white/10 dark:bg-white/[0.05]">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/70 bg-muted/35">
               {getStepIcon(step.type)}
             </span>
 
@@ -97,7 +97,7 @@ export function AgentStepCard({ step, className }: AgentStepCardProps) {
               <div className="truncate text-[13px] font-medium text-foreground">
                 {step.name}
               </div>
-              <div className="mt-0.5 text-[11px] uppercase tracking-[0.14em] text-foreground/45">
+              <div className="mt-0.5 text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
                 {step.type === "thinking"
                   ? "reasoning"
                   : step.type === "waiting_user"
@@ -117,13 +117,13 @@ export function AgentStepCard({ step, className }: AgentStepCardProps) {
         </CollapsibleTrigger>
 
         <CollapsibleContent>
-          <div className="space-y-3 border-t border-black/6 px-4 pb-4 pt-3 dark:border-white/8">
+          <div className="space-y-3 border-t border-border/60 px-4 pb-4 pt-3">
             {step.input && Object.keys(step.input).length > 0 && (
               <section>
-                <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-foreground/45">
+                <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                   Input
                 </div>
-                <pre className="overflow-x-auto rounded-[1rem] border border-black/8 bg-black/[0.03] px-3 py-2 text-[11px] leading-5 text-foreground/72 dark:border-white/10 dark:bg-white/[0.04]">
+                <pre className="overflow-x-auto rounded-[0.95rem] border border-border/70 bg-muted/35 px-3 py-2 text-[11px] leading-5 text-foreground/72">
                   {JSON.stringify(step.input, null, 2)}
                 </pre>
               </section>
@@ -131,11 +131,11 @@ export function AgentStepCard({ step, className }: AgentStepCardProps) {
 
             {step.output && (
               <section>
-                <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-foreground/45">
+                <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                   Output
                 </div>
                 {step.type === "thinking" || step.type === "waiting_user" ? (
-                  <div className="rounded-[1rem] border border-black/8 bg-black/[0.02] px-3 py-2 dark:border-white/10 dark:bg-white/[0.03]">
+                  <div className="rounded-[0.95rem] border border-border/70 bg-muted/30 px-3 py-2">
                     <StreamingMarkdown
                       content={step.output}
                       isStreaming={step.status === "running"}
@@ -144,7 +144,7 @@ export function AgentStepCard({ step, className }: AgentStepCardProps) {
                 ) : (
                   <pre
                     className={cn(
-                      "max-h-56 overflow-auto rounded-[1rem] border border-black/8 bg-black/[0.03] px-3 py-2 text-[11px] leading-5 text-foreground/72 dark:border-white/10 dark:bg-white/[0.04]",
+                      "max-h-56 overflow-auto rounded-[0.95rem] border border-border/70 bg-muted/35 px-3 py-2 text-[11px] leading-5 text-foreground/72",
                       step.status === "error" && "text-rose-700 dark:text-rose-300"
                     )}
                   >
@@ -172,7 +172,7 @@ export function AgentStepBadge({ step, onClick }: AgentStepBadgeProps) {
       onClick={onClick}
       className={cn(
         "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-medium transition-colors",
-        "border-black/8 bg-white/80 text-foreground/72 hover:bg-black/[0.03] dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.07]",
+        "border-border/70 bg-card text-foreground/72 hover:bg-muted/35",
         step.status === "running" && "border-brand/18 bg-brand/10 text-brand",
         step.status === "error" && "border-rose-500/18 bg-rose-500/10 text-rose-700 dark:text-rose-300"
       )}

@@ -262,6 +262,7 @@ export const chatApi = {
       sessionId?: string;
       attachments?: Attachment[];
       runtimeConfig?: AgentRuntimeConfig;
+      onSessionId?: (sessionId: string) => void;
     }
   ): AsyncGenerator<AgentStreamEvent, void, unknown> {
     const token = getAccessToken();
@@ -291,6 +292,12 @@ export const chatApi = {
         .catch(() => ({ detail: "Failed to start agent stream" }));
       throw new Error(error.detail || `HTTP ${response.status}`);
     }
+
+    const returnedSessionId = response.headers.get("X-Session-ID");
+    if (returnedSessionId && options?.onSessionId) {
+      options.onSessionId(returnedSessionId);
+    }
+
     if (!response.body) throw new Error("No response body");
 
     const reader = response.body.getReader();

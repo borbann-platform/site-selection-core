@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { MapViewState, PickingInfo } from "@deck.gl/core";
 import { api } from "@/lib/api";
+import { chatApi } from "@/lib/chatApi";
 import { toast } from "sonner";
 import type {
   Attachment,
@@ -92,6 +93,49 @@ export interface DeckGLObject {
 export const BANGKOK_LAT = 13.7563;
 export const BANGKOK_LON = 100.5018;
 const FILTER_DEBOUNCE_MS = 250;
+const RECENT_MAP_SELECTIONS_STORAGE_KEY = "borban.recent-map-selections";
+const MAX_RECENT_MAP_SELECTIONS = 6;
+
+function isAttachmentRecord(value: unknown): value is Attachment {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.id === "string" &&
+    (candidate.type === "location" || candidate.type === "bbox") &&
+    typeof candidate.label === "string" &&
+    typeof candidate.data === "object" &&
+    candidate.data !== null
+  );
+}
+
+function getAttachmentHistoryKey(attachment: Attachment): string {
+  if (attachment.type === "location") {
+    const lat = typeof attachment.data.lat === "number" ? attachment.data.lat.toFixed(6) : "";
+    const lon = typeof attachment.data.lon === "number" ? attachment.data.lon.toFixed(6) : "";
+    return `location:${lat}:${lon}`;
+  }
+
+  if (attachment.type === "bbox") {
+    const minLat = typeof attachment.data.minLat === "number" ? attachment.data.minLat.toFixed(6) : "";
+    const minLon = typeof attachment.data.minLon === "number" ? attachment.data.minLon.toFixed(6) : "";
+    const maxLat = typeof attachment.data.maxLat === "number" ? attachment.data.maxLat.toFixed(6) : "";
+    const maxLon = typeof attachment.data.maxLon === "number" ? attachment.data.maxLon.toFixed(6) : "";
+    return `bbox:${minLat}:${minLon}:${maxLat}:${maxLon}`;
+  }
+
+  return `${attachment.type}:${attachment.label}`;
+}
+
+function cloneAttachmentForReuse(attachment: Attachment): Attachment {
+  return {
+    ...attachment,
+    id: `${attachment.type}-${Date.now()}`,
+    data: { ...attachment.data },
+  };
+}
 
 function toFiniteNumber(value: unknown): number | undefined {
   const num = Number(value);
@@ -151,12 +195,14 @@ export function usePropertyExplorer(districtFromUrl?: string) {
   // -- AI Chat interaction --
   const [selectionMode, setSelectionMode] = useState<SelectionMode>("none");
   const [chatAttachments, setChatAttachments] = useState<Attachment[]>([]);
+  const [recentMapSelections, setRecentMapSelections] = useState<Attachment[]>([]);
 
   // -- AI state --
   const [isAIExpanded, setIsAIExpanded] = useState(false);
   const [aiInput, setAiInput] = useState("");
   const [aiMessages, setAiMessages] = useState<AgentMessage[]>([]);
   const [isAIRunning, setIsAIRunning] = useState(false);
+  const [agentSessionId, setAgentSessionId] = useState<string | undefined>();
 
   // -- Bbox selection (4-click polygon) --
   const [bboxCorners, setBboxCorners] = useState<[number, number][]>([]);
@@ -175,6 +221,35 @@ export function usePropertyExplorer(districtFromUrl?: string) {
     stats: true,
     overlays: false,
   });
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(RECENT_MAP_SELECTIONS_STORAGE_KEY);
+      if (!stored) {
+        return;
+      }
+
+      const parsed = JSON.parse(stored);
+      if (!Array.isArray(parsed)) {
+        return;
+      }
+
+      setRecentMapSelections(parsed.filter(isAttachmentRecord).slice(0, MAX_RECENT_MAP_SELECTIONS));
+    } catch {
+      return;
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        RECENT_MAP_SELECTIONS_STORAGE_KEY,
+        JSON.stringify(recentMapSelections)
+      );
+    } catch {
+      return;
+    }
+  }, [recentMapSelections]);
 
   // ---- Data fetching ----
 
@@ -318,10 +393,13 @@ export function usePropertyExplorer(districtFromUrl?: string) {
 
       chatMessages.push({ role: "user" as const, content: fullMessage });
 
-      for await (const event of api.streamAgentChat(
-        chatMessages,
-        attachmentsToSend
-      )) {
+      for await (const event of chatApi.streamAgentChatWithSession(chatMessages, {
+        sessionId: agentSessionId,
+        attachments: attachmentsToSend,
+        onSessionId: (sessionId) => {
+          setAgentSessionId((prev) => prev ?? sessionId);
+        },
+      })) {
         setAiMessages((prev) => {
           const updated = [...prev];
           const lastIdx = updated.length - 1;
@@ -408,7 +486,7 @@ export function usePropertyExplorer(districtFromUrl?: string) {
     }
 
     setIsAIRunning(false);
-  }, [aiInput, isAIRunning, chatAttachments, aiMessages]);
+  }, [aiInput, isAIRunning, chatAttachments, aiMessages, agentSessionId]);
 
   const sanitizePropertyData = useCallback(
     (data: Record<string, unknown>): Record<string, unknown> => {
@@ -431,6 +509,37 @@ export function usePropertyExplorer(districtFromUrl?: string) {
     },
     []
   );
+
+  const rememberRecentMapSelection = useCallback((attachment: Attachment) => {
+    if (attachment.type !== "location" && attachment.type !== "bbox") {
+      return;
+    }
+
+    const nextKey = getAttachmentHistoryKey(attachment);
+    setRecentMapSelections((prev) => {
+      const filtered = prev.filter(
+        (item) => getAttachmentHistoryKey(item) !== nextKey
+      );
+      return [attachment, ...filtered].slice(0, MAX_RECENT_MAP_SELECTIONS);
+    });
+  }, []);
+
+  const handleReuseRecentSelection = useCallback((attachmentId: string) => {
+    setRecentMapSelections((prev) => {
+      const target = prev.find((item) => item.id === attachmentId);
+      if (!target) {
+        return prev;
+      }
+
+      setChatAttachments((current) => [...current, cloneAttachmentForReuse(target)]);
+
+      const targetKey = getAttachmentHistoryKey(target);
+      const reordered = prev.filter(
+        (item) => getAttachmentHistoryKey(item) !== targetKey
+      );
+      return [target, ...reordered].slice(0, MAX_RECENT_MAP_SELECTIONS);
+    });
+  }, []);
 
   const handleMapClick = useCallback(
     (info: PickingInfo<DeckGLObject>) => {
@@ -459,6 +568,7 @@ export function usePropertyExplorer(districtFromUrl?: string) {
           return;
         }
         setChatAttachments((prev) => [...prev, newAttachment]);
+        rememberRecentMapSelection(newAttachment);
         setSelectionMode("none");
         return;
       }
@@ -479,6 +589,7 @@ export function usePropertyExplorer(districtFromUrl?: string) {
             return;
           }
           setChatAttachments((prev) => [...prev, newAttachment]);
+          rememberRecentMapSelection(newAttachment);
           setBboxCorners([]);
           setSelectionMode("none");
         }
@@ -607,7 +718,7 @@ export function usePropertyExplorer(districtFromUrl?: string) {
         }
       }
     },
-    [selectionMode, bboxCorners, selectedProperty]
+    [selectionMode, bboxCorners, selectedProperty, rememberRecentMapSelection]
   );
 
   const handleAddPropertyToChat = useCallback(
@@ -668,10 +779,10 @@ export function usePropertyExplorer(districtFromUrl?: string) {
         label: `${name}${price ? ` - ${price}` : ""}${district ? ` (${district})` : ""}`,
       };
       setChatAttachments((prev) => [...prev, attachment]);
-      setSelectedProperty(null);
-      setPopupPosition(null);
-    },
-    [sanitizePropertyData]
+    setSelectedProperty(null);
+    setPopupPosition(null);
+  },
+  [sanitizePropertyData]
   );
 
   const handleKeyDown = useCallback(
@@ -712,12 +823,14 @@ export function usePropertyExplorer(districtFromUrl?: string) {
     setSelectionMode,
     chatAttachments,
     setChatAttachments,
+    recentMapSelections,
     isAIExpanded,
     setIsAIExpanded,
     aiInput,
     setAiInput,
     aiMessages,
     isAIRunning,
+    agentSessionId,
 
     // Bbox
     bboxCorners,
@@ -742,5 +855,6 @@ export function usePropertyExplorer(districtFromUrl?: string) {
     handleAISubmit,
     handleMapClick,
     handleAddPropertyToChat,
+    handleReuseRecentSelection,
   };
 }

@@ -10,14 +10,15 @@ import re
 import time
 import uuid as uuid_lib
 from typing import Any
+from typing import cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, SecretStr
 from sqlalchemy.orm import Session
 
 from src.config.agent_settings import agent_settings
-from src.config.database import get_db_session
+from src.config.database import SessionLocal, get_db_session
 from src.dependencies.auth import get_current_active_user
 from src.models.agent_runtime_credential import AgentRuntimeCredential
 from src.models.user import User
@@ -28,6 +29,7 @@ from src.services.model_provider import (
     list_supported_providers,
     resolve_runtime_config,
 )
+from src.services.agent_runtime_metadata import get_agent_engine_metadata
 from src.services.secret_encryption import decrypt_secret, encrypt_secret, mask_secret
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
@@ -48,6 +50,21 @@ def sanitize_json_value(obj):
             return None
         return obj
     return obj
+
+
+def _as_dict(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def _safe_float(value: Any) -> float | None:
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            return None
+    return None
 
 
 def is_finite_number(value: Any) -> bool:
@@ -96,7 +113,7 @@ def build_spatial_context_message(attachments: list[AttachmentData]) -> str:
 
     for attachment in attachments:
         # Sanitize attachment data to prevent NaN/Infinity issues
-        sanitized_data = sanitize_json_value(attachment.data)
+        sanitized_data: dict[str, Any] = _as_dict(sanitize_json_value(attachment.data))
 
         if attachment.type == "location":
             lat = sanitized_data.get("lat")
@@ -124,8 +141,17 @@ def build_spatial_context_message(attachments: list[AttachmentData]) -> str:
                 and max_lat is not None
             ):
                 # Calculate center point
-                center_lat = (float(min_lat) + float(max_lat)) / 2
-                center_lon = (float(min_lon) + float(max_lon)) / 2
+                south = _safe_float(min_lat)
+                north = _safe_float(max_lat)
+                west = _safe_float(min_lon)
+                east = _safe_float(max_lon)
+                if south is None or north is None or west is None or east is None:
+                    parts.append(
+                        "- BOUNDING BOX AREA: ignored due to invalid numeric bounds (validation failed)"
+                    )
+                    continue
+                center_lat = (south + north) / 2
+                center_lon = (west + east) / 2
 
                 parts.append(
                     f"- BOUNDING BOX AREA: The user has drawn an area on the map"
@@ -238,7 +264,9 @@ def build_agent_error_payload(raw_error: Any) -> dict[str, Any]:
     lowered = provider_message.lower()
 
     title = "Model request failed"
-    user_message = "The provider request failed. Please retry or update provider settings."
+    user_message = (
+        "The provider request failed. Please retry or update provider settings."
+    )
     retryable = False
 
     if (
@@ -255,17 +283,15 @@ def build_agent_error_payload(raw_error: Any) -> dict[str, Any]:
         retryable = False
     elif status_code in {401, 403} or "invalid api key" in lowered:
         title = "Provider authentication failed"
-        user_message = (
-            "The provider key is invalid or unauthorized. Update your API key in Settings."
-        )
+        user_message = "The provider key is invalid or unauthorized. Update your API key in Settings."
     elif status_code == 404 or "model" in lowered and "not found" in lowered:
         title = "Model not found"
-        user_message = (
-            "The selected model is unavailable on this provider endpoint. Choose a valid model."
-        )
+        user_message = "The selected model is unavailable on this provider endpoint. Choose a valid model."
     elif status_code in {408, 500, 502, 503, 504} or "timeout" in lowered:
         title = "Provider temporarily unavailable"
-        user_message = "The provider is temporarily unavailable. Please retry in a moment."
+        user_message = (
+            "The provider is temporarily unavailable. Please retry in a moment."
+        )
         retryable = True
 
     return {
@@ -424,8 +450,11 @@ async def chat_status():
         else None,
         "max_iterations": agent_settings.AGENT_MAX_ITERATIONS,
         "reasoning_mode": agent_settings.AGENT_REASONING_MODE,
+        "embedding_provider": agent_settings.EMBEDDING_PROVIDER,
+        "embedding_configured": agent_settings.is_embedding_provider_configured(),
         "clarification_loop": agent_settings.AGENT_ENABLE_CLARIFICATION_LOOP,
         "supported_providers": list_supported_providers(),
+        "engine": get_agent_engine_metadata(),
     }
 
 
@@ -437,7 +466,17 @@ async def get_supported_model_providers():
         "default_provider": agent_settings.AGENT_PROVIDER,
         "default_model": resolved.model,
         "reasoning_mode": agent_settings.AGENT_REASONING_MODE,
+        "embedding_provider": agent_settings.EMBEDDING_PROVIDER,
+        "embedding_model": (
+            agent_settings.OPENAI_EMBEDDING_MODEL
+            if agent_settings.EMBEDDING_PROVIDER == "openai_compatible"
+            else agent_settings.EMBEDDING_MODEL
+        ),
         "supported_providers": list_supported_providers(),
+        "supported_embedding_providers": [
+            {"id": "gemini", "label": "Google Gemini Embeddings"},
+            {"id": "openai_compatible", "label": "OpenAI-Compatible Embeddings"},
+        ],
     }
 
 
@@ -472,12 +511,24 @@ async def validate_model_provider_config(
             )
 
     resolved = resolve_runtime_config(runtime)
+    embedding_provider = agent_settings.EMBEDDING_PROVIDER
+    embedding_valid = agent_settings.is_embedding_provider_configured(
+        embedding_provider
+    )
+    missing: list[str] = []
+    if not resolved.is_configured:
+        missing.append("credentials")
+    if not embedding_valid:
+        missing.append(f"embedding_credentials:{embedding_provider}")
+
     return {
         "valid": resolved.is_configured,
         "provider": resolved.provider,
         "model": resolved.model,
         "reasoning_mode": resolved.reasoning_mode,
-        "missing": [] if resolved.is_configured else ["credentials"],
+        "embedding_provider": embedding_provider,
+        "embedding_valid": embedding_valid,
+        "missing": missing,
     }
 
 
@@ -504,14 +555,16 @@ def _load_user_runtime_credential(
 def _credential_to_runtime_config(
     credential: AgentRuntimeCredential,
 ) -> RuntimeModelConfig:
-    api_key: str | None = None
+    api_key: SecretStr | None = None
     if credential.encrypted_api_key:
-        api_key = decrypt_secret(credential.encrypted_api_key)
+        decrypted = decrypt_secret(credential.encrypted_api_key)
+        if decrypted:
+            api_key = SecretStr(decrypted)
 
     return RuntimeModelConfig(
         provider=credential.provider,  # type: ignore[arg-type]
         model=credential.model,
-        api_key=api_key,
+        api_key=cast(Any, api_key),
         base_url=credential.base_url,
         organization=credential.organization,
         use_vertex_ai=credential.use_vertex_ai,
@@ -601,7 +654,9 @@ async def get_runtime_config(
             runtime=RuntimeModelConfig(provider=agent_settings.AGENT_PROVIDER),
             has_api_key=False,
         )
-    key_mask = mask_secret(runtime.api_key.get_secret_value() if runtime.api_key else "")
+    key_mask = mask_secret(
+        runtime.api_key.get_secret_value() if runtime.api_key else ""
+    )
     return _build_runtime_config_response(
         source="database",
         runtime=runtime.model_copy(update={"api_key": None}),
@@ -648,7 +703,9 @@ async def upsert_runtime_config(
 
     persisted_runtime = _credential_to_runtime_config(credential)
     key_mask = mask_secret(
-        persisted_runtime.api_key.get_secret_value() if persisted_runtime.api_key else ""
+        persisted_runtime.api_key.get_secret_value()
+        if persisted_runtime.api_key
+        else ""
     )
     return _build_runtime_config_response(
         source="database",
@@ -721,7 +778,9 @@ async def generate_real_agent_stream_with_steps(
     from src.services.conversation_memory import conversation_memory
 
     # Convert messages to dict format
-    message_dicts = [{"role": m.role, "content": m.content} for m in messages]
+    message_dicts: list[dict[str, Any]] = [
+        {"role": m.role, "content": m.content} for m in messages
+    ]
 
     # Build spatial context from attachments
     spatial_context = ""
@@ -747,11 +806,12 @@ async def generate_real_agent_stream_with_steps(
             db_session = chat_service.get_session(
                 uuid_lib.UUID(db_session_id), user.id, include_messages=True
             )
-            if db_session and db_session.messages:
-                history = [
-                    {"role": m.role, "content": m.content}
-                    for m in db_session.messages[-10:]  # Last 10 messages for context
-                ]
+            if db_session:
+                history = chat_service.get_messages_for_agent_context(
+                    uuid_lib.UUID(db_session_id),
+                    user.id,
+                    recent_limit=10,
+                )
                 # Prepend history (excluding current message which is already in message_dicts)
                 if history:
                     message_dicts = history + message_dicts[-1:]
@@ -796,8 +856,19 @@ async def generate_real_agent_stream_with_steps(
     collected_tool_calls: list[dict[str, Any]] = []  # Track tool calls for persistence
 
     try:
+        engine_messages: list[dict[str, Any]] = [dict(m) for m in message_dicts]
+        if attachments_data and engine_messages:
+            last_user_idx = None
+            for i in range(len(engine_messages) - 1, -1, -1):
+                if engine_messages[i]["role"] == "user":
+                    last_user_idx = i
+                    break
+            if last_user_idx is not None:
+                target_message = cast(dict[str, Any], engine_messages[last_user_idx])
+                target_message["attachments"] = attachments_data
+
         async for event in agent_service.astream(
-            message_dicts, runtime_config=runtime_config
+            engine_messages, runtime_config=runtime_config
         ):
             event_type = event.get("type", "")
             content = event.get("content", "")
@@ -924,9 +995,7 @@ async def generate_real_agent_stream_with_steps(
                     suppressed_token_buffer.append(str(content))
                     if not thinking_step_id:
                         thinking_sequence_index += 1
-                        thinking_step_id = (
-                            f"step-thinking-{int(time.time() * 1000)}-{thinking_sequence_index}"
-                        )
+                        thinking_step_id = f"step-thinking-{int(time.time() * 1000)}-{thinking_sequence_index}"
                         thinking_step_start = int(time.time() * 1000)
                         thinking_running = {
                             "id": thinking_step_id,
@@ -1028,6 +1097,12 @@ async def generate_real_agent_stream_with_steps(
                     role="assistant",
                     content=response_content,
                     tool_calls=collected_tool_calls if collected_tool_calls else None,
+                )
+                await chat_service.refresh_rolling_summary(
+                    session_id=uuid_lib.UUID(db_session_id),
+                    user_id=user.id,
+                    force=False,
+                    every_n_user_turns=4,
                 )
             except Exception as e:
                 logger.warning(f"Failed to save assistant response to DB: {e}")
@@ -1134,15 +1209,21 @@ async def agent_chat(
         },
     )
 
-    # Schedule title generation in background (only for new sessions)
+    # Schedule title generation + summary refresh in background (only for new sessions)
     if db_session_id and len(request.messages) == 1:
 
         async def generate_title_background():
             try:
-                chat_service = ChatService(db)
-                await chat_service.generate_title(
-                    uuid_lib.UUID(db_session_id), current_user.id
-                )
+                with SessionLocal() as background_db:
+                    chat_service = ChatService(background_db)
+                    await chat_service.refresh_rolling_summary(
+                        session_id=uuid_lib.UUID(db_session_id),
+                        user_id=current_user.id,
+                        force=True,
+                    )
+                    await chat_service.generate_title(
+                        uuid_lib.UUID(db_session_id), current_user.id
+                    )
             except Exception as e:
                 logger.warning(f"Background title generation failed: {e}")
 

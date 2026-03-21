@@ -1,4 +1,9 @@
-import { Train, MapPin, GraduationCap, Hexagon } from "lucide-react";
+import {
+  GraduationCap,
+  Hexagon,
+  MapPinLine,
+  Train,
+} from "@phosphor-icons/react/dist/ssr";
 import { cn } from "@/lib/utils";
 import type { OverlayState } from "@/hooks/usePropertyExplorer";
 
@@ -44,13 +49,13 @@ export function OverlayControls({
         onClick={() =>
           setOverlays((o) => ({ ...o, transitRail: !o.transitRail }))
         }
-        icon={<Train className="w-3.5 h-3.5" />}
+        icon={<Train className="h-3.5 w-3.5" weight="duotone" />}
         label="Transit"
       />
       <ToggleButton
         active={overlays.pois}
         onClick={() => setOverlays((o) => ({ ...o, pois: !o.pois }))}
-        icon={<MapPin className="w-3.5 h-3.5" />}
+        icon={<MapPinLine className="h-3.5 w-3.5" weight="duotone" />}
         label="POIs"
       />
       <ToggleButton
@@ -58,7 +63,7 @@ export function OverlayControls({
         onClick={() =>
           setOverlays((o) => ({ ...o, schools: !o.schools }))
         }
-        icon={<GraduationCap className="w-3.5 h-3.5" />}
+        icon={<GraduationCap className="h-3.5 w-3.5" weight="duotone" />}
         label="Schools"
       />
       <ToggleButton
@@ -66,7 +71,7 @@ export function OverlayControls({
         onClick={() =>
           setOverlays((o) => ({ ...o, h3Hexagons: !o.h3Hexagons }))
         }
-        icon={<Hexagon className="w-3.5 h-3.5" />}
+        icon={<Hexagon className="h-3.5 w-3.5" weight="duotone" />}
         label="H3"
       />
     </div>

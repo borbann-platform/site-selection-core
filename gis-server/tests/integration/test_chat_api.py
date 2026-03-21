@@ -5,6 +5,7 @@ Tests the chat endpoints including streaming and session management.
 """
 
 import json
+import uuid
 
 import pytest
 
@@ -135,6 +136,134 @@ class TestChatAgentEndpoint:
         event_types = [e.get("event") for e in events]
         assert any(t in event_types for t in ["thinking", "token", "step", "done"])
 
+    def test_agent_stream_event_ordering_contract(self, client, monkeypatch):
+        """Stream should emit thinking first and done last."""
+        from src.services import agent_graph
+
+        async def fake_stream(*args, **kwargs):
+            yield {
+                "type": "tool_call",
+                "content": {"name": "search_properties", "input": {}},
+            }
+            yield {"type": "tool_result", "content": "ok"}
+            yield {"type": "token", "content": "hello"}
+            yield {"type": "final", "content": "hello"}
+
+        monkeypatch.setattr(agent_graph.agent_service, "astream", fake_stream)
+
+        response = client.post(
+            "/api/v1/chat/agent",
+            json={"messages": [{"role": "user", "content": "Find condo in Ari"}]},
+        )
+
+        assert response.status_code == 200
+        events = [
+            json.loads(line[6:])
+            for line in response.text.split("\n")
+            if line.startswith("data: ") and line[6:] and line[6:] != "[DONE]"
+        ]
+        assert events[0]["event"] == "thinking"
+        assert events[-1]["event"] == "done"
+
+    def test_agent_stream_blocked_tool_evidence_path(self, client, monkeypatch):
+        """Blocked tool-evidence should emit waiting_user step and done."""
+        from src.services import agent_graph
+
+        async def fake_stream(*args, **kwargs):
+            yield {
+                "type": "clarification",
+                "content": {
+                    "message": "Need tool evidence first",
+                    "missing_constraints": ["tool_evidence"],
+                    "questions": [],
+                },
+            }
+
+        monkeypatch.setattr(agent_graph.agent_service, "astream", fake_stream)
+
+        response = client.post(
+            "/api/v1/chat/agent",
+            json={
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": "Compare Bangkok condo prices for next 5 years",
+                    }
+                ]
+            },
+        )
+
+        assert response.status_code == 200
+        events = [
+            json.loads(line[6:])
+            for line in response.text.split("\n")
+            if line.startswith("data: ") and line[6:] and line[6:] != "[DONE]"
+        ]
+        step_events = [e for e in events if e.get("event") == "step"]
+        assert any(
+            (evt.get("data") or {}).get("type") == "waiting_user" for evt in step_events
+        )
+        assert events[-1]["event"] == "done"
+
+    def test_agent_finance_query_can_use_runtime_without_compare_prompt(self, client):
+        response = client.post(
+            "/api/v1/chat/agent",
+            json={
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": "จะซื้อบ้าน 8 ล้าน เงินเดือน 80,000 ภาระผ่อนรถ 12,000 ช่วยคำนวณวงเงินกู้สูงสุด DSR และดอกเบี้ย",
+                    }
+                ]
+            },
+        )
+
+        assert response.status_code == 200
+        assert (
+            "Which two or more districts/properties should I compare?"
+            not in response.text
+        )
+
+    def test_agent_rewrite_emits_finance_tool_call(self, client):
+        response = client.post(
+            "/api/v1/chat/agent",
+            json={
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": "จะซื้อบ้าน 8 ล้าน เงินเดือน 80,000 ภาระผ่อนรถ 12,000 ช่วยคำนวณ DSR และดอกเบี้ย",
+                    }
+                ]
+            },
+        )
+
+        assert response.status_code == 200
+        assert "compute_dsr_and_affordability" in response.text
+
+    def test_agent_rewrite_emits_legal_tool_call(self, client):
+        response = client.post(
+            "/api/v1/chat/agent",
+            json={
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": "เจ้าของเสียชีวิตแล้วยังไม่ได้ตั้งผู้จัดการมรดก ต้องทำอย่างไร",
+                    }
+                ]
+            },
+        )
+
+        assert response.status_code == 200
+        assert "legal_estate_sale_checklist_th" in response.text
+
+    def test_chat_status_exposes_engine_metadata(self, client):
+        response = client.get("/api/v1/chat/status")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["engine"]["kind"] == "workflow_rewrite"
+        assert len(data["engine"]["revision"]) == 12
+
 
 class TestRuntimeConfigStorage:
     """Tests for encrypted BYOK runtime config persistence endpoints."""
@@ -204,6 +333,32 @@ class TestSessionManagement:
         clear_response = client.delete(f"/api/v1/chat/sessions/{session_id}")
 
         assert clear_response.status_code == 204
+
+    def test_archive_session_triggers_summary_refresh(self, client, monkeypatch):
+        """Archiving a session should trigger forced summary refresh."""
+        from src.services.chat_service import ChatService
+
+        calls: list[tuple[uuid.UUID, uuid.UUID, bool]] = []
+
+        async def fake_refresh(self, session_id, user_id, force=False, **kwargs):
+            calls.append((session_id, user_id, force))
+            return True
+
+        monkeypatch.setattr(ChatService, "refresh_rolling_summary", fake_refresh)
+
+        create_response = client.post("/api/v1/chat/sessions", json={})
+        session_id = create_response.json()["id"]
+
+        archive_response = client.patch(
+            f"/api/v1/chat/sessions/{session_id}",
+            json={"is_archived": True},
+        )
+
+        assert archive_response.status_code == 200
+        assert archive_response.json()["is_archived"] is True
+        assert len(calls) == 1
+        assert calls[0][0] == uuid.UUID(session_id)
+        assert calls[0][2] is True
 
 
 class TestLegacyChatEndpoint:

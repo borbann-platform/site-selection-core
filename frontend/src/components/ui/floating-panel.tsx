@@ -10,7 +10,7 @@ import {
   useEffect,
   type ReactNode,
 } from "react";
-import { GripHorizontal, Minus, Plus, X } from "lucide-react";
+import { DotsSix, Minus, Plus, X } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 
 interface FloatingPanelProps {
@@ -175,7 +175,7 @@ export function FloatingPanel({
       >
         <div className="flex items-center gap-2 min-w-0">
           {draggable && (
-            <GripHorizontal className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
+            <DotsSix className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" weight="bold" />
           )}
           {icon && <span className="shrink-0">{icon}</span>}
           {title && (

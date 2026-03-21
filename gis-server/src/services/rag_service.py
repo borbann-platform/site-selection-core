@@ -7,6 +7,7 @@ import logging
 
 from langchain_core.documents import Document
 from langchain_core.tools import tool
+from langchain_openai import OpenAIEmbeddings
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_postgres import PGVector
 from sqlalchemy import text
@@ -29,14 +30,24 @@ class RagService:
         if self._initialized:
             return
 
-        if not agent_settings.is_configured:
-            raise ValueError("Agent not configured. Set GOOGLE_API_KEY in .env file.")
+        embedding_provider = agent_settings.EMBEDDING_PROVIDER
+        if not agent_settings.is_embedding_provider_configured(embedding_provider):
+            raise ValueError(
+                f"Embedding provider '{embedding_provider}' is not configured. "
+                "Set embedding provider credentials in environment/runtime settings."
+            )
 
-        # Initialize Gemini embeddings
-        self._embeddings = GoogleGenerativeAIEmbeddings(
-            model=agent_settings.EMBEDDING_MODEL,
-            google_api_key=agent_settings.GOOGLE_API_KEY,
-        )
+        if embedding_provider == "openai_compatible":
+            self._embeddings = OpenAIEmbeddings(
+                model=agent_settings.OPENAI_EMBEDDING_MODEL,
+                api_key=agent_settings.OPENAI_API_KEY,
+                base_url=agent_settings.OPENAI_BASE_URL,
+            )
+        else:
+            self._embeddings = GoogleGenerativeAIEmbeddings(
+                model=agent_settings.EMBEDDING_MODEL,
+                google_api_key=agent_settings.GOOGLE_API_KEY,
+            )
 
         # Initialize PGVector store
         # Convert DATABASE_URL to async format if needed
@@ -199,7 +210,7 @@ def retrieve_knowledge(query: str) -> str:
 
     except Exception as e:
         logger.error(f"Knowledge retrieval failed: {e}")
-        return f"Error retrieving knowledge: {e}"
+        return f"Knowledge retrieval is temporarily unavailable. Reason: {e}"
 
 
 def chunk_text(

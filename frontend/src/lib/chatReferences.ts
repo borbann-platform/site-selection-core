@@ -39,10 +39,11 @@ const PROPERTY_MARKER_RE =
   /<!--PROPERTIES_START-->([\s\S]*?)<!--PROPERTIES_END-->/g;
 const REFERENCE_MARKER_RE =
   /<!--CHAT_REFERENCES_START-->([\s\S]*?)<!--CHAT_REFERENCES_END-->/g;
-const HOUSE_ID_RE = /\b(?:house|property)\s+id\s*[:#]?\s*(\d+)\b/gi;
+const PROPERTY_ID_RE =
+  /\b(?:house|property)(?:\s+(?:id|ref))?\s*[:#]?\s*(\d+)\b/gi;
 const HOUSE_LOCATOR_RE = /\bhouse:(\d+)\b/gi;
 const LISTING_KEY_RE =
-  /\b(?:listing(?:\s+key)?|listing_key)\s*[:=]?\s*((?:house|scraped|market|condo):[A-Za-z0-9:_-]+)\b/gi;
+  /\b(?:listing(?:\s+(?:key|id))?|listing_key)\s*[:=#]?\s*((?:house|scraped|market|condo):[A-Za-z0-9:_-]+)\b/gi;
 const LOCATOR_RE =
   /\blocator\s*[:=]?\s*((?:listing:)?(?:house|scraped|market|condo):[A-Za-z0-9:_-]+)\b/gi;
 
@@ -137,7 +138,7 @@ function applyReferencePlaceholders(segment: string) {
     });
   });
 
-  output = output.replace(HOUSE_ID_RE, (match, propertyId) => {
+  output = output.replace(PROPERTY_ID_RE, (match, propertyId) => {
     if (typeof propertyId !== "string") {
       return match;
     }
@@ -218,9 +219,7 @@ function parseReferencePayload(content: string): ChatEntityReference[] {
           note: typeof item.note === "string" ? item.note : undefined,
         });
       }
-    } catch {
-      continue;
-    }
+    } catch {}
   }
 
   return references;
@@ -285,9 +284,7 @@ export function parseStructuredPropertyReferences(
           lon: typeof item.lon === "number" ? item.lon : undefined,
         });
       }
-    } catch {
-      continue;
-    }
+    } catch {}
   }
 
   return properties;
@@ -325,19 +322,18 @@ export function extractChatEntityReferences(
         listingKey: seed.listingKey,
         note: seed.district,
       });
-      continue;
     }
 
     references.push({
       key: `property:${seed.id}`,
-      label: seed.style ? `${seed.style} · house ${seed.id}` : `House ${seed.id}`,
+      label: seed.style ? `${seed.style} · property ${seed.id}` : `Property ${seed.id}`,
       kind: "property",
       propertyId: String(seed.id),
       note: seed.district,
     });
   }
 
-  for (const match of cleanedContent.matchAll(HOUSE_ID_RE)) {
+  for (const match of cleanedContent.matchAll(PROPERTY_ID_RE)) {
     const propertyId = match[1];
     if (!propertyId) {
       continue;
