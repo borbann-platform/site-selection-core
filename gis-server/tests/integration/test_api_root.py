@@ -1,11 +1,4 @@
-"""
-Integration tests for API root and documentation endpoints.
-
-These tests verify that the FastAPI application is correctly configured
-and that basic endpoints are accessible.
-"""
-
-import pytest
+"""Integration tests for API root, health, and documentation endpoints."""
 
 
 class TestRootEndpoints:
@@ -19,6 +12,18 @@ class TestRootEndpoints:
         data = response.json()
         assert "status" in data
         assert data["status"] == "API is running"
+
+    def test_healthz_returns_ok(self, client):
+        response = client.get("/healthz")
+
+        assert response.status_code == 200
+        assert response.json() == {"status": "ok"}
+
+    def test_readyz_returns_ready(self, client):
+        response = client.get("/readyz")
+
+        assert response.status_code == 200
+        assert response.json() == {"status": "ready"}
 
     def test_openapi_docs_available(self, client):
         """Test that OpenAPI docs (Swagger UI) are available."""

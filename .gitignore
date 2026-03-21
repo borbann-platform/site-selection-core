@@ -1,6 +1,7 @@
 node_modules
 .DS_Store
 .env
+.env.production
 .idea
 .vscode
 coverage
@@ -41,3 +42,7 @@ gis-server/models/baseline/all_models_comparison.json
 
 # Presentation/planning docs (one-time use)
 presentation_structure.md
+
+# Deployment state
+deploy/state/
+runtime/

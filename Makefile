@@ -5,7 +5,7 @@
   backend-install backend-dev backend-test backend-lint backend-format \
   backend-sync-images-minio backend-sync-images-minio-pipeline \
   frontend-install frontend-dev frontend-test frontend-lint frontend-format \
-  test lint format
+  prod-config prod-up prod-down test lint format
 
 COMPOSE ?= docker compose -f gis-server/docker-compose.yml
 
@@ -38,6 +38,9 @@ help:
 	@echo "  frontend-test     Run frontend tests"
 	@echo "  frontend-lint     Run frontend lint"
 	@echo "  frontend-format   Format frontend code"
+	@echo "  prod-config       Validate production compose config"
+	@echo "  prod-up           Start production compose stack"
+	@echo "  prod-down         Stop production compose stack"
 	@echo "  test              Run backend + frontend tests"
 	@echo "  lint              Run backend + frontend lint"
 	@echo "  format            Format backend + frontend"
@@ -123,6 +126,15 @@ frontend-lint:
 
 frontend-format:
 	cd frontend && npm run format
+
+prod-config:
+	APP_ENV_FILE=deploy/env.production.example docker compose --env-file deploy/env.production.example -f docker-compose.prod.yml config
+
+prod-up:
+	APP_ENV_FILE=.env.production docker compose --env-file .env.production -f docker-compose.prod.yml up -d
+
+prod-down:
+	APP_ENV_FILE=.env.production docker compose --env-file .env.production -f docker-compose.prod.yml down
 
 test: backend-test frontend-test
 
