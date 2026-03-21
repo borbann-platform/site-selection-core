@@ -205,7 +205,20 @@ class TestChatAgentEndpoint:
         )
         assert events[-1]["event"] == "done"
 
-    def test_agent_finance_query_can_use_runtime_without_compare_prompt(self, client):
+    def test_agent_finance_query_can_use_runtime_without_compare_prompt(
+        self, client, monkeypatch
+    ):
+        from src.services import agent_graph
+
+        async def fake_stream(*args, **kwargs):
+            yield {
+                "type": "tool_call",
+                "content": {"name": "compute_dsr_and_affordability", "input": {}},
+            }
+            yield {"type": "tool_result", "content": "ok"}
+            yield {"type": "final", "content": "ผลการคำนวณ DSR พร้อมแล้ว"}
+
+        monkeypatch.setattr(agent_graph.agent_service, "astream", fake_stream)
         response = client.post(
             "/api/v1/chat/agent",
             json={
@@ -224,7 +237,18 @@ class TestChatAgentEndpoint:
             not in response.text
         )
 
-    def test_agent_rewrite_emits_finance_tool_call(self, client):
+    def test_agent_rewrite_emits_finance_tool_call(self, client, monkeypatch):
+        from src.services import agent_graph
+
+        async def fake_stream(*args, **kwargs):
+            yield {
+                "type": "tool_call",
+                "content": {"name": "compute_dsr_and_affordability", "input": {}},
+            }
+            yield {"type": "tool_result", "content": "ok"}
+            yield {"type": "final", "content": "เสร็จแล้ว"}
+
+        monkeypatch.setattr(agent_graph.agent_service, "astream", fake_stream)
         response = client.post(
             "/api/v1/chat/agent",
             json={
@@ -240,7 +264,18 @@ class TestChatAgentEndpoint:
         assert response.status_code == 200
         assert "compute_dsr_and_affordability" in response.text
 
-    def test_agent_rewrite_emits_legal_tool_call(self, client):
+    def test_agent_rewrite_emits_legal_tool_call(self, client, monkeypatch):
+        from src.services import agent_graph
+
+        async def fake_stream(*args, **kwargs):
+            yield {
+                "type": "tool_call",
+                "content": {"name": "legal_estate_sale_checklist_th", "input": {}},
+            }
+            yield {"type": "tool_result", "content": "ok"}
+            yield {"type": "final", "content": "เช็กลิสต์พร้อมแล้ว"}
+
+        monkeypatch.setattr(agent_graph.agent_service, "astream", fake_stream)
         response = client.post(
             "/api/v1/chat/agent",
             json={

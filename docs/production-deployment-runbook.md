@@ -216,15 +216,27 @@ The deploy workflow is also tightened to:
 - run local backend/frontend health checks on the VPS before marking success
 - store only the last healthy image tag for simple rollback
 
+`deploy/scripts/deploy.sh` now also handles two production wrinkles directly:
+
+- it always pulls infra images, but only pulls app images when the requested tag is missing locally by default
+- it runs an idempotent app bootstrap step that enables required extensions, creates tables, and recreates helper views before the final app restart
+
+Useful environment toggles:
+
+- `APP_IMAGE_PULL_POLICY=missing|always|never`
+- `RUN_APP_BOOTSTRAP=1|0`
+- `ROLLBACK_PULL_POLICY=missing|always|never`
+
 ## Phase 9 - First deployment checklist
 
 - `docker compose --env-file .env.production -f docker-compose.prod.yml config`
-- `docker compose --env-file .env.production -f docker-compose.prod.yml pull`
-- `docker compose --env-file .env.production -f docker-compose.prod.yml up -d`
+- `IMAGE_TAG=<tag> APP_ENV_FILE=/opt/app/.env.production bash deploy/scripts/deploy.sh`
 - `curl http://127.0.0.1:8000/healthz`
 - `curl http://127.0.0.1:8000/readyz`
 - `curl http://127.0.0.1:3000/healthz`
 - `curl https://your-domain/healthz`
+
+If the first app images were loaded manually onto the VPS instead of pulled from GHCR, keep `APP_IMAGE_PULL_POLICY=missing` or set `APP_IMAGE_PULL_POLICY=never` for that one deploy.
 
 ## Phase 10 - Backup guidance
 

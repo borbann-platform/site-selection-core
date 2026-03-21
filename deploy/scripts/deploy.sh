@@ -8,8 +8,14 @@ PENDING_FILE="$STATE_DIR/pending_image_tag"
 ENV_FILE="${APP_ENV_FILE:-$ROOT_DIR/.env.production}"
 BACKEND_HEALTH_URL="${BACKEND_HEALTH_URL:-http://127.0.0.1:8000/readyz}"
 FRONTEND_HEALTH_URL="${FRONTEND_HEALTH_URL:-http://127.0.0.1:3000/healthz}"
+APP_IMAGE_PULL_POLICY="${APP_IMAGE_PULL_POLICY:-missing}"
+RUN_APP_BOOTSTRAP="${RUN_APP_BOOTSTRAP:-1}"
 
 mkdir -p "$STATE_DIR"
+
+COMPOSE=(docker compose --env-file "$ENV_FILE" -f docker-compose.prod.yml)
+INFRA_SERVICES=(db pgbouncer redis minio)
+APP_SERVICES=(backend frontend)
 
 wait_for_url() {
   local url="$1"
@@ -25,6 +31,71 @@ wait_for_url() {
 
   echo "$name failed health check: $url" >&2
   return 1
+}
+
+wait_for_service_health() {
+  local service="$1"
+  local container_id
+
+  for _ in $(seq 1 45); do
+    container_id="$(${COMPOSE[@]} ps -q "$service")"
+    if [[ -n "$container_id" ]]; then
+      local status
+      status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$container_id")"
+      if [[ "$status" == "healthy" || "$status" == "running" ]]; then
+        echo "$service is ready: $status"
+        return 0
+      fi
+    fi
+    sleep 2
+  done
+
+  echo "$service failed to become ready" >&2
+  return 1
+}
+
+image_exists_locally() {
+  docker image inspect "$1" >/dev/null 2>&1
+}
+
+pull_app_images_if_needed() {
+  case "$APP_IMAGE_PULL_POLICY" in
+    always)
+      ${COMPOSE[@]} pull "${APP_SERVICES[@]}"
+      ;;
+    missing)
+      local services_to_pull=()
+
+      if ! image_exists_locally "${BACKEND_IMAGE}:${IMAGE_TAG}"; then
+        services_to_pull+=(backend)
+      fi
+      if ! image_exists_locally "${FRONTEND_IMAGE}:${IMAGE_TAG}"; then
+        services_to_pull+=(frontend)
+      fi
+
+      if [[ ${#services_to_pull[@]} -gt 0 ]]; then
+        ${COMPOSE[@]} pull "${services_to_pull[@]}"
+      else
+        echo "App images already exist locally for tag $IMAGE_TAG; skipping app image pull"
+      fi
+      ;;
+    never)
+      echo "Skipping app image pull because APP_IMAGE_PULL_POLICY=never"
+      ;;
+    *)
+      echo "Invalid APP_IMAGE_PULL_POLICY: $APP_IMAGE_PULL_POLICY" >&2
+      exit 1
+      ;;
+  esac
+}
+
+run_app_bootstrap() {
+  if [[ "$RUN_APP_BOOTSTRAP" != "1" ]]; then
+    echo "Skipping app bootstrap because RUN_APP_BOOTSTRAP=$RUN_APP_BOOTSTRAP"
+    return 0
+  fi
+
+  IMAGE_TAG="$IMAGE_TAG" ${COMPOSE[@]} run --rm backend python -m scripts.bootstrap_production
 }
 
 if [[ ! -f "$ENV_FILE" ]]; then
@@ -49,11 +120,22 @@ if grep -q 'change-me' "$ENV_FILE"; then
   exit 1
 fi
 
+set -a
+source "$ENV_FILE"
+set +a
+
+: "${BACKEND_IMAGE:?BACKEND_IMAGE is required in $ENV_FILE}"
+: "${FRONTEND_IMAGE:?FRONTEND_IMAGE is required in $ENV_FILE}"
+
 cd "$ROOT_DIR"
 
-docker compose --env-file "$ENV_FILE" -f docker-compose.prod.yml config -q
-docker compose --env-file "$ENV_FILE" -f docker-compose.prod.yml pull
-docker compose --env-file "$ENV_FILE" -f docker-compose.prod.yml up -d --remove-orphans
+${COMPOSE[@]} config -q
+${COMPOSE[@]} pull "${INFRA_SERVICES[@]}"
+pull_app_images_if_needed
+${COMPOSE[@]} up -d "${INFRA_SERVICES[@]}"
+wait_for_service_health db
+run_app_bootstrap
+${COMPOSE[@]} up -d --remove-orphans --pull never "${APP_SERVICES[@]}"
 
 wait_for_url "$BACKEND_HEALTH_URL" "backend"
 wait_for_url "$FRONTEND_HEALTH_URL" "frontend"
@@ -68,4 +150,4 @@ else
 fi
 
 echo "Deployed candidate image tag: $IMAGE_TAG"
-docker compose --env-file "$ENV_FILE" -f docker-compose.prod.yml ps
+${COMPOSE[@]} ps
