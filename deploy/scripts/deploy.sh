@@ -95,7 +95,10 @@ run_app_bootstrap() {
     return 0
   fi
 
-  IMAGE_TAG="$IMAGE_TAG" ${COMPOSE[@]} run --rm backend python -m scripts.bootstrap_production
+  IMAGE_TAG="$IMAGE_TAG" ${COMPOSE[@]} run --rm \
+    -e DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}" \
+    -e DB_USE_PGBOUNCER=false \
+    backend python -m scripts.bootstrap_production
 }
 
 if [[ ! -f "$ENV_FILE" ]]; then

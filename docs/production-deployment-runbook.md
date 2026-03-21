@@ -127,8 +127,9 @@ This repo now expects two GHCR images:
 
 - backend: `ghcr.io/borbann-platform/site-selection-core-backend`
 - frontend: `ghcr.io/borbann-platform/site-selection-core-frontend`
+- db: `ghcr.io/borbann-platform/site-selection-core-db`
 
-Both are tagged with the commit SHA in CI.
+All production images are tagged with the commit SHA in CI.
 
 Note: the production backend image is heavy because `uv sync --no-dev` currently resolves ML and geospatial dependencies such as Torch, XGBoost, PyArrow, and related native libraries. Expect a long first build and a relatively large image unless the inference/runtime dependency set is reduced later.
 
@@ -215,14 +216,17 @@ The deploy workflow is also tightened to:
 - verify runtime data/model directories exist before deploy
 - run local backend/frontend health checks on the VPS before marking success
 - store only the last healthy image tag for simple rollback
+- auto-deploy on every push to `main` once the required GitHub secrets are configured
 
 `deploy/scripts/deploy.sh` now also handles two production wrinkles directly:
 
 - it always pulls infra images, but only pulls app images when the requested tag is missing locally by default
 - it runs an idempotent app bootstrap step that enables required extensions, creates tables, and recreates helper views before the final app restart
+- the production database now uses a PostGIS image extended with `pgvector`, so RAG can be enabled without manual package installs on the VPS
 
 Useful environment toggles:
 
+- `DB_IMAGE=ghcr.io/borbann-platform/site-selection-core-db`
 - `APP_IMAGE_PULL_POLICY=missing|always|never`
 - `RUN_APP_BOOTSTRAP=1|0`
 - `ROLLBACK_PULL_POLICY=missing|always|never`
@@ -237,6 +241,8 @@ Useful environment toggles:
 - `curl https://your-domain/healthz`
 
 If the first app images were loaded manually onto the VPS instead of pulled from GHCR, keep `APP_IMAGE_PULL_POLICY=missing` or set `APP_IMAGE_PULL_POLICY=never` for that one deploy.
+
+If your VPS already has a `db_data` volume from an older `postgis/postgis` image, you can keep the same volume. The next deploy will pull the new database image and `bootstrap_production` will attempt `CREATE EXTENSION IF NOT EXISTS vector` inside the existing database.
 
 ## Phase 10 - Backup guidance
 

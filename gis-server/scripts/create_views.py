@@ -234,6 +234,7 @@ def create_views():
     except Exception as e:
         logger.error(f"Error creating views: {e}")
         db.rollback()
+        raise
     finally:
         db.close()
 

@@ -2,7 +2,7 @@ name: site-select-core
 
 services:
   db:
-    image: postgis/postgis:16-3.4
+    image: ${DB_IMAGE:-ghcr.io/borbann-platform/site-selection-core-db}:${IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}

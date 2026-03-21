@@ -11,6 +11,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
+  DB_IMAGE_NAME: borbann-platform/site-selection-core-db
   BACKEND_IMAGE_NAME: borbann-platform/site-selection-core-backend
   FRONTEND_IMAGE_NAME: borbann-platform/site-selection-core-frontend
 
@@ -119,6 +120,18 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:${{ steps.vars.outputs.image_tag }}
             ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push database image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./deploy/postgres
+          file: ./deploy/postgres/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.DB_IMAGE_NAME }}:${{ steps.vars.outputs.image_tag }}
+            ${{ env.REGISTRY }}/${{ env.DB_IMAGE_NAME }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
