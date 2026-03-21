@@ -1,8 +1,14 @@
-import { useRef, useEffect } from "react";
-import { MapPin, Square, Send, ChevronUp, ChevronDown, X } from "lucide-react";
+import { useEffect, useRef } from "react";
+import type { ReactNode } from "react";
+import {
+  ArrowUp,
+  ChevronDown,
+  ChevronUp,
+  X,
+} from "lucide-react";
+import { BoundingBox, MapPinLine, NavigationArrow } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 
-// Local type definitions for command bar interaction.
 export type SelectionMode = "none" | "location" | "bbox";
 
 export type AttachmentType = "location" | "bbox" | "property";
@@ -14,11 +20,18 @@ export interface Attachment {
   label: string;
 }
 
+function adjustTextareaHeight(textarea: HTMLTextAreaElement, value: string) {
+  textarea.style.height = "0px";
+  const nextHeight = value.length === 0 ? 44 : Math.min(textarea.scrollHeight, 132);
+  textarea.style.height = `${nextHeight}px`;
+}
+
 interface AICommandBarProps {
   input: string;
   onInputChange: (value: string) => void;
   onSubmit: () => void;
   attachments: Attachment[];
+  recentSelections?: Attachment[];
   selectionMode: SelectionMode;
   isExpanded: boolean;
   isRunning: boolean;
@@ -26,18 +39,15 @@ interface AICommandBarProps {
   onPickLocation?: () => void;
   onPickBbox?: () => void;
   onRemoveAttachment?: (id: string) => void;
+  onReuseRecentSelection?: (attachmentId: string) => void;
 }
-
-const EXAMPLE_PROMPTS = [
-  "Why are Soi 39 houses pricier than Soi 71?",
-  "Show me undervalued homes near international schools.",
-];
 
 export function AICommandBar({
   input,
   onInputChange,
   onSubmit,
   attachments,
+  recentSelections = [],
   selectionMode,
   isExpanded,
   isRunning,
@@ -45,19 +55,18 @@ export function AICommandBar({
   onPickLocation,
   onPickBbox,
   onRemoveAttachment,
+  onReuseRecentSelection,
 }: AICommandBarProps) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Keyboard shortcut: / to focus input
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Focus input with "/"
-      if (e.key === "/" && document.activeElement !== inputRef.current) {
-        e.preventDefault();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "/" && document.activeElement !== inputRef.current) {
+        event.preventDefault();
         inputRef.current?.focus();
       }
-      // Blur input with Escape
-      if (e.key === "Escape" && document.activeElement === inputRef.current) {
+
+      if (event.key === "Escape" && document.activeElement === inputRef.current) {
         inputRef.current?.blur();
       }
     };
@@ -67,201 +76,234 @@ export function AICommandBar({
   }, []);
 
   useEffect(() => {
-    if (!inputRef.current) return;
-    inputRef.current.style.height = "0px";
-    const targetHeight =
-      input.length === 0
-        ? 40
-        : Math.min(inputRef.current.scrollHeight, 144);
-    inputRef.current.style.height = `${targetHeight}px`;
+    const textarea = inputRef.current;
+    if (!textarea) {
+      return;
+    }
+
+    adjustTextareaHeight(textarea, input);
   }, [input]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (input.trim() && !isRunning && selectionMode === "none") {
-      onSubmit();
-    }
-  };
-
-  const showExamples = !input && attachments.length === 0 && !isExpanded;
+  const isBlocked = isRunning || selectionMode !== "none";
+  const canSend = input.trim().length > 0 && !isBlocked;
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-3xl px-3 sm:px-4">
-      <form
-        onSubmit={handleSubmit}
-        className="bg-card/95 backdrop-blur-xl border border-border rounded-2xl shadow-2xl shadow-black/10 overflow-hidden focus-within:ring-1 focus-within:ring-emerald-500/20 focus-within:border-emerald-500/30 transition-all duration-200"
-      >
-        {/* Selection Mode Indicator */}
+    <div className="pointer-events-none fixed bottom-0 left-1/2 z-50 w-[min(calc(100vw-1.5rem),56rem)] -translate-x-1/2 pb-3 sm:w-[min(calc(100vw-2rem),56rem)] sm:pb-4 lg:w-[min(calc(100vw-34rem),56rem)] xl:w-[min(calc(100vw-38rem),58rem)]">
+      <div className="w-full">
         {selectionMode !== "none" && (
-          <div className="px-4 py-2 bg-brand/10 border-b border-brand/30 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs text-brand">
-              {selectionMode === "location" ? (
-                <>
-                  <MapPin size={14} className="animate-pulse" />
-                  <span>Click on map to select a point</span>
-                </>
-              ) : (
-                <>
-                  <Square size={14} className="animate-pulse" />
-                  <span>Click 4 corners on map to draw area</span>
-                </>
-              )}
+          <div className="pointer-events-auto mb-3 animate-slide-up rounded-full border border-border/80 bg-card/95 px-4 py-2 text-xs text-foreground shadow-xl backdrop-blur-xl">
+            <div className="flex items-center gap-2 font-medium">
+              <NavigationArrow className="h-3.5 w-3.5 text-brand" weight="duotone" />
+              {selectionMode === "location"
+                ? "Click once on the map to anchor this prompt."
+                : "Click four corners to define the analysis area."}
             </div>
           </div>
         )}
 
-        {/* Attachments */}
-        {attachments.length > 0 && (
-          <div className="px-4 py-2 border-b border-border flex flex-wrap gap-2">
-            {attachments.map((att) => (
-              <AttachmentBadge
-                key={att.id}
-                attachment={att}
-                onRemove={() => onRemoveAttachment?.(att.id)}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Main Input Bar */}
-        <div className="flex items-end gap-2 px-3 py-3 sm:px-4">
-          {/* Selection Toolbar */}
-          <div className="flex gap-1">
-            <button
-              type="button"
-              onClick={onPickLocation}
-              disabled={selectionMode !== "none"}
-              className={cn(
-                "p-2 rounded-lg transition-all duration-150 active:scale-95",
-                selectionMode === "location"
-                  ? "bg-brand/20 text-brand border border-brand/30"
-                  : "bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground disabled:opacity-30"
-              )}
-              title="Pick point location"
-            >
-              <MapPin size={18} />
-            </button>
-            <button
-              type="button"
-              onClick={onPickBbox}
-              disabled={selectionMode !== "none"}
-              className={cn(
-                "p-2 rounded-lg transition-all duration-150 active:scale-95",
-                selectionMode === "bbox"
-                  ? "bg-brand/20 text-brand border border-brand/30"
-                  : "bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground disabled:opacity-30"
-              )}
-              title="Draw area on map"
-            >
-              <Square size={18} />
-            </button>
-          </div>
-
-          {/* Input Field */}
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={(e) => onInputChange(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                if (input.trim() && !isRunning && selectionMode === "none") {
-                  onSubmit();
-                }
-              }
-            }}
-            placeholder={
-              selectionMode !== "none"
-                ? "Complete selection on map..."
-                : "Ask AI for analysis, planning, or market insights... (press / to focus)"
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (canSend) {
+              onSubmit();
             }
-            disabled={isRunning || selectionMode !== "none"}
-            rows={1}
-            className="flex-1 resize-none overflow-y-auto max-h-36 min-h-10 bg-muted/40 border border-border/60 rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-emerald-500/40 disabled:opacity-50"
-          />
+          }}
+          className="pointer-events-auto overflow-hidden rounded-[30px] border border-border/90 bg-card/96 shadow-xl backdrop-blur-xl transition-all duration-200 focus-within:border-brand/20 focus-within:shadow-2xl"
+        >
+          <div className="border-b border-border/50 px-4 py-2.5 sm:px-5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                  Workspace
+                </div>
+              </div>
 
-          {/* Send Button */}
-          <button
-            type="submit"
-            disabled={!input.trim() || isRunning || selectionMode !== "none"}
-            className="p-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 enabled:shadow-md enabled:shadow-emerald-500/20"
-            title="Send message"
-          >
-            <Send size={18} />
-          </button>
-
-          {/* Expand/Collapse Toggle */}
-          <button
-            type="button"
-            onClick={onToggleExpanded}
-            className="p-2 rounded-lg bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
-            title={isExpanded ? "Collapse panel" : "Expand panel"}
-          >
-            {isExpanded ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
-          </button>
-        </div>
-
-        {selectionMode === "none" && (
-          <div className="px-4 pb-2 -mt-1 text-[10px] text-muted-foreground">
-            Enter to send, Shift+Enter for newline
-          </div>
-        )}
-
-        {/* Example Prompts */}
-        {showExamples && (
-          <div className="px-4 pb-3 border-t border-border">
-            <div className="text-[10px] text-muted-foreground mb-2 mt-2">
-              Try asking:
+              <button
+                type="button"
+                onClick={onToggleExpanded}
+                className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-muted/40 px-3 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted"
+              >
+                {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+                {isExpanded ? "Collapse trace" : "Open trace"}
+              </button>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {EXAMPLE_PROMPTS.map((prompt) => (
-                <button
-                  key={prompt}
-                  type="button"
-                  onClick={() => onInputChange(prompt)}
-                  className="px-2 py-1 text-[11px] bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground hover:border-emerald-500/30 rounded border border-border transition-all duration-150"
-                >
-                  {prompt}
-                </button>
+          </div>
+
+          {attachments.length > 0 && (
+            <div className="flex flex-wrap gap-2 border-b border-black/6 px-4 py-2.5 dark:border-white/8 sm:px-5">
+              {attachments.map((attachment) => (
+                <AttachmentChip
+                  key={attachment.id}
+                  attachment={attachment}
+                  onRemove={() => onRemoveAttachment?.(attachment.id)}
+                />
               ))}
             </div>
+          )}
+
+          <div className="px-4 py-3 sm:px-5">
+            <div className="space-y-3">
+              <textarea
+                ref={inputRef}
+                value={input}
+                onChange={(event) => {
+                  onInputChange(event.target.value);
+                  adjustTextareaHeight(event.currentTarget, event.currentTarget.value);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    if (canSend) {
+                      onSubmit();
+                    }
+                  }
+                }}
+                placeholder={
+                  selectionMode !== "none"
+                    ? "Finish the map selection to continue..."
+                    : "Ask about this market, this property, or the area you are exploring..."
+                }
+                disabled={isBlocked}
+                rows={1}
+                className="min-h-[72px] max-h-[144px] w-full resize-none rounded-[24px] border border-border/70 bg-background/50 px-4 py-3.5 text-[15px] leading-7 text-foreground outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-45"
+              />
+
+              {recentSelections.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 px-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                    Recent
+                  </span>
+                  {recentSelections.slice(0, 4).map((attachment) => (
+                    <button
+                      key={attachment.id}
+                      type="button"
+                      onClick={() => onReuseRecentSelection?.(attachment.id)}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-muted/25 px-3 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    >
+                      {attachment.type === "bbox" ? (
+                        <BoundingBox className="h-3.5 w-3.5" weight="duotone" />
+                      ) : (
+                        <MapPinLine className="h-3.5 w-3.5" weight="duotone" />
+                      )}
+                      <span className="max-w-48 truncate">{attachment.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex flex-wrap items-center justify-between gap-3 px-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <ToolbarButton
+                    label="Pin"
+                    title="Pick location"
+                    onClick={onPickLocation}
+                    disabled={selectionMode !== "none"}
+                    active={selectionMode === "location"}
+                    icon={<MapPinLine className="h-4 w-4" weight="duotone" />}
+                  />
+                  <ToolbarButton
+                    label="Area"
+                    title="Draw area"
+                    onClick={onPickBbox}
+                    disabled={selectionMode !== "none"}
+                    active={selectionMode === "bbox"}
+                    icon={<BoundingBox className="h-4 w-4" weight="duotone" />}
+                  />
+                </div>
+
+                <div className="flex flex-1 flex-wrap items-center justify-end gap-3 text-[11px] text-muted-foreground sm:justify-between">
+                  <div className="flex flex-wrap gap-2 md:gap-3">
+                    <span>
+                      {attachments.length > 0
+                        ? `${attachments.length} map refs attached`
+                        : "Enter to send"}
+                    </span>
+                    <span className="opacity-50">/</span>
+                    <span>Shift + Enter for new line</span>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={!canSend}
+                    className={cn(
+                      "inline-flex h-10 w-10 items-center justify-center rounded-full transition-all",
+                      canSend
+                        ? "bg-brand text-brand-foreground shadow-lg shadow-brand/25 hover:bg-brand/90"
+                        : "bg-muted text-muted-foreground",
+                    )}
+                    title="Send message"
+                  >
+                    <ArrowUp className="h-4.5 w-4.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
-        )}
-      </form>
+        </form>
+      </div>
     </div>
   );
 }
 
-// Attachment Badge Component
-function AttachmentBadge({
+function ToolbarButton({
+  label,
+  title,
+  onClick,
+  disabled,
+  active,
+  icon,
+}: {
+  label: string;
+  title: string;
+  onClick?: () => void;
+  disabled: boolean;
+  active: boolean;
+  icon: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        "inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-medium transition-all",
+        active
+          ? "border-brand/28 bg-brand/10 text-brand"
+          : "border-border/70 bg-muted/35 text-muted-foreground hover:bg-muted hover:text-foreground",
+        disabled && !active && "cursor-not-allowed opacity-40"
+      )}
+    >
+      {icon}
+      <span className="hidden sm:inline">{label}</span>
+    </button>
+  );
+}
+
+function AttachmentChip({
   attachment,
   onRemove,
 }: {
   attachment: Attachment;
   onRemove: () => void;
 }) {
-  const colors = {
-    location: "bg-magenta-500/10 border-magenta-500/30 text-magenta-300",
-    bbox: "bg-cyan-500/10 border-cyan-500/30 text-cyan-300",
-    property: "bg-amber-500/10 border-amber-500/30 text-amber-300",
-  };
+  const tone =
+    attachment.type === "property"
+      ? "border-amber-600/18 bg-amber-500/10 text-amber-900 dark:text-amber-200"
+      : attachment.type === "bbox"
+        ? "border-sky-600/18 bg-sky-500/10 text-sky-900 dark:text-sky-200"
+        : "border-brand/18 bg-brand/10 text-brand";
 
   return (
-    <div
-      className={cn(
-        "inline-flex items-center gap-1.5 px-2 py-1 rounded-lg border text-xs",
-        colors[attachment.type]
-      )}
-    >
-      <span className="truncate max-w-xs">
-        {attachment.label || attachment.type}
-      </span>
+    <div className={cn("inline-flex max-w-full items-center gap-2 rounded-full border px-2.5 py-1 text-[11px]", tone)}>
+      <span className="truncate">{attachment.label}</span>
       <button
         type="button"
         onClick={onRemove}
-        className="hover:bg-white/10 rounded p-0.5 transition-colors"
+        className="rounded-full p-0.5 transition-colors hover:bg-black/8 dark:hover:bg-white/10"
+        title="Remove attachment"
       >
-        <X size={12} />
+        <X className="h-3 w-3" />
       </button>
     </div>
   );

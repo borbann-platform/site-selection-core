@@ -1,12 +1,12 @@
 import { useState } from "react";
 import {
-  Home,
   MapPin,
   TrendingUp,
   ChevronDown,
   ChevronUp,
   ExternalLink,
 } from "lucide-react";
+import { HouseLine } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +21,10 @@ export interface PropertyResult {
   priceChange?: number;
   lat?: number;
   lon?: number;
+}
+
+function buildFallbackId(index: number) {
+  return `prop-${index}`;
 }
 
 interface PropertyResultsCardProps {
@@ -53,26 +57,24 @@ export function PropertyResultsCard({
   return (
     <div
       className={cn(
-        "rounded-xl border border-amber-500/20 bg-amber-500/5 overflow-hidden",
+        "overflow-hidden rounded-xl border border-border/80 bg-card/92 shadow-md backdrop-blur-xl",
         className
       )}
     >
-      {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 bg-amber-500/10 border-b border-amber-500/20">
+      <div className="flex items-center justify-between border-b border-border/60 bg-muted/30 px-3 py-2">
         <div className="flex items-center gap-2">
-          <Home size={14} className="text-amber-500 dark:text-amber-400" />
-          <span className="text-xs font-semibold text-amber-600 dark:text-amber-300">
+          <HouseLine size={14} className="text-brand" weight="duotone" />
+          <span className="text-xs font-semibold text-foreground">
             {totalCount || results.length} Properties Found
           </span>
         </div>
         {priceRange && (
-          <span className="text-[10px] text-amber-500/70 dark:text-amber-400/70">
+          <span className="text-[10px] text-muted-foreground">
             {formatPrice(priceRange.min)} - {formatPrice(priceRange.max)}
           </span>
         )}
       </div>
 
-      {/* Results Grid */}
       <div className="p-2 grid grid-cols-2 gap-2">
         {displayResults.map((property) => (
           <PropertyMiniCard
@@ -83,13 +85,12 @@ export function PropertyResultsCard({
         ))}
       </div>
 
-      {/* Footer */}
       {(hasMore || results.length > 3) && (
-        <div className="px-3 py-2 border-t border-amber-500/10 flex items-center justify-between">
+        <div className="flex items-center justify-between border-t border-border/60 px-3 py-2">
           <button
             type="button"
             onClick={() => setIsExpanded(!isExpanded)}
-            className="flex items-center gap-1 text-[10px] text-amber-500/70 dark:text-amber-400/70 hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
+            className="flex items-center gap-1 text-[10px] text-muted-foreground transition-colors hover:text-foreground"
           >
             {isExpanded ? (
               <>
@@ -115,7 +116,6 @@ export function PropertyResultsCard({
   );
 }
 
-// Mini property card for grid display
 function PropertyMiniCard({
   property,
   onClick,
@@ -136,11 +136,10 @@ function PropertyMiniCard({
       onClick={onClick}
       className={cn(
         "flex flex-col gap-1 p-2 rounded-lg text-left transition-all",
-        "bg-muted/50 hover:bg-muted border border-border/50 hover:border-amber-500/30",
+        "bg-muted/35 hover:bg-muted border border-border/60 hover:border-brand/30",
         "group"
       )}
     >
-      {/* Price */}
       <div className="flex items-center justify-between">
         <span className="text-sm font-bold text-foreground">
           {formatPrice(property.price)}
@@ -161,12 +160,10 @@ function PropertyMiniCard({
         )}
       </div>
 
-      {/* Style */}
       <div className="text-[11px] text-muted-foreground truncate">
         {property.style || "Property"}
       </div>
 
-      {/* Location & Area */}
       <div className="flex items-center gap-2 text-[10px] text-muted-foreground/70">
         <span className="flex items-center gap-0.5 truncate">
           <MapPin size={10} />
@@ -175,13 +172,12 @@ function PropertyMiniCard({
         {property.area && <span>{property.area} sqm</span>}
       </div>
 
-      {/* View link - appears on hover */}
       {property.source_type && property.source_type !== "house_price" && property.listing_key ? (
         <Link
           to="/listing/$listingKey"
           params={{ listingKey: property.listing_key }}
           onClick={(e) => e.stopPropagation()}
-          className="mt-1 flex items-center gap-1 text-[10px] text-brand opacity-0 group-hover:opacity-100 transition-opacity"
+          className="mt-1 inline-flex items-center gap-1 text-[10px] font-medium text-brand opacity-0 transition-opacity group-hover:opacity-100"
         >
           View details
           <ExternalLink size={10} />
@@ -191,7 +187,7 @@ function PropertyMiniCard({
           to="/property/$propertyId"
           params={{ propertyId: String(property.id) }}
           onClick={(e) => e.stopPropagation()}
-          className="mt-1 flex items-center gap-1 text-[10px] text-brand opacity-0 group-hover:opacity-100 transition-opacity"
+          className="mt-1 inline-flex items-center gap-1 text-[10px] font-medium text-brand opacity-0 transition-opacity group-hover:opacity-100"
         >
           View details
           <ExternalLink size={10} />
@@ -219,8 +215,11 @@ export function parsePropertyResults(content: string): PropertyResult[] | null {
     const data = JSON.parse(jsonStr);
 
     if (Array.isArray(data)) {
-      return data.map((item) => ({
-        id: item.id || `prop-${Math.random().toString(36).slice(2, 8)}`,
+      return data.map((item, index) => ({
+        id:
+          typeof item.id === "string" || typeof item.id === "number"
+            ? item.id
+            : buildFallbackId(index),
         listing_key:
           typeof item.listing_key === "string" ? item.listing_key : undefined,
         source_type:

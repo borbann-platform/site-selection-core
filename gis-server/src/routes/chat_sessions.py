@@ -11,7 +11,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from src.config.database import get_db_session
+from src.config.database import SessionLocal, get_db_session
 from src.dependencies.auth import get_current_user
 from src.models.user import User
 from src.services.chat_service import ChatService
@@ -219,6 +219,7 @@ async def get_session(
 async def update_session(
     session_id: uuid.UUID,
     request: UpdateSessionRequest,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db_session),
 ):
@@ -233,6 +234,26 @@ async def update_session(
 
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+
+    if request.is_archived is True:
+
+        async def refresh_summary_background() -> None:
+            try:
+                with SessionLocal() as background_db:
+                    background_service = ChatService(background_db)
+                    await background_service.refresh_rolling_summary(
+                        session_id=session_id,
+                        user_id=current_user.id,
+                        force=True,
+                    )
+            except Exception as exc:
+                logger.warning(
+                    "Failed to finalize rolling summary for archived session %s: %s",
+                    session_id,
+                    exc,
+                )
+
+        background_tasks.add_task(refresh_summary_background)
 
     return SessionResponse(
         id=str(session.id),

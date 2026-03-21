@@ -19,6 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import { ContentLoader } from "@/components/ui/loading";
 import { LocationIntelligencePanel } from "@/components/LocationIntelligence";
+import { PropertyImageFrame } from "@/components/property/PropertyImageFrame";
 import { keepPreviousViewStateIfSame } from "@/lib/mapViewState";
 
 const ComprehensivePriceReport = lazy(() =>
@@ -252,13 +253,14 @@ function ListingDetailPage() {
               />
             </div>
 
-            {listing.image_url ? (
-              <img
-                src={listing.image_url}
-                alt={listing.title || "Listing"}
-                className="mt-6 h-56 w-full rounded-lg border border-border object-cover"
-              />
-            ) : null}
+            <PropertyImageFrame
+              imageUrl={listing.image_url}
+              title={listing.title || listing.building_style_desc || "Listing"}
+              subtitle={[listing.tumbon, listing.amphur].filter(Boolean).join(", ")}
+              badge={getSourceLabel(listing.source_type)}
+              className="mt-6"
+              aspectClassName="aspect-[16/10]"
+            />
 
             <div className="mt-4 flex flex-wrap gap-2">
               {listing.source_type === "house_price" && Number.isFinite(Number(listing.source_id)) ? (

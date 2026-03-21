@@ -17,7 +17,7 @@ export function Logo({ size = "md", showText = false, className }: LogoProps) {
     <div className={cn("flex items-center gap-2", className)}>
       <div
         className={cn(
-          "flex items-center justify-center rounded-lg bg-gradient-to-br from-brand to-brand/80 font-bold text-brand-foreground",
+          "flex items-center justify-center rounded-lg border border-border/70 bg-card font-semibold text-foreground",
           sizeClasses[size],
         )}
       >
@@ -25,8 +25,8 @@ export function Logo({ size = "md", showText = false, className }: LogoProps) {
       </div>
       {showText && (
         <div className="flex flex-col gap-0.5 leading-none">
-          <span className="font-semibold">Borbann</span>
-          <span className="text-xs text-muted-foreground">Site Selection</span>
+          <span className="font-semibold">Borban</span>
+          <span className="text-xs text-muted-foreground">Real estate information platform</span>
         </div>
       )}
     </div>

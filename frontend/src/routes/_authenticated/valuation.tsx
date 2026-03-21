@@ -3,22 +3,23 @@
  * Multi-step wizard with location picker and comprehensive report.
  */
 
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useCallback, lazy, Suspense } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { PropertyUploadForm } from "@/components/PropertyUploadForm";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { createFileRoute } from "@tanstack/react-router";
+import { lazy, Suspense, useCallback, useState } from "react";
 import { LocationPicker } from "@/components/LocationPicker";
-import { api, type PropertyUploadRequest, type ValuationResponse } from "@/lib/api";
-import { Sparkles, ArrowLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { PropertyUploadForm } from "@/components/PropertyUploadForm";
 import { ErrorState } from "@/components/ui/error-state";
-import { PageHeader } from "@/components/layout/PageHeader";
 import { ContentLoader } from "@/components/ui/loading";
+import {
+  api,
+  type PropertyUploadRequest,
+  type ValuationResponse,
+} from "@/lib/api";
 
 const ValuationReport = lazy(() =>
   import("@/components/ValuationReport").then((m) => ({
     default: m.ValuationReport,
-  }))
+  })),
 );
 
 export const Route = createFileRoute("/_authenticated/valuation")({
@@ -73,14 +74,14 @@ function ValuationPage() {
       setSelectedLocation(location);
       setShowLocationPicker(false);
     },
-    []
+    [],
   );
 
   const handleFormSubmit = useCallback(
     (data: PropertyUploadRequest) => {
       valuationMutation.mutate(data);
     },
-    [valuationMutation]
+    [valuationMutation],
   );
 
   const handleNewValuation = useCallback(() => {
@@ -98,28 +99,6 @@ function ValuationPage() {
     <>
       <div className="flex min-h-[calc(100vh-4rem)] bg-background text-foreground overflow-auto">
         <div className="flex-1 p-6 md:p-8">
-          {/* Header */}
-          <div className="max-w-3xl mx-auto mb-8">
-            <div className="flex items-center gap-4 mb-6">
-              <Link to="/" search={{ district: undefined }}>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-muted-foreground hover:text-foreground hover:bg-muted"
-                >
-                  <ArrowLeft size={16} className="mr-2" />
-                  Back to Explorer
-                </Button>
-              </Link>
-            </div>
-
-            <PageHeader
-              icon={Sparkles}
-              title="AI Property Valuation"
-              subtitle="Get an instant estimate of your property's value using our AI model"
-            />
-          </div>
-
           {/* Content */}
           {pageState === "form" && (
             <PropertyUploadForm

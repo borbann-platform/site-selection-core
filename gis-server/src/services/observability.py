@@ -260,3 +260,106 @@ class CacheBackendMetrics:
 
 
 cache_backend_metrics = CacheBackendMetrics()
+
+
+class AgentOrchestrationMetrics:
+    def __init__(self) -> None:
+        self._tool_calls_total: dict[tuple[str, str], int] = defaultdict(int)
+        self._tool_duration_sum_seconds: dict[str, float] = defaultdict(float)
+        self._tool_duration_bucket_counts: dict[str, dict[float, int]] = defaultdict(
+            lambda: defaultdict(int)
+        )
+        self._clarification_total: dict[str, int] = defaultdict(int)
+        self._tool_evidence_blocked_total = 0
+        self._stream_completion_total: dict[str, int] = defaultdict(int)
+
+    def observe_tool_call(
+        self, tool_name: str, status: str, duration_seconds: float
+    ) -> None:
+        safe_tool = tool_name or "unknown"
+        safe_status = status or "unknown"
+        self._tool_calls_total[(safe_tool, safe_status)] += 1
+        self._tool_duration_sum_seconds[safe_tool] += duration_seconds
+
+        for bucket in (0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0):
+            if duration_seconds <= bucket:
+                self._tool_duration_bucket_counts[safe_tool][bucket] += 1
+        if duration_seconds > 5.0:
+            self._tool_duration_bucket_counts[safe_tool][float("inf")] += 1
+
+    def observe_clarification(self, reason: str) -> None:
+        safe_reason = reason or "unspecified"
+        self._clarification_total[safe_reason] += 1
+
+    def increment_tool_evidence_blocked(self) -> None:
+        self._tool_evidence_blocked_total += 1
+
+    def observe_stream_completion(self, status: str) -> None:
+        safe_status = status or "unknown"
+        self._stream_completion_total[safe_status] += 1
+
+    def render_prometheus(self) -> str:
+        lines = [
+            "# HELP agent_tool_calls_total Agent tool calls by tool and status",
+            "# TYPE agent_tool_calls_total counter",
+        ]
+        for (tool_name, status), count in sorted(self._tool_calls_total.items()):
+            lines.append(
+                "agent_tool_calls_total"
+                f'{{tool="{tool_name}",status="{status}"}} {count}'
+            )
+
+        lines.extend(
+            [
+                "# HELP agent_tool_call_duration_seconds_sum Total tool call duration",
+                "# TYPE agent_tool_call_duration_seconds_sum counter",
+            ]
+        )
+        for tool_name, duration_sum in sorted(self._tool_duration_sum_seconds.items()):
+            lines.append(
+                "agent_tool_call_duration_seconds_sum"
+                f'{{tool="{tool_name}"}} {duration_sum:.6f}'
+            )
+
+        lines.extend(
+            [
+                "# HELP agent_tool_call_duration_bucket_seconds Tool call latency buckets",
+                "# TYPE agent_tool_call_duration_bucket_seconds counter",
+            ]
+        )
+        for tool_name, buckets in sorted(self._tool_duration_bucket_counts.items()):
+            for bucket in (0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0):
+                lines.append(
+                    "agent_tool_call_duration_bucket_seconds"
+                    f'{{tool="{tool_name}",le="{bucket}"}} {buckets.get(bucket, 0)}'
+                )
+            lines.append(
+                "agent_tool_call_duration_bucket_seconds"
+                f'{{tool="{tool_name}",le="+Inf"}} {buckets.get(float("inf"), 0)}'
+            )
+
+        lines.extend(
+            [
+                "# HELP agent_clarification_total Clarification events by reason",
+                "# TYPE agent_clarification_total counter",
+            ]
+        )
+        for reason, count in sorted(self._clarification_total.items()):
+            lines.append(f'agent_clarification_total{{reason="{reason}"}} {count}')
+
+        lines.extend(
+            [
+                "# HELP agent_tool_evidence_blocked_total Responses blocked for missing tool evidence",
+                "# TYPE agent_tool_evidence_blocked_total counter",
+                f"agent_tool_evidence_blocked_total {self._tool_evidence_blocked_total}",
+                "# HELP agent_stream_completion_total Agent stream completions by status",
+                "# TYPE agent_stream_completion_total counter",
+            ]
+        )
+        for status, count in sorted(self._stream_completion_total.items()):
+            lines.append(f'agent_stream_completion_total{{status="{status}"}} {count}')
+
+        return "\n".join(lines) + "\n"
+
+
+agent_orchestration_metrics = AgentOrchestrationMetrics()

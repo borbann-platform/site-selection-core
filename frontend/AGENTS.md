@@ -2,6 +2,8 @@
 
 This is the frontend for a Real Estate Information Platform with Price Prediction AI.
 
+NOTE: use `bun`
+
 ## Project Focus
 - Real estate property browsing and visualization
 - Price prediction AI interface

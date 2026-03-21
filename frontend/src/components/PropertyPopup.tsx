@@ -5,9 +5,9 @@ import {
   MessageSquarePlus,
   ArrowRight,
   MapPinned,
-  ImageOff,
 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
+import { PropertyImageFrame } from "@/components/property/PropertyImageFrame";
 
 interface PropertyData {
   listing_key?: string;
@@ -176,23 +176,22 @@ export function PropertyPopup({
 
         {/* Content */}
         <div className="p-3">
-          {property.image_url ? (
-            <img
-              src={property.image_url}
-              alt={property.title || property.building_style_desc || "Property"}
-              className="mb-3 h-28 w-full rounded-md border border-border/60 object-cover"
-              onError={(event) => {
-                event.currentTarget.onerror = null;
-                event.currentTarget.src =
-                  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='240'%3E%3Crect width='100%25' height='100%25' fill='%231f2937'/%3E%3Ctext x='50%25' y='50%25' fill='%23d1d5db' font-size='18' text-anchor='middle' dominant-baseline='middle'%3EImage unavailable%3C/text%3E%3C/svg%3E";
-              }}
-            />
-          ) : property.source_type === "scraped_project" ? (
-            <div className="mb-3 flex h-28 w-full items-center justify-center rounded-md border border-dashed border-border/60 bg-muted/40 text-xs text-muted-foreground">
-              <ImageOff size={14} className="mr-1" />
-              Image unavailable
-            </div>
-          ) : null}
+          <PropertyImageFrame
+            imageUrl={property.image_url}
+            title={property.title || property.building_style_desc || "Property"}
+            subtitle={[property.tumbon, property.amphur].filter(Boolean).join(", ")}
+            badge={
+              property.source_type === "scraped_project"
+                ? "Scraped listing"
+                : property.source_type === "market_listing"
+                  ? "Market listing"
+                  : property.source_type === "condo_project"
+                    ? "Condo project"
+                    : null
+            }
+            className="mb-3"
+            aspectClassName="aspect-[16/9]"
+          />
 
           {property.source_type && (
             <div className="mb-2 inline-flex rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">

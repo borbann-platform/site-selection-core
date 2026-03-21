@@ -333,7 +333,7 @@ export function ValuationReport({
       // Generate filename with property info
       const district = propertyData.amphur || "Bangkok";
       const date = new Date().toISOString().split("T")[0];
-      pdf.save(`Borbann-Valuation-${district}-${date}.pdf`);
+      pdf.save(`Borban-Valuation-${district}-${date}.pdf`);
     } catch (error) {
       console.error("PDF generation failed:", error);
       // More helpful error message
@@ -347,13 +347,13 @@ export function ValuationReport({
   // Share functionality
   const handleShare = useCallback(async () => {
     const shareData = {
-      title: "Borbann Property Valuation",
+      title: "Borban Property Valuation",
       text: `Property Valuation: ${formatPrice(valuation.estimated_price)}\n` +
         `Type: ${propertyData.building_style}\n` +
         `Area: ${propertyData.building_area} sqm\n` +
         `District: ${propertyData.amphur}\n` +
         `Confidence: ${valuation.confidence.charAt(0).toUpperCase() + valuation.confidence.slice(1)}\n\n` +
-        `Powered by Borbann AI`,
+        "Powered by Borban AI",
       url: window.location.href,
     };
 

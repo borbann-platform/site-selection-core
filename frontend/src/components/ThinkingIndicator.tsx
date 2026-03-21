@@ -1,124 +1,73 @@
-import { useEffect, useRef, useState } from "react";
-import {
-  Brain,
-  Loader2,
-  Search,
-  Database,
-  Globe,
-  Cpu,
-} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Loader2, Sparkles, Wrench } from "lucide-react";
 import { cn } from "../lib/utils";
 
-// --- Types ---
 interface ThinkingProcessProps {
   className?: string;
   startTime?: number;
-  message?: string;
+  statusLabel?: string;
+  mode?: "thinking" | "tool";
 }
 
-const PROCESS_STEPS = [
-  { text: "Analyzing user intent...", icon: Brain },
-  { text: "Identifying key entities...", icon: Search },
-  { text: "Querying spatial database...", icon: Database },
-  { text: "Processing geometric constraints...", icon: Globe },
-  { text: "Synthesizing market data...", icon: Cpu },
-];
+function formatElapsed(ms: number) {
+  const seconds = ms / 1000;
+  return `${seconds.toFixed(seconds >= 10 ? 0 : 1)}s`;
+}
 
 export function ThinkingProcess({
   className,
   startTime,
+  statusLabel = "Reasoning through the request",
+  mode = "thinking",
 }: ThinkingProcessProps) {
-  const [stepIndex, setStepIndex] = useState(0);
-  const logIdRef = useRef(0);
-  const [logs, setLogs] = useState<Array<{ id: number; text: string }>>([]);
   const [elapsed, setElapsed] = useState(0);
 
-  // Cycle through fake "process steps" to show activity
   useEffect(() => {
-    const interval = setInterval(() => {
-      setStepIndex((prev) => (prev + 1) % PROCESS_STEPS.length);
-      setLogs((prev) => {
-        logIdRef.current += 1;
-        const newLog = {
-          id: logIdRef.current,
-          text: PROCESS_STEPS[stepIndex % PROCESS_STEPS.length].text,
-        };
-        return [...prev.slice(-2), newLog]; // Keep last 3 logs
-      });
-    }, 2000);
-    return () => clearInterval(interval);
-  }, [stepIndex]);
+    if (!startTime) {
+      return undefined;
+    }
 
-  // Track elapsed time
-  useEffect(() => {
-    if (!startTime) return;
-    const interval = setInterval(() => {
+    const interval = window.setInterval(() => {
       setElapsed(Date.now() - startTime);
-    }, 100);
-    return () => clearInterval(interval);
+    }, 120);
+
+    return () => window.clearInterval(interval);
   }, [startTime]);
 
-  const CurrentIcon = PROCESS_STEPS[stepIndex].icon;
+  const Icon = useMemo(() => {
+    return mode === "tool" ? Wrench : Sparkles;
+  }, [mode]);
 
   return (
     <div
       className={cn(
-        "flex flex-col gap-2 p-3 rounded-lg",
-        "bg-purple-500/5 border border-purple-500/20",
-        "animate-in fade-in duration-300",
-        className
+        "flex items-center justify-between gap-3 rounded-xl border border-border/70 bg-card/92 px-3.5 py-2.5 shadow-sm",
+        className,
       )}
     >
-      {/* Header with Timer */}
-      <div className="flex items-center justify-between text-xs text-purple-600 dark:text-purple-300/80">
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <Loader2 size={14} className="animate-spin text-purple-500 dark:text-purple-400" />
-            <div className="absolute inset-0 animate-ping opacity-50">
-              <div className="w-full h-full rounded-full bg-purple-500/20" />
-            </div>
-          </div>
-          <span className="font-medium tracking-wide">AI REASONING</span>
-        </div>
-        <span className="font-mono text-purple-500/60 dark:text-purple-400/60">
-          {(elapsed / 1000).toFixed(1)}s
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/70 bg-muted/35 text-brand">
+          <Icon className="h-4 w-4" />
         </span>
-      </div>
-
-      {/* Dynamic Step Display */}
-      <div className="flex items-center gap-3 py-1">
-        <div className="w-8 h-8 rounded bg-purple-500/10 flex items-center justify-center shrink-0 border border-purple-500/20">
-          <CurrentIcon size={16} className="text-purple-500 dark:text-purple-400" />
-        </div>
-        <div className="flex-1 min-w-0 flex flex-col justify-center h-8">
-          <span className="text-xs font-medium text-purple-700 dark:text-purple-200 truncate animate-pulse">
-            {PROCESS_STEPS[stepIndex].text}
-          </span>
-          <div className="w-full bg-purple-500/10 h-1 mt-1 rounded-full overflow-hidden">
-            <div className="h-full bg-purple-500/50 w-1/3 animate-loading-bar rounded-full" />
+        <div className="min-w-0">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+            Live status
+          </div>
+          <div className="truncate text-sm font-medium text-foreground">
+            {statusLabel}
           </div>
         </div>
       </div>
 
-      {/* Mini Terminal Log */}
-      <div className="mt-1 space-y-0.5 font-mono text-[10px] text-purple-600/50 dark:text-purple-300/50 pl-1 border-l-2 border-purple-500/10">
-        {logs.map((log) => (
-          <div key={log.id} className="truncate animate-in slide-in-from-left-2 fade-in duration-300">
-            <span className="opacity-50 mr-2">{">"}</span>
-            {log.text}
-          </div>
-        ))}
-        <div className="truncate opacity-50">
-          <span className="mr-2 animate-pulse">_</span>
-        </div>
+      <div className="flex shrink-0 items-center gap-2 rounded-full border border-border/70 bg-muted/35 px-3 py-1 text-[11px] font-medium text-muted-foreground">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        {formatElapsed(elapsed)}
       </div>
     </div>
   );
 }
 
-// Minimal inline version (Legacy support / minimal view)
-export function ThinkingIndicator({ className }: { className?: string; startTime?: number; message?: string }) {
-  // Legacy wrapper to keep existing code working if it imports ThinkingIndicator
+export function ThinkingIndicator({ className }: { className?: string }) {
   return <ThinkingProcess className={className} startTime={Date.now()} />;
 }
 
@@ -126,17 +75,19 @@ export function ThinkingDots({ className }: { className?: string }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 text-muted-foreground text-xs font-mono",
-        className
+        "inline-flex items-center gap-2 text-xs text-muted-foreground",
+        className,
       )}
     >
-      <Loader2 size={10} className="animate-spin" />
-      <span className="animate-pulse">thinking...</span>
+      <span className="relative flex h-2 w-2">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand/40" />
+        <span className="relative inline-flex h-2 w-2 rounded-full bg-brand/80" />
+      </span>
+      processing
     </span>
   );
 }
 
-// Streaming text with cursor
 interface StreamingTextProps {
   text: string;
   isStreaming?: boolean;
@@ -153,12 +104,14 @@ export function StreamingText({
   useEffect(() => {
     if (!isStreaming) {
       setShowCursor(false);
-      return;
+      return undefined;
     }
-    const interval = setInterval(() => {
-      setShowCursor((prev) => !prev);
-    }, 530);
-    return () => clearInterval(interval);
+
+    const interval = window.setInterval(() => {
+      setShowCursor((current) => !current);
+    }, 520);
+
+    return () => window.clearInterval(interval);
   }, [isStreaming]);
 
   return (
@@ -167,8 +120,8 @@ export function StreamingText({
       {isStreaming && (
         <span
           className={cn(
-            "inline-block w-1.5 h-4 bg-brand ml-0.5 align-middle shadow-brand/50",
-            showCursor ? "opacity-100" : "opacity-0"
+            "ml-1 inline-block h-4 w-2 rounded-full bg-brand/70 align-middle transition-opacity",
+            showCursor ? "opacity-100" : "opacity-0",
           )}
         />
       )}

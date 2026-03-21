@@ -1,164 +1,33 @@
-"""
-LangGraph agent orchestration with provider-agnostic model backends.
-"""
+"""Compatibility facade exposing the rewritten deterministic workflow agent."""
 
 from __future__ import annotations
 
-import json
 import logging
-from collections import OrderedDict
 from collections.abc import AsyncIterator
-from typing import Any, TypedDict, cast
+from typing import Any, cast
 
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
-from langgraph.errors import GraphRecursionError
-from langgraph.prebuilt import create_react_agent
-
-from src.config.agent_settings import agent_settings
 from src.config.settings import settings
-from src.services.agent_tools import ALL_TOOLS
-from src.services.model_provider import (
-    RuntimeModelConfig,
-    get_model_provider,
-    resolve_runtime_config,
-)
-from src.services.rag_service import retrieve_knowledge
-from src.services.task_planner import TaskPlanner, build_clarification_message
+from src.services.agent_engine import workflow_engine
+from src.services.model_provider import RuntimeModelConfig
+from src.services.observability import agent_orchestration_metrics
 
 logger = logging.getLogger(__name__)
 
 
-SYSTEM_PROMPT = """You are Borbann AI, a Bangkok real-estate assistant.
-
-## Core Behavior
-- Use tools proactively before giving conclusions.
-- If UI map context references a selected house, validate it with `validate_house_reference` before deeper analysis.
-- Use ReAct reasoning: think briefly, act with tools, observe outputs, then continue.
-- Return concise, data-backed answers with clear numbers.
-- Keep output in the user's language (Thai/English).
-
-## Available Tools
-- search_properties
-- validate_house_reference
-- get_nearby_properties
-- get_market_statistics
-- get_location_intelligence
-- analyze_site
-- analyze_catchment
-- predict_property_price
-- retrieve_knowledge
-
-## Spatial Grounding Rules
-- If user says "this location", "here", "this area", use coordinates from [SPATIAL CONTEXT FROM MAP].
-- For bounding boxes, use min_lat/max_lat/min_lon/max_lon in `search_properties`.
-- If no spatial target exists but query requires one, ask a clarification question.
-
-## Reasoning and Output
-- For complex requests, follow [TASK DAG] dependencies step by step.
-- Use tables/bullets where useful.
-- Be explicit about confidence and assumptions.
-"""
-
-
-class AgentState(TypedDict):
-    """State for decomposition + execution."""
-
-    messages: list[BaseMessage]
-    task_dag: dict[str, Any] | None
-    next_step: str
-
-
 class AgentService:
-    """Service for running the Plan-and-Execute LangGraph agent."""
+    """Compatibility service that keeps the old API while using the new engine."""
 
-    def __init__(self):
-        self._agents: OrderedDict[str, Any] = OrderedDict()
-        self._planner_llms: OrderedDict[str, Any] = OrderedDict()
-        self._planner = TaskPlanner()
+    def __init__(self) -> None:
         self._cache_max_entries = settings.AGENT_RUNTIME_CACHE_MAX_ENTRIES
-        self._cache_hits = 0
-        self._cache_misses = 0
-
-    def _touch_cache_key(self, cache_key: str) -> None:
-        if cache_key in self._agents:
-            self._agents.move_to_end(cache_key)
-        if cache_key in self._planner_llms:
-            self._planner_llms.move_to_end(cache_key)
-
-    def _trim_runtime_cache(self) -> None:
-        while len(self._agents) > self._cache_max_entries:
-            oldest_key, _ = self._agents.popitem(last=False)
-            self._planner_llms.pop(oldest_key, None)
-            logger.info("Evicted runtime model cache key=%s", oldest_key)
 
     def get_cache_stats(self) -> dict[str, int | float]:
-        total = self._cache_hits + self._cache_misses
-        hit_rate = (self._cache_hits / total) if total > 0 else 0.0
         return {
-            "entries": len(self._agents),
+            "entries": 0,
             "max_entries": self._cache_max_entries,
-            "hits": self._cache_hits,
-            "misses": self._cache_misses,
-            "hit_rate": round(hit_rate, 4),
+            "hits": 0,
+            "misses": 0,
+            "hit_rate": 0.0,
         }
-
-    def _ensure_initialized(
-        self,
-        runtime_config: RuntimeModelConfig | None = None,
-    ) -> tuple[str, RuntimeModelConfig]:
-        """Lazy initialization of provider-specific models and agent graph."""
-        effective_runtime = runtime_config or RuntimeModelConfig(
-            provider=agent_settings.AGENT_PROVIDER
-        )
-        resolved = resolve_runtime_config(effective_runtime)
-
-        if not resolved.is_configured:
-            raise ValueError(
-                "Agent not configured for selected provider. "
-                "Provide BYOK runtime credentials or configure environment defaults."
-            )
-
-        cache_key = resolved.cache_key()
-        if cache_key in self._agents and cache_key in self._planner_llms:
-            self._cache_hits += 1
-            self._touch_cache_key(cache_key)
-            return cache_key, effective_runtime
-
-        self._cache_misses += 1
-
-        provider = get_model_provider(resolved.provider)
-
-        execution_llm = provider.create_chat_model(
-            resolved,
-            temperature=resolved.temperature,
-            max_tokens=resolved.max_tokens,
-        )
-        planner_llm = provider.create_chat_model(
-            resolved,
-            temperature=min(1.0, resolved.temperature + 0.15),
-            max_tokens=min(2048, resolved.max_tokens),
-        )
-
-        tools = [*ALL_TOOLS, retrieve_knowledge]
-        agent = create_react_agent(
-            model=execution_llm,
-            tools=tools,
-            prompt=SYSTEM_PROMPT,
-        )
-
-        self._agents[cache_key] = agent
-        self._planner_llms[cache_key] = planner_llm
-        self._touch_cache_key(cache_key)
-        self._trim_runtime_cache()
-
-        logger.info(
-            "Agent initialized provider=%s model=%s reasoning=%s",
-            resolved.provider,
-            resolved.model,
-            resolved.reasoning_mode,
-        )
-
-        return cache_key, effective_runtime
 
     def invoke(
         self,
@@ -166,97 +35,9 @@ class AgentService:
         config: dict[str, Any] | None = None,
         runtime_config: RuntimeModelConfig | None = None,
     ) -> dict[str, Any]:
-        """Run the agent synchronously."""
-        cache_key, _ = self._ensure_initialized(runtime_config)
-        agent = self._agents.get(cache_key)
-        if agent is None:
-            raise RuntimeError("Agent not initialized")
-
-        lc_messages = self._convert_to_lc_messages(messages)
-
-        run_config = {
-            "recursion_limit": agent_settings.AGENT_MAX_ITERATIONS * 2 + 1,
-            **(config or {}),
-        }
-
-        return agent.invoke({"messages": lc_messages}, config=run_config)
-
-    def _convert_to_lc_messages(
-        self, messages: list[dict[str, Any]]
-    ) -> list[BaseMessage]:
-        """Convert dict messages to LangChain message objects."""
-        lc_messages: list[BaseMessage] = []
-        for msg in messages:
-            role = msg.get("role", "user")
-            content = msg.get("content", "")
-            if role == "user":
-                lc_messages.append(HumanMessage(content=content))
-            elif role == "assistant":
-                lc_messages.append(AIMessage(content=content))
-            elif role == "system":
-                lc_messages.append(SystemMessage(content=content))
-        return lc_messages
-
-    def _should_decompose(self, messages: list[BaseMessage]) -> bool:
-        """Detect complex prompts that benefit from DAG planning."""
-        user_message = ""
-        for msg in reversed(messages):
-            if isinstance(msg, HumanMessage):
-                user_message = str(msg.content).lower()
-                break
-
-        if not user_message:
-            return False
-
-        simple_keywords = ["hello", "hi", "สวัสดี", "help", "what can you do"]
-        if any(keyword in user_message for keyword in simple_keywords):
-            return False
-
-        complexity_markers = [
-            "compare",
-            "vs",
-            "versus",
-            "undervalued",
-            "portfolio",
-            "recommend",
-            "optimize",
-            "tradeoff",
-            "analysis",
-            "เปรียบเทียบ",
-            "วิเคราะห์",
-        ]
-        return any(marker in user_message for marker in complexity_markers)
-
-    def _extract_chunk_content(self, chunk: Any) -> str:
-        """Normalize streamed chunk content across providers."""
-        content = getattr(chunk, "content", "")
-        if isinstance(content, str):
-            return content
-
-        if isinstance(content, list):
-            texts: list[str] = []
-            for part in content:
-                if isinstance(part, str):
-                    texts.append(part)
-                elif isinstance(part, dict):
-                    maybe_text = part.get("text")
-                    if isinstance(maybe_text, str):
-                        texts.append(maybe_text)
-            return "".join(texts)
-
-        return str(content) if content else ""
-
-    def _compute_recursion_limit(self) -> int:
-        """
-        Compute a robust LangGraph recursion budget.
-
-        A single tool iteration often includes multiple internal graph hops
-        (model planning, tool routing, tool execution, post-tool synthesis),
-        so a low multiple can trip false-positive recursion failures on
-        legitimate complex tasks.
-        """
-        max_iterations = max(1, agent_settings.AGENT_MAX_ITERATIONS)
-        return max(25, max_iterations * 6 + 5)
+        raise NotImplementedError(
+            "Synchronous invoke is not used by the rewritten agent"
+        )
 
     async def astream(
         self,
@@ -264,162 +45,30 @@ class AgentService:
         config: dict[str, Any] | None = None,
         runtime_config: RuntimeModelConfig | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
-        """
-        Stream agent execution events with decomposition + clarification loop.
-
-        Event types:
-        - decomposition: Structured DAG for complex tasks
-        - clarification: Missing constraints/questions to ask user
-        - tool_call: Tool invocation metadata
-        - tool_result: Tool output (truncated)
-        - token: Streaming output token
-        - final: Final fallback text
-        - error: Execution error
-        """
-        cache_key, _ = self._ensure_initialized(runtime_config)
-        agent = self._agents.get(cache_key)
-        planner_llm = self._planner_llms.get(cache_key)
-        if agent is None:
-            raise RuntimeError("Agent not initialized")
-
-        lc_messages = self._convert_to_lc_messages(messages)
-
-        if self._should_decompose(lc_messages):
-            plan = self._planner.build_plan(lc_messages, planner_llm)
-            plan_data = plan.model_dump()
-
-            yield {
-                "type": "decomposition",
-                "content": plan_data,
-            }
-
-            if plan.requires_clarification:
-                yield {
-                    "type": "clarification",
-                    "content": {
-                        "questions": plan.clarification_questions,
-                        "missing_constraints": plan.missing_constraints,
-                        "message": build_clarification_message(plan),
-                    },
-                }
-                return
-
-            if plan.nodes and lc_messages:
-                dag_context = HumanMessage(
-                    content=(
-                        "[TASK DAG]\n"
-                        f"{json.dumps(plan_data, ensure_ascii=False)}\n\n"
-                        "[USER QUERY]\n"
-                        f"{lc_messages[-1].content}"
-                    )
-                )
-                lc_messages = lc_messages[:-1] + [dag_context]
-
-        run_config = {
-            "recursion_limit": self._compute_recursion_limit(),
-            **(config or {}),
-        }
-
-        iteration = 0
-        max_iterations = max(1, agent_settings.AGENT_MAX_ITERATIONS)
-        tool_call_budget = max_iterations * 3
-
+        stream_status = "completed"
         try:
-            async for event in agent.astream_events(
-                {"messages": lc_messages},
-                config=run_config,
-                version="v2",
+            async for event in workflow_engine.astream(
+                messages,
+                runtime_config=runtime_config,
             ):
-                event_type = event.get("event", "")
-                event_name = event.get("name", "")
-                data = event.get("data", {})
-
-                if event_type == "on_chain_start" and event_name == "tools":
-                    iteration += 1
-                    if iteration > tool_call_budget:
-                        yield {
-                            "type": "error",
-                            "content": (
-                                f"Tool-call safety budget reached ({tool_call_budget}). "
-                                "Stopping to avoid a potential loop."
-                            ),
-                        }
-                        break
-
-                if event_type == "on_tool_start":
-                    tool_name = event_name
-                    tool_input = data.get("input", {})
-                    if isinstance(tool_input, str):
-                        try:
-                            tool_input = json.loads(tool_input)
-                        except json.JSONDecodeError:
-                            tool_input = {"raw_input": tool_input}
-
-                    yield {
-                        "type": "tool_call",
-                        "content": {
-                            "name": tool_name,
-                            "input": tool_input,
-                        },
-                    }
-
-                elif event_type == "on_tool_end":
-                    tool_output = data.get("output", "")
-                    output_str = str(tool_output)
-                    if len(output_str) > 2000:
-                        output_str = output_str[:2000] + "... (truncated)"
-
-                    yield {
-                        "type": "tool_result",
-                        "content": output_str,
-                    }
-
-                elif event_type == "on_chat_model_stream":
-                    chunk = data.get("chunk")
-                    if chunk:
-                        token_content = self._extract_chunk_content(chunk)
-                        if token_content:
-                            yield {
-                                "type": "token",
-                                "content": token_content,
-                            }
-
-                elif event_type == "on_chain_end" and event_name == "LangGraph":
-                    output = data.get("output", {})
-                    if isinstance(output, dict):
-                        output_messages = output.get("messages", [])
-                        if output_messages:
-                            last_message = output_messages[-1]
-                            if (
-                                hasattr(last_message, "content")
-                                and last_message.content
-                            ):
-                                yield {
-                                    "type": "final",
-                                    "content": str(last_message.content),
-                                }
-
-        except GraphRecursionError:
-            recursion_limit = run_config.get("recursion_limit")
-            logger.error(
-                "Agent streaming hit GraphRecursionError (limit=%s).",
-                recursion_limit,
-                exc_info=True,
-            )
-            yield {
-                "type": "error",
-                "content": (
-                    "Execution exceeded the graph recursion budget before completion. "
-                    f"Current limit: {recursion_limit}. "
-                    "Try simplifying the request or increase AGENT_MAX_ITERATIONS."
-                ),
-            }
-        except Exception as e:
-            logger.error("Agent streaming error: %s", e, exc_info=True)
-            yield {
-                "type": "error",
-                "content": str(e),
-            }
+                event_type = event.get("type", "")
+                if event_type == "tool_call":
+                    content = cast(dict[str, Any], event.get("content", {}))
+                    agent_orchestration_metrics.observe_tool_call(
+                        str(content.get("name", "unknown")),
+                        "success",
+                        0.0,
+                    )
+                elif event_type == "clarification":
+                    stream_status = "clarification"
+                    agent_orchestration_metrics.observe_clarification("workflow")
+                yield event
+        except Exception as exc:
+            stream_status = "error"
+            logger.error("Workflow engine error: %s", exc, exc_info=True)
+            yield {"type": "error", "content": str(exc)}
+        finally:
+            agent_orchestration_metrics.observe_stream_completion(stream_status)
 
     async def astream_text(
         self,
@@ -427,7 +76,6 @@ class AgentService:
         include_tool_info: bool = False,
         runtime_config: RuntimeModelConfig | None = None,
     ) -> AsyncIterator[str]:
-        """Stream text-only output for simple SSE consumers."""
         final_content = ""
         tokens_streamed = False
 

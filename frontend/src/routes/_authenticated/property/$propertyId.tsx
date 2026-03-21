@@ -23,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/error-state";
 import { ContentLoader } from "@/components/ui/loading";
+import { PropertyImageFrame } from "@/components/property/PropertyImageFrame";
 
 const ComprehensivePriceReport = lazy(() =>
   import("@/components/ComprehensivePriceReport").then((m) => ({
@@ -225,6 +226,14 @@ function PropertyDetailPage() {
                   )}
                 </div>
               </div>
+
+              <PropertyImageFrame
+                title={property.building_style_desc || "Property"}
+                subtitle={[property.tumbon, property.amphur].filter(Boolean).join(", ")}
+                badge={property.village || null}
+                className="mb-6"
+                aspectClassName="aspect-[16/10]"
+              />
 
               {/* Details Grid */}
               <div className="space-y-4">

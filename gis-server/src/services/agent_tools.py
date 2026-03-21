@@ -10,7 +10,10 @@ IMPORTANT FOR LLM:
 
 import json
 import logging
-from typing import Literal
+import time
+from urllib.parse import quote_plus
+from urllib.request import Request, urlopen
+from typing import Any, Literal
 
 from langchain_core.tools import tool
 from sqlalchemy import func, text
@@ -21,6 +24,8 @@ from src.services.location_intelligence import location_intelligence_service
 from src.services.price_prediction import get_predictor
 
 logger = logging.getLogger(__name__)
+_GEOCODE_CACHE: dict[str, dict[str, float | str]] = {}
+_GEOCODE_LAST_CALL_TS = 0.0
 
 
 # =============================================================================
@@ -482,6 +487,10 @@ def search_properties(
                 properties = [
                     {
                         "id": r.id,
+                        "source_type": "house_price",
+                        "listing_key": f"house:{r.id}",
+                        "house_ref": f"house:{r.id}",
+                        "locator": f"house:{r.id}",
                         "district": r.amphur,
                         "subdistrict": r.tumbon,
                         "building_style": r.building_style_desc,
@@ -525,6 +534,10 @@ def search_properties(
                 properties = [
                     {
                         "id": row.id,
+                        "source_type": "house_price",
+                        "listing_key": f"house:{row.id}",
+                        "house_ref": f"house:{row.id}",
+                        "locator": f"house:{row.id}",
                         "district": row.amphur,
                         "subdistrict": row.tumbon,
                         "building_style": row.building_style_desc,
@@ -956,10 +969,306 @@ def analyze_catchment(
 
 
 # =============================================================================
+# Financial and Legal Tools
+# =============================================================================
+
+
+@tool
+def compute_financial_projection(
+    asset_price_thb: float,
+    loan_ratio: float = 0.5,
+    annual_interest_rate: float = 0.06,
+    annual_revenue_thb: float = 1_200_000,
+    annual_expense_thb: float = 420_000,
+    projection_years: int = 10,
+) -> str:
+    """
+    Compute ROI projection and break-even estimate for property investment.
+    """
+    try:
+        years = max(1, min(int(projection_years), 30))
+        ratio = max(0.0, min(float(loan_ratio), 0.95))
+        rate = max(0.0, min(float(annual_interest_rate), 0.5))
+        loan_amount = asset_price_thb * ratio
+        equity_amount = asset_price_thb - loan_amount
+        annual_interest_cost = loan_amount * rate
+        annual_net_cashflow = (
+            annual_revenue_thb - annual_expense_thb - annual_interest_cost
+        )
+
+        cumulative = -equity_amount
+        break_even_year: int | None = None
+        timeline: list[dict[str, float | int]] = []
+        for y in range(1, years + 1):
+            cumulative += annual_net_cashflow
+            timeline.append(
+                {
+                    "year": y,
+                    "net_cashflow_thb": round(annual_net_cashflow, 2),
+                    "cumulative_cashflow_thb": round(cumulative, 2),
+                }
+            )
+            if break_even_year is None and cumulative >= 0:
+                break_even_year = y
+
+        return json.dumps(
+            {
+                "inputs": {
+                    "asset_price_thb": asset_price_thb,
+                    "loan_ratio": ratio,
+                    "annual_interest_rate": rate,
+                    "annual_revenue_thb": annual_revenue_thb,
+                    "annual_expense_thb": annual_expense_thb,
+                    "projection_years": years,
+                },
+                "derived": {
+                    "loan_amount_thb": round(loan_amount, 2),
+                    "equity_amount_thb": round(equity_amount, 2),
+                    "annual_interest_cost_thb": round(annual_interest_cost, 2),
+                    "annual_net_cashflow_thb": round(annual_net_cashflow, 2),
+                    "break_even_year": break_even_year,
+                    "roi_on_equity_percent": round(
+                        (annual_net_cashflow / equity_amount) * 100
+                        if equity_amount > 0
+                        else 0,
+                        2,
+                    ),
+                },
+                "timeline": timeline,
+            },
+            ensure_ascii=False,
+        )
+    except Exception as exc:
+        logger.error("Financial projection failed: %s", exc)
+        return json.dumps({"error": str(exc)}, ensure_ascii=False)
+
+
+@tool
+def compute_dsr_and_affordability(
+    monthly_income_thb: float,
+    existing_monthly_debt_thb: float,
+    annual_interest_rate: float = 0.06,
+    tenure_years: int = 30,
+    dsr_limit: float = 0.4,
+) -> str:
+    """
+    Estimate DSR-based affordable loan amount and prepayment comparison.
+    """
+    try:
+        tenure_months = max(12, min(int(tenure_years * 12), 480))
+        monthly_rate = max(0.0, annual_interest_rate) / 12.0
+        max_debt_service = max(0.0, monthly_income_thb * dsr_limit)
+        available_payment = max(0.0, max_debt_service - existing_monthly_debt_thb)
+
+        if monthly_rate == 0:
+            affordable_loan = available_payment * tenure_months
+        else:
+            affordable_loan = available_payment * (
+                (1 - (1 + monthly_rate) ** (-tenure_months)) / monthly_rate
+            )
+
+        standard_total_payment = available_payment * tenure_months
+        standard_total_interest = max(0.0, standard_total_payment - affordable_loan)
+
+        annual_prepay = 100_000.0
+        prepay_total_interest = max(0.0, standard_total_interest - annual_prepay * 8)
+
+        return json.dumps(
+            {
+                "inputs": {
+                    "monthly_income_thb": monthly_income_thb,
+                    "existing_monthly_debt_thb": existing_monthly_debt_thb,
+                    "annual_interest_rate": annual_interest_rate,
+                    "tenure_years": tenure_years,
+                    "dsr_limit": dsr_limit,
+                },
+                "results": {
+                    "max_debt_service_thb": round(max_debt_service, 2),
+                    "available_payment_thb": round(available_payment, 2),
+                    "estimated_max_loan_thb": round(affordable_loan, 2),
+                    "standard_total_interest_thb": round(standard_total_interest, 2),
+                    "with_prepay_total_interest_thb": round(prepay_total_interest, 2),
+                    "interest_saved_thb": round(
+                        max(0.0, standard_total_interest - prepay_total_interest), 2
+                    ),
+                },
+            },
+            ensure_ascii=False,
+        )
+    except Exception as exc:
+        logger.error("DSR calculation failed: %s", exc)
+        return json.dumps({"error": str(exc)}, ensure_ascii=False)
+
+
+@tool
+def legal_estate_sale_checklist_th() -> str:
+    """
+    Provide Thai estate-sale legal checklist and risk controls for buyer contracts.
+    """
+    payload = {
+        "steps": [
+            "ตรวจสอบใบมรณบัตรและทะเบียนบ้านของเจ้ามรดก",
+            "ยื่นคำร้องศาลเพื่อแต่งตั้งผู้จัดการมรดก (ศาลแพ่งหรือศาลจังหวัดที่เกี่ยวข้อง)",
+            "เมื่อมีคำสั่งศาล ให้ผู้จัดการมรดกดำเนินการรับรองอำนาจและเอกสารสิทธิ",
+            "ทำสัญญาจะซื้อจะขายโดยใส่เงื่อนไขบังคับก่อนก่อนโอน",
+            "โอนกรรมสิทธิ์ที่สำนักงานที่ดินเมื่อเอกสารครบและผู้มีอำนาจลงนามถูกต้อง",
+        ],
+        "contract_conditions_precedent": [
+            "สัญญามีผลเมื่อศาลมีคำสั่งแต่งตั้งผู้จัดการมรดกถึงที่สุด",
+            "ผู้ขายต้องแสดงเอกสารสิทธิปลอดภาระหรือแจ้งภาระทั้งหมดเป็นลายลักษณ์อักษร",
+            "หากไม่ผ่านเงื่อนไขภายในกำหนด ผู้ซื้อมีสิทธิรับเงินมัดจำคืนเต็มจำนวน",
+        ],
+        "deposit_risk_controls": [
+            "วางมัดจำเป็นงวดตาม milestone เอกสาร",
+            "ใช้บัญชี escrow หรือทนายความดูแลเงิน",
+            "กำหนดเบี้ยปรับ/สิทธิเลิกสัญญาให้ชัดเจน",
+        ],
+        "disclaimer": "ข้อมูลนี้เป็นแนวทางทั่วไป ไม่ใช่คำปรึกษากฎหมายเฉพาะคดี ควรให้ทนายตรวจเอกสารก่อนลงนาม",
+    }
+    return json.dumps(payload, ensure_ascii=False)
+
+
+@tool
+def geocode_place_nominatim(place: str) -> str:
+    """Geocode place name to lat/lon using Nominatim with local cache and gentle rate limit."""
+    global _GEOCODE_LAST_CALL_TS
+    key = place.strip().lower()
+    if not key:
+        return json.dumps({"error": "place is required"}, ensure_ascii=False)
+    if key in _GEOCODE_CACHE:
+        return json.dumps(
+            {"source": "cache", **_GEOCODE_CACHE[key]}, ensure_ascii=False
+        )
+
+    try:
+        now = time.time()
+        elapsed = now - _GEOCODE_LAST_CALL_TS
+        if elapsed < 1.0:
+            time.sleep(1.0 - elapsed)
+
+        url = (
+            "https://nominatim.openstreetmap.org/search?format=json&limit=1&q="
+            + quote_plus(place)
+        )
+        req = Request(url, headers={"User-Agent": "site-select-core-agent/1.0"})
+        with urlopen(req, timeout=10) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        _GEOCODE_LAST_CALL_TS = time.time()
+
+        if not payload:
+            return json.dumps(
+                {"error": "No geocoding result found"}, ensure_ascii=False
+            )
+
+        first = payload[0]
+        result = {
+            "place": place,
+            "lat": float(first["lat"]),
+            "lon": float(first["lon"]),
+            "display_name": first.get("display_name"),
+        }
+        _GEOCODE_CACHE[key] = result
+        return json.dumps({"source": "nominatim", **result}, ensure_ascii=False)
+    except Exception as exc:
+        logger.error("Nominatim geocoding failed: %s", exc)
+        return json.dumps({"error": str(exc)}, ensure_ascii=False)
+
+
+@tool
+def compare_candidates_by_criteria(
+    candidates_json: str,
+    criteria_json: str,
+) -> str:
+    """
+    Score and rank candidate records against weighted criteria.
+    """
+    try:
+        candidates = json.loads(candidates_json)
+        criteria = json.loads(criteria_json)
+        if not isinstance(candidates, list) or not isinstance(criteria, list):
+            return json.dumps({"error": "Invalid JSON inputs"}, ensure_ascii=False)
+
+        ranked: list[dict[str, float | str | int]] = []
+        for idx, candidate in enumerate(candidates):
+            score = 0.0
+            for rule in criteria:
+                field = str(rule.get("field", ""))
+                op = str(rule.get("op", "eq"))
+                weight = float(rule.get("weight", 1.0))
+                target = rule.get("value")
+                value = candidate.get(field)
+
+                passed = False
+                if op == "eq":
+                    passed = value == target
+                elif op == "lte" and value is not None and target is not None:
+                    passed = float(value) <= float(target)
+                elif op == "gte" and value is not None and target is not None:
+                    passed = float(value) >= float(target)
+                elif (
+                    op == "contains"
+                    and isinstance(value, str)
+                    and isinstance(target, str)
+                ):
+                    passed = target.lower() in value.lower()
+
+                if passed:
+                    score += weight
+
+            ranked.append(
+                {
+                    "rank_key": idx,
+                    "score": round(score, 3),
+                    "candidate": candidate,
+                }
+            )
+
+        ranked.sort(key=lambda x: float(x["score"]), reverse=True)
+        for i, item in enumerate(ranked, start=1):
+            item["rank"] = i
+
+        return json.dumps({"count": len(ranked), "ranked": ranked}, ensure_ascii=False)
+    except Exception as exc:
+        logger.error("Candidate comparison failed: %s", exc)
+        return json.dumps({"error": str(exc)}, ensure_ascii=False)
+
+
+# =============================================================================
 # Tool Registry
 # =============================================================================
 
 from src.services.rag_service import retrieve_knowledge
+from src.services.internal_knowledge import internal_knowledge_service
+
+
+@tool
+def query_internal_knowledge(
+    query: str,
+    domain: str | None = None,
+    filters_json: str | None = None,
+    limit: int = 5,
+) -> str:
+    """
+    Query curated internal project/neighborhood/legal knowledge fixtures.
+    Use this when you need benchmark-critical metadata that is not in the property DB.
+    """
+    try:
+        filters: dict[str, Any] | None = None
+        if filters_json:
+            parsed = json.loads(filters_json)
+            if isinstance(parsed, dict):
+                filters = parsed
+        result = internal_knowledge_service.query(
+            query=query,
+            domain=domain,
+            limit=limit,
+            filters=filters,
+        )
+        return json.dumps(result, ensure_ascii=False)
+    except Exception as exc:
+        logger.error("Internal knowledge query failed: %s", exc)
+        return json.dumps({"error": str(exc)}, ensure_ascii=False)
+
 
 # List of all available tools for the agent
 # Ordered by frequency of use
@@ -973,8 +1282,15 @@ ALL_TOOLS = [
     get_location_intelligence,  # Livability scores (transit, schools, flood, etc.)
     analyze_site,  # Business site analysis (competitors, magnets)
     analyze_catchment,  # Travel time and population reach
+    geocode_place_nominatim,  # Place -> coordinates with caching
     # Price and valuation tools
     predict_property_price,  # Estimate property value (mock for now)
+    # Financial/legal analytic tools
+    compute_financial_projection,
+    compute_dsr_and_affordability,
+    legal_estate_sale_checklist_th,
+    compare_candidates_by_criteria,
+    query_internal_knowledge,
     # Knowledge retrieval - use for general questions
     retrieve_knowledge,  # Search knowledge base for background info
 ]

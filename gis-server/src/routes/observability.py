@@ -10,6 +10,7 @@ from src.services.conversation_memory import conversation_memory
 from src.services.location_intelligence import location_intelligence_service
 from src.services.cache_backend import cache_backend
 from src.services.observability import (
+    agent_orchestration_metrics,
     cache_backend_metrics,
     location_intelligence_metrics,
     request_metrics,
@@ -102,6 +103,7 @@ def get_metrics() -> Response:
     db_payload = db_pool_metrics.render_prometheus()
     location_intelligence_payload = location_intelligence_metrics.render_prometheus()
     cache_backend_payload = cache_backend_metrics.render_prometheus()
+    agent_orchestration_payload = agent_orchestration_metrics.render_prometheus()
     payload = (
         request_metrics_payload
         + "\n"
@@ -110,6 +112,8 @@ def get_metrics() -> Response:
         + location_intelligence_payload
         + "\n"
         + cache_backend_payload
+        + "\n"
+        + agent_orchestration_payload
         + "\n"
         + "\n".join(cache_lines)
         + "\n"

@@ -1,27 +1,26 @@
 import { Link } from "@tanstack/react-router";
 import {
-  Eye,
-  EyeOff,
+  BarChart3,
   ChevronDown,
   ChevronUp,
-  Home,
-  BarChart3,
+  Eye,
+  EyeOff,
   Train,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { MarketStats } from "@/components/MarketStats";
 import {
   PropertyFilters,
   type PropertyFiltersState,
 } from "@/components/PropertyFilters";
-import { MarketStats } from "@/components/MarketStats";
 import {
   Collapsible,
-  CollapsibleTrigger,
   CollapsibleContent,
+  CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import type { OverlayState, OpenSections } from "@/hooks/usePropertyExplorer";
 import { SourceTooltip } from "@/components/ui/source-tooltip";
+import type { OpenSections, OverlayState } from "@/hooks/usePropertyExplorer";
 import { DATA_SOURCES } from "@/lib/dataSources";
+import { cn } from "@/lib/utils";
 
 // ---- LayerToggle (local to this module) ----
 
@@ -46,14 +45,14 @@ function LayerToggle({
         "w-full flex items-center justify-between p-3 rounded-lg transition-all border",
         active
           ? "bg-muted border-border"
-          : "bg-transparent border-transparent hover:bg-muted/50"
+          : "bg-transparent border-transparent hover:bg-muted/50",
       )}
     >
       <div className="flex items-center gap-3">
         {icon ? (
           <span
             className={cn(
-              active ? "text-foreground" : "text-muted-foreground/50"
+              active ? "text-foreground" : "text-muted-foreground/50",
             )}
           >
             {icon}
@@ -63,14 +62,14 @@ function LayerToggle({
             className={cn(
               "w-3 h-3 rounded-full shadow-[0_0_10px_currentColor]",
               color,
-              !active && "opacity-20 shadow-none"
+              !active && "opacity-20 shadow-none",
             )}
           />
         )}
         <span
           className={cn(
             "text-sm font-medium",
-            active ? "text-foreground" : "text-muted-foreground"
+            active ? "text-foreground" : "text-muted-foreground",
           )}
         >
           {label}
@@ -112,19 +111,6 @@ export function ExplorerPanel({
 }: ExplorerPanelProps) {
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="rounded-xl border border-border/70 bg-card/60 p-3">
-        <div className="flex items-center gap-2 mb-1">
-          <Home className="w-5 h-5 text-brand" />
-          <h2 className="text-xl font-bold text-foreground">
-            Property Explorer
-          </h2>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Browse real estate prices in Bangkok
-        </p>
-      </div>
-
       {/* Property Filters Section */}
       <Collapsible
         open={openSections.filters}
@@ -155,9 +141,7 @@ export function ExplorerPanel({
       {/* Market Stats Section */}
       <Collapsible
         open={openSections.stats}
-        onOpenChange={(open) =>
-          setOpenSections((s) => ({ ...s, stats: open }))
-        }
+        onOpenChange={(open) => setOpenSections((s) => ({ ...s, stats: open }))}
       >
         <div className="border border-border/80 rounded-xl overflow-hidden bg-card/70">
           <CollapsibleTrigger className="w-full flex items-center justify-between p-3 bg-muted/45 hover:bg-muted/70 transition-colors">
@@ -172,9 +156,7 @@ export function ExplorerPanel({
           </CollapsibleTrigger>
           <CollapsibleContent>
             <div className="p-3 bg-surface-2/50">
-              <MarketStats
-                district={propertyFilters.district}
-              />
+              <MarketStats district={propertyFilters.district} />
             </div>
           </CollapsibleContent>
         </div>
@@ -211,9 +193,7 @@ export function ExplorerPanel({
                 label="All POIs"
                 active={overlays.pois}
                 color="bg-purple-500"
-                onClick={() =>
-                  setOverlays((o) => ({ ...o, pois: !o.pois }))
-                }
+                onClick={() => setOverlays((o) => ({ ...o, pois: !o.pois }))}
               />
               <LayerToggle
                 label="Schools"
@@ -261,9 +241,7 @@ export function ExplorerPanel({
                         Avg Building Area
                       </option>
                       <option value="avg_land_area">Avg Land Area</option>
-                      <option value="avg_building_age">
-                        Avg Building Age
-                      </option>
+                      <option value="avg_building_age">Avg Building Age</option>
                     </optgroup>
                     <optgroup label="Transit">
                       <option value="transit_total">

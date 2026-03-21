@@ -215,6 +215,42 @@ export const useChatStore = create<ChatStore>()(
           role: msg.role as "user" | "assistant",
           content: msg.content,
           attachments: msg.attachments as Attachment[] | undefined,
+          steps: Array.isArray(msg.tool_calls)
+            ? msg.tool_calls.map((toolCall, index) => ({
+                id:
+                  typeof toolCall.id === "string"
+                    ? toolCall.id
+                    : `${msg.id}-step-${index}`,
+                type:
+                  (typeof toolCall.type === "string"
+                    ? toolCall.type
+                    : "tool_call") as AgentStep["type"],
+                name:
+                  typeof toolCall.name === "string"
+                    ? toolCall.name
+                    : "Tool",
+                status:
+                  (typeof toolCall.status === "string"
+                    ? toolCall.status
+                    : "complete") as AgentStep["status"],
+                input:
+                  toolCall.input && typeof toolCall.input === "object"
+                    ? (toolCall.input as Record<string, unknown>)
+                    : undefined,
+                output:
+                  typeof toolCall.output === "string"
+                    ? toolCall.output
+                    : undefined,
+                startTime:
+                  typeof toolCall.start_time === "number"
+                    ? toolCall.start_time
+                    : Date.now(),
+                endTime:
+                  typeof toolCall.end_time === "number"
+                    ? toolCall.end_time
+                    : undefined,
+              }))
+            : undefined,
           createdAt: msg.created_at ? new Date(msg.created_at) : new Date(),
         }));
 
@@ -341,6 +377,11 @@ export const useChatStore = create<ChatStore>()(
         for await (const event of chatApi.streamAgentChatWithSession(apiMessages, {
           sessionId: currentSessionId || undefined,
           attachments,
+          onSessionId: (sessionId) => {
+            if (!get().currentSessionId) {
+              set({ currentSessionId: sessionId });
+            }
+          },
         })) {
           const { messages: currentMessages } = get();
           const lastMessage = currentMessages[currentMessages.length - 1];

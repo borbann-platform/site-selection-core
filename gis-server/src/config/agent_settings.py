@@ -31,6 +31,8 @@ class AgentSettings(BaseSettings):
     OPENAI_ORG_ID: str = ""
     AGENT_CREDENTIALS_ENCRYPTION_KEY: str = ""
     EMBEDDING_MODEL: str = "models/text-embedding-004"
+    EMBEDDING_PROVIDER: Literal["gemini", "openai_compatible"] = "gemini"
+    OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
 
     # Agent safety limits
     AGENT_MAX_ITERATIONS: int = 12
@@ -60,7 +62,23 @@ class AgentSettings(BaseSettings):
             if self.GEMINI_USE_VERTEX_AI:
                 return bool(self.GOOGLE_CLOUD_PROJECT and self.GOOGLE_CLOUD_LOCATION)
             return bool(
-                self.GOOGLE_API_KEY and self.GOOGLE_API_KEY != "your-google-api-key-here"
+                self.GOOGLE_API_KEY
+                and self.GOOGLE_API_KEY != "your-google-api-key-here"
+            )
+
+        return False
+
+    def is_embedding_provider_configured(self, provider: str | None = None) -> bool:
+        """Check if embedding provider credentials are available."""
+        target = provider or self.EMBEDDING_PROVIDER
+
+        if target == "openai_compatible":
+            return bool(self.OPENAI_API_KEY and self.OPENAI_BASE_URL)
+
+        if target == "gemini":
+            return bool(
+                self.GOOGLE_API_KEY
+                and self.GOOGLE_API_KEY != "your-google-api-key-here"
             )
 
         return False

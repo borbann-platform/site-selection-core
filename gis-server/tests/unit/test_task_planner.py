@@ -51,3 +51,37 @@ def test_fallback_plan_is_dag():
     for node in plan.nodes:
         for dep in node.depends_on:
             assert dep in ids
+
+
+def test_no_clarification_for_explicit_compare_targets():
+    planner = TaskPlanner()
+    messages = [
+        HumanMessage(
+            content="Compare Sathorn and Bang Kapi market trends for detached houses"
+        )
+    ]
+
+    plan = planner.build_plan(messages, planner_llm=None)
+
+    assert plan.requires_clarification is False
+    assert len(plan.nodes) >= 1
+
+
+def test_no_clarification_for_thai_compare_with_or_separator():
+    planner = TaskPlanner()
+    messages = [HumanMessage(content="เปรียบเทียบย่านอารีย์หรือสะพานควายสำหรับซื้อคอนโด")]
+
+    plan = planner.build_plan(messages, planner_llm=None)
+
+    assert plan.requires_clarification is False
+
+
+def test_financial_prompt_does_not_trigger_compare_clarification():
+    planner = TaskPlanner()
+    messages = [
+        HumanMessage(
+            content="จะซื้อบ้าน 8 ล้าน เงินเดือน 80,000 ภาระผ่อนรถ 12,000 ช่วยคำนวณ DSR"
+        )
+    ]
+    plan = planner.build_plan(messages, planner_llm=None)
+    assert plan.requires_clarification is False

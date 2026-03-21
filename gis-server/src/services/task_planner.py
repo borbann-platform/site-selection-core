@@ -15,6 +15,7 @@ from langchain_core.messages import HumanMessage
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.config.agent_settings import agent_settings
+from src.services.agent_subagents import has_explicit_compare_targets
 
 logger = logging.getLogger(__name__)
 
@@ -78,9 +79,7 @@ Rules:
 class TaskPlanner:
     """Builds a DAG and clarification plan before execution."""
 
-    _COORD_RE = re.compile(
-        r"(-?\d{1,3}(?:\.\d+)?)\s*[,/ ]\s*(-?\d{1,3}(?:\.\d+)?)"
-    )
+    _COORD_RE = re.compile(r"(-?\d{1,3}(?:\.\d+)?)\s*[,/ ]\s*(-?\d{1,3}(?:\.\d+)?)")
 
     def build_plan(
         self,
@@ -135,27 +134,56 @@ class TaskPlanner:
         questions: list[str] = []
         missing: list[str] = []
 
-        wants_nearby = any(token in lowered for token in [" near ", " ใกล้", "around ", "within"])
+        wants_nearby = any(
+            token in lowered for token in [" near ", " ใกล้", "around ", "within"]
+        )
         if wants_nearby and not has_spatial_context and not has_coordinates:
             missing.append("reference_location")
             questions.append(
                 "Which exact location should I anchor this search to (district, coordinates, or a pinned map point)?"
             )
 
-        wants_comparison = any(token in lowered for token in ["compare", "เปรียบเทียบ", "versus", "vs"])
-        if wants_comparison and not re.search(r"\b(vs|versus)\b", lowered):
+        wants_comparison = any(
+            token in lowered for token in ["compare", "เปรียบเทียบ", "versus", "vs"]
+        )
+        has_comparison_operator = bool(re.search(r"\b(vs|versus)\b", lowered))
+        has_multiple_targets = has_explicit_compare_targets(lowered)
+        if (
+            wants_comparison
+            and not has_comparison_operator
+            and not has_multiple_targets
+        ):
             missing.append("comparison_targets")
-            questions.append(
-                "Which two or more districts/properties should I compare?"
-            )
+            questions.append("Which two or more districts/properties should I compare?")
 
-        price_intent = any(token in lowered for token in ["under", "below", "budget", "งบ", "ราคาไม่เกิน"])
-        has_budget_number = bool(re.search(r"\d[\d,_.]*\s*(m|million|บาท|thb)?", lowered))
+        finance_intent = any(
+            token in lowered
+            for token in ["dsr", "วงเงินกู้", "ดอกเบี้ย", "break-even", "yield", "roi"]
+        )
+        if finance_intent:
+            # For financial prompts, proceed with bounded assumptions instead of blocking.
+            missing = [m for m in missing if m != "comparison_targets"]
+            questions = [
+                q
+                for q in questions
+                if "compare" not in q.lower()
+                and "districts/properties" not in q.lower()
+            ]
+
+        price_intent = any(
+            token in lowered
+            for token in ["under", "below", "budget", "งบ", "ราคาไม่เกิน"]
+        )
+        has_budget_number = bool(
+            re.search(r"\d[\d,_.]*\s*(m|million|บาท|thb)?", lowered)
+        )
         if price_intent and not has_budget_number:
             missing.append("budget_range")
             questions.append("What price range should I use for this analysis?")
 
-        this_area_intent = any(token in lowered for token in ["this area", "here", "พื้นที่นี้", "จุดนี้"])
+        this_area_intent = any(
+            token in lowered for token in ["this area", "here", "พื้นที่นี้", "จุดนี้"]
+        )
         if this_area_intent and not has_spatial_context and not has_coordinates:
             missing.append("ui_grounding_target")
             questions.append(
@@ -187,8 +215,23 @@ class TaskPlanner:
 
         try:
             response = planner_llm.invoke(llm_messages)
-            content = response.content if hasattr(response, "content") else str(response)
-            plan = self._extract_json_plan(content)
+            content = (
+                response.content if hasattr(response, "content") else str(response)
+            )
+            if isinstance(content, list):
+                text_parts: list[str] = []
+                for part in content:
+                    if isinstance(part, str):
+                        text_parts.append(part)
+                    elif isinstance(part, dict):
+                        text = part.get("text")
+                        if isinstance(text, str):
+                            text_parts.append(text)
+                normalized_content = "".join(text_parts)
+            else:
+                normalized_content = str(content)
+
+            plan = self._extract_json_plan(normalized_content)
             if plan is None:
                 return None
             validated = TaskDAG.model_validate(plan)
@@ -225,7 +268,9 @@ class TaskPlanner:
         for node in nodes:
             for dep in node.depends_on:
                 if dep not in node_ids:
-                    raise ValueError(f"Task node '{node.id}' depends on unknown node '{dep}'")
+                    raise ValueError(
+                        f"Task node '{node.id}' depends on unknown node '{dep}'"
+                    )
                 graph[dep].append(node.id)
                 indegree[node.id] += 1
 

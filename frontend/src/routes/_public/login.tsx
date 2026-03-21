@@ -1,6 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useId, useState } from "react";
-import { Building2 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { ThemeToggle } from "../../components/ThemeToggle";
 import { Button } from "../../components/ui/button";
@@ -56,17 +55,14 @@ function LoginPage() {
       {/* Card */}
       <div className="relative w-full max-w-md animate-scale-in">
         <div className="glass-strong rounded-2xl p-8 border border-border">
-          {/* Logo */}
+          {/* Brand */}
           <div className="flex flex-col items-center gap-4 mb-8">
-            <div className="h-16 w-16 rounded-2xl bg-primary flex items-center justify-center">
-              <Building2 className="h-9 w-9 text-primary-foreground" />
-            </div>
             <div className="text-center">
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-sky-300 bg-clip-text text-transparent">
-                Site Selection
+              <h1 className="text-3xl font-semibold tracking-[-0.03em] text-foreground [font-family:var(--font-serif)]">
+                Borban
               </h1>
               <p className="text-sm text-muted-foreground mt-1">
-                Bangkok Real Estate Intelligence
+                Real estate information platform
               </p>
             </div>
           </div>
