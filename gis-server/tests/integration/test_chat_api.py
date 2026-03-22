@@ -139,6 +139,7 @@ class TestChatAgentEndpoint:
     def test_agent_stream_event_ordering_contract(self, client, monkeypatch):
         """Stream should emit thinking first and done last."""
         from src.services import agent_graph
+        from src.routes import chat as chat_routes
 
         async def fake_stream(*args, **kwargs):
             yield {
@@ -149,6 +150,7 @@ class TestChatAgentEndpoint:
             yield {"type": "token", "content": "hello"}
             yield {"type": "final", "content": "hello"}
 
+        monkeypatch.setattr(chat_routes, "is_runtime_model_configured", lambda *_: True)
         monkeypatch.setattr(agent_graph.agent_service, "astream", fake_stream)
 
         response = client.post(
@@ -168,6 +170,7 @@ class TestChatAgentEndpoint:
     def test_agent_stream_blocked_tool_evidence_path(self, client, monkeypatch):
         """Blocked tool-evidence should emit waiting_user step and done."""
         from src.services import agent_graph
+        from src.routes import chat as chat_routes
 
         async def fake_stream(*args, **kwargs):
             yield {
@@ -179,6 +182,7 @@ class TestChatAgentEndpoint:
                 },
             }
 
+        monkeypatch.setattr(chat_routes, "is_runtime_model_configured", lambda *_: True)
         monkeypatch.setattr(agent_graph.agent_service, "astream", fake_stream)
 
         response = client.post(
@@ -209,6 +213,7 @@ class TestChatAgentEndpoint:
         self, client, monkeypatch
     ):
         from src.services import agent_graph
+        from src.routes import chat as chat_routes
 
         async def fake_stream(*args, **kwargs):
             yield {
@@ -218,6 +223,7 @@ class TestChatAgentEndpoint:
             yield {"type": "tool_result", "content": "ok"}
             yield {"type": "final", "content": "ผลการคำนวณ DSR พร้อมแล้ว"}
 
+        monkeypatch.setattr(chat_routes, "is_runtime_model_configured", lambda *_: True)
         monkeypatch.setattr(agent_graph.agent_service, "astream", fake_stream)
         response = client.post(
             "/api/v1/chat/agent",
@@ -239,6 +245,7 @@ class TestChatAgentEndpoint:
 
     def test_agent_rewrite_emits_finance_tool_call(self, client, monkeypatch):
         from src.services import agent_graph
+        from src.routes import chat as chat_routes
 
         async def fake_stream(*args, **kwargs):
             yield {
@@ -248,6 +255,7 @@ class TestChatAgentEndpoint:
             yield {"type": "tool_result", "content": "ok"}
             yield {"type": "final", "content": "เสร็จแล้ว"}
 
+        monkeypatch.setattr(chat_routes, "is_runtime_model_configured", lambda *_: True)
         monkeypatch.setattr(agent_graph.agent_service, "astream", fake_stream)
         response = client.post(
             "/api/v1/chat/agent",
@@ -266,6 +274,7 @@ class TestChatAgentEndpoint:
 
     def test_agent_rewrite_emits_legal_tool_call(self, client, monkeypatch):
         from src.services import agent_graph
+        from src.routes import chat as chat_routes
 
         async def fake_stream(*args, **kwargs):
             yield {
@@ -275,6 +284,7 @@ class TestChatAgentEndpoint:
             yield {"type": "tool_result", "content": "ok"}
             yield {"type": "final", "content": "เช็กลิสต์พร้อมแล้ว"}
 
+        monkeypatch.setattr(chat_routes, "is_runtime_model_configured", lambda *_: True)
         monkeypatch.setattr(agent_graph.agent_service, "astream", fake_stream)
         response = client.post(
             "/api/v1/chat/agent",
