@@ -1,5 +1,6 @@
 from src.services.agent_contracts import NormalizedAgentRequest, WorkflowId
 from src.services.agent_contracts import WorkflowDecision, WorkflowExecutionState
+from src.services.agent_contracts import EvidenceItem, ToolExecutionResult
 from src.services.agent_composer import response_composer
 from src.services.agent_router import routing_engine
 from src.services.agent_runtime_metadata import get_agent_engine_metadata
@@ -39,12 +40,44 @@ def test_runtime_metadata_has_expected_shape():
 
 
 def test_composer_appends_structured_property_references():
-    search_result = tool_runtime.execute(
-        "search_properties",
-        {
-            "district": "บางกะปิ",
-            "limit": 1,
+    search_result = ToolExecutionResult(
+        tool_name="search_properties",
+        status="success",
+        tool_input={"district": "บางกะปิ", "limit": 1},
+        raw_output={
+            "properties": [
+                {
+                    "id": "house-123",
+                    "district": "บางกะปิ",
+                    "building_style": "บ้านเดี่ยว",
+                    "price_thb": 4200000,
+                    "building_area_sqm": 180,
+                    "lat": 13.765,
+                    "lon": 100.642,
+                }
+            ]
         },
+        normalized_output={
+            "properties": [
+                {
+                    "id": "house-123",
+                    "district": "บางกะปิ",
+                    "building_style": "บ้านเดี่ยว",
+                    "price_thb": 4200000,
+                    "building_area_sqm": 180,
+                    "lat": 13.765,
+                    "lon": 100.642,
+                }
+            ]
+        },
+        evidence_items=[
+            EvidenceItem(
+                kind="tool:search_properties",
+                source_type="tool",
+                source_id="search_properties",
+                payload={"property_ids": ["house-123"]},
+            )
+        ],
     )
 
     state = WorkflowExecutionState(

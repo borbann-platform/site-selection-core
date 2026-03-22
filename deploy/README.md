@@ -19,4 +19,13 @@ Then:
 3. sync runtime data into `/opt/app/runtime/gis-server/data`
 4. sync runtime models into `/opt/app/runtime/gis-server/models`
 5. install host nginx config from `deploy/nginx/site-select-core.conf`
-6. run the GitHub Actions deploy workflow or deploy manually with `deploy/scripts/deploy.sh`
+6. run the GitHub Actions deploy workflow or deploy manually with `IMAGE_TAG=<tag> APP_ENV_FILE=/opt/app/.env.production bash deploy/scripts/deploy.sh`
+
+Helpful deploy toggles:
+
+- `DB_IMAGE=ghcr.io/borbann-platform/site-selection-core-db` selects the PostGIS + pgvector production database image
+- `APP_IMAGE_PULL_POLICY=missing` keeps manually loaded app images usable on first deploys while still pulling future missing tags from GHCR
+- `RUN_APP_BOOTSTRAP=1` runs the idempotent database bootstrap before the final app rollout
+- `ROLLBACK_PULL_POLICY=missing` lets rollback pull an older tag only when it is not already present locally
+
+The GitHub deploy workflow auto-runs on pushes to `main`, so once secrets are configured, merging to `main` is enough to trigger a rebuild and redeploy.

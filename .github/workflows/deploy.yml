@@ -11,6 +11,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
+  DB_IMAGE_NAME: borbann-platform/site-selection-core-db
   BACKEND_IMAGE_NAME: borbann-platform/site-selection-core-backend
   FRONTEND_IMAGE_NAME: borbann-platform/site-selection-core-frontend
 
@@ -122,6 +123,18 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Build and push database image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./deploy/postgres
+          file: ./deploy/postgres/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.DB_IMAGE_NAME }}:${{ steps.vars.outputs.image_tag }}
+            ${{ env.REGISTRY }}/${{ env.DB_IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
       - name: Build and push frontend image
         uses: docker/build-push-action@v6
         with:
@@ -154,18 +167,20 @@ jobs:
         uses: appleboy/ssh-action@v1
         env:
           IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
+          APP_IMAGE_PULL_POLICY: missing
+          RUN_APP_BOOTSTRAP: "1"
         with:
           host: ${{ secrets.VPS_TAILSCALE_IP }}
           username: ${{ secrets.VPS_DEPLOY_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: IMAGE_TAG
+          envs: IMAGE_TAG,APP_IMAGE_PULL_POLICY,RUN_APP_BOOTSTRAP
           script: |
             set -euo pipefail
             cd /opt/app
             git checkout main
             git pull --ff-only origin main
             echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u "${{ secrets.GHCR_USERNAME }}" --password-stdin
-            IMAGE_TAG="$IMAGE_TAG" APP_ENV_FILE=/opt/app/.env.production bash deploy/scripts/deploy.sh
+            IMAGE_TAG="$IMAGE_TAG" APP_IMAGE_PULL_POLICY="$APP_IMAGE_PULL_POLICY" RUN_APP_BOOTSTRAP="$RUN_APP_BOOTSTRAP" APP_ENV_FILE=/opt/app/.env.production bash deploy/scripts/deploy.sh
 
       - name: Health check
         run: |

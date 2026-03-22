@@ -39,6 +39,24 @@ ENV/
 gis-server/data.zip
 gis-server/data-zip.zip
 gis-server/models/baseline/all_models_comparison.json
+.playwright-cli/
+gis-server/reports/
+gis-server/data/*
+!gis-server/data/DATA_CATALOG.md
+!gis-server/data/internal_knowledge/
+!gis-server/data/internal_knowledge/**
+gis-server/models/*
+!gis-server/models/baseline/
+!gis-server/models/baseline/**
+!gis-server/models/baseline_comparison/
+!gis-server/models/baseline_comparison/**
+!gis-server/models/baseline_hex2vec/
+!gis-server/models/baseline_hex2vec/**
+!gis-server/models/hex2vec/
+!gis-server/models/hex2vec/**
+gis-server/models/baseline/all_models_comparison.json
+gis-server/models/baseline/explainability_*.csv
+gis-server/models/baseline/explainability_*.json
 
 # Presentation/planning docs (one-time use)
 presentation_structure.md
