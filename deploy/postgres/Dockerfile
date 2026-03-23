@@ -10,8 +10,8 @@ RUN apt-get update \
         postgresql-server-dev-16 \
     && git clone --branch "v${PGVECTOR_VERSION}" --depth 1 https://github.com/pgvector/pgvector.git /tmp/pgvector \
     && cd /tmp/pgvector \
-    && make NO_BC=1 \
-    && make NO_BC=1 install \
+    && make CLANG=clang-16 BITCODE_CFLAGS='' \
+    && make CLANG=clang-16 BITCODE_CFLAGS='' install \
     && rm -rf /tmp/pgvector \
     && apt-get purge -y --auto-remove \
         build-essential \
