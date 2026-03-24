@@ -8,11 +8,13 @@ RUN apt-get update \
         ca-certificates \
         git \
         postgresql-server-dev-16 \
+    && mkdir -p /usr/lib/llvm-13/bin \
+    && ln -s /usr/lib/llvm-16/bin/llvm-lto /usr/lib/llvm-13/bin/llvm-lto \
     && git clone --branch "v${PGVECTOR_VERSION}" --depth 1 https://github.com/pgvector/pgvector.git /tmp/pgvector \
     && cd /tmp/pgvector \
-    && make CLANG=clang-16 LLVM_CONFIG=/usr/bin/llvm-config-16 \
-    && make CLANG=clang-16 LLVM_CONFIG=/usr/bin/llvm-config-16 install \
-    && rm -rf /tmp/pgvector \
+    && make CLANG=clang-16 \
+    && make CLANG=clang-16 install \
+    && rm -rf /tmp/pgvector /usr/lib/llvm-13 \
     && apt-get purge -y --auto-remove \
         build-essential \
         git \
