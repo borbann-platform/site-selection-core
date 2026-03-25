@@ -224,6 +224,17 @@ export interface H3HexagonParams {
 	limit?: number;
 }
 
+export interface H3MetricsCatalog {
+	resolution: number;
+	total_metrics: number;
+	categories: {
+		poi: string[];
+		transit: string[];
+		property: string[];
+		other: string[];
+	};
+}
+
 // Admin API Types
 export interface AdminRefreshResponse {
 	success: boolean;
@@ -1180,6 +1191,19 @@ export const api = {
 		const url = `${API_URL}/analytics/h3-hexagons${searchParams.toString() ? `?${searchParams}` : ""}`;
 		const res = await fetch(url);
 		if (!res.ok) throw new Error("Failed to get H3 hexagons");
+		return res.json();
+	},
+
+	/**
+	 * Get available H3 metrics catalog from the backend.
+	 */
+	getH3Metrics: async (resolution?: number): Promise<H3MetricsCatalog> => {
+		const searchParams = new URLSearchParams();
+		if (resolution !== undefined)
+			searchParams.set("resolution", String(resolution));
+		const url = `${API_URL}/analytics/h3-hexagons/metrics${searchParams.toString() ? `?${searchParams}` : ""}`;
+		const res = await fetch(url);
+		if (!res.ok) throw new Error("Failed to get H3 metrics catalog");
 		return res.json();
 	},
 

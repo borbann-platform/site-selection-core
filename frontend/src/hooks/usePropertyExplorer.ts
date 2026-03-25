@@ -396,7 +396,7 @@ export function usePropertyExplorer(districtFromUrl?: string) {
   // every fractional zoom change).
   const h3Resolution = viewState.zoom < 12 ? 7 : viewState.zoom < 14 ? 9 : 11;
 
-  const { data: h3Data } = useQuery({
+  const { data: h3Data, isFetching: isH3Fetching } = useQuery({
     queryKey: ["h3Hexagons", h3Metric, h3Resolution],
     queryFn: async () => {
       const primary = await api.getH3Hexagons({
@@ -800,6 +800,7 @@ export function usePropertyExplorer(districtFromUrl?: string) {
     schools,
     transitLines,
     h3Data,
+    isH3Fetching,
 
     // Map tile style
     tileStyle,

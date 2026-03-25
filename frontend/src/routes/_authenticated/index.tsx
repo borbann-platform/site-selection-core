@@ -115,6 +115,7 @@ function PropertyExplorer() {
               setOverlays={explorer.setOverlays}
               h3Metric={explorer.h3Metric}
               setH3Metric={explorer.setH3Metric}
+              isH3Fetching={explorer.isH3Fetching}
             />
           </FloatingPanel>
         )}
@@ -144,6 +145,7 @@ function PropertyExplorer() {
                 setOverlays={explorer.setOverlays}
                 h3Metric={explorer.h3Metric}
                 setH3Metric={explorer.setH3Metric}
+                isH3Fetching={explorer.isH3Fetching}
               />
             </SheetContent>
           </Sheet>
