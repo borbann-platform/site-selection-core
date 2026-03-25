@@ -131,6 +131,7 @@ export function LocationPicker({
             type="button"
             onClick={onClose}
             className="p-2 hover:bg-muted rounded-lg transition-colors"
+            aria-label="Close location picker"
           >
             <X size={18} className="text-muted-foreground" />
           </button>

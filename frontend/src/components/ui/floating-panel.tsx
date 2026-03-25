@@ -192,6 +192,7 @@ export function FloatingPanel({
               onClick={() => setIsCollapsed(!isCollapsed)}
               className="p-1 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
               title={isCollapsed ? "Expand" : "Collapse"}
+              aria-label={isCollapsed ? "Expand panel" : "Collapse panel"}
             >
               {isCollapsed ? (
                 <Plus className="h-3 w-3" />
@@ -206,6 +207,7 @@ export function FloatingPanel({
               onClick={handleClose}
               className="p-1 rounded-md hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive"
               title="Close"
+              aria-label="Close panel"
             >
               <X className="h-3 w-3" />
             </button>

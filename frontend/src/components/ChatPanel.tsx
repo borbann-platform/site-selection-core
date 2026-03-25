@@ -201,6 +201,7 @@ export function ChatPanel({
                   type="button"
                   onClick={() => onRemoveAttachment?.(att.id)}
                   className="hover:text-foreground"
+                  aria-label="Remove attachment"
                 >
                   <X size={12} />
                 </button>
@@ -215,6 +216,7 @@ export function ChatPanel({
             onClick={onPickLocation}
             className="p-2 bg-muted/50 hover:bg-muted rounded-lg text-muted-foreground transition-colors"
             title="Pick location on map"
+            aria-label="Pick location on map"
           >
             <MapPin size={18} />
           </button>
@@ -233,6 +235,7 @@ export function ChatPanel({
               (!input.trim() && attachments.length === 0) || isStreaming
             }
             className="p-2 bg-brand hover:bg-brand/90 disabled:bg-muted disabled:text-muted-foreground rounded-lg text-brand-foreground transition-colors"
+            aria-label={isStreaming ? "Sending message" : "Send message"}
           >
             {isStreaming ? (
               <Loader2 size={18} className="animate-spin text-muted-foreground" />

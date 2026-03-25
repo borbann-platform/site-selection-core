@@ -125,6 +125,7 @@ export function PropertySearch({ className, onResultClick }: PropertySearchProps
               type="button"
               onClick={handleClear}
               className="p-0.5 rounded text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Clear search"
             >
               <X className="h-3.5 w-3.5" />
             </button>

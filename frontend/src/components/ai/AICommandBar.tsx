@@ -231,6 +231,7 @@ export function AICommandBar({
                       onClick={onStopStreaming}
                       className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-destructive text-destructive-foreground shadow-lg shadow-destructive/25 transition-all hover:bg-destructive/90"
                       title="Stop generating"
+                      aria-label="Stop generating"
                     >
                       <Square className="h-4.5 w-4.5" />
                     </button>
@@ -245,6 +246,7 @@ export function AICommandBar({
                           : "bg-muted text-muted-foreground",
                       )}
                       title="Send message"
+                      aria-label="Send message"
                     >
                       <ArrowUp className="h-4.5 w-4.5" />
                     </button>
@@ -316,6 +318,7 @@ function AttachmentChip({
         onClick={onRemove}
         className="rounded-full p-0.5 transition-colors hover:bg-black/8 dark:hover:bg-white/10"
         title="Remove attachment"
+        aria-label="Remove attachment"
       >
         <X className="h-3 w-3" />
       </button>

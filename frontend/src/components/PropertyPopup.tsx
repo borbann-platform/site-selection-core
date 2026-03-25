@@ -169,6 +169,7 @@ export function PropertyPopup({
             type="button"
             onClick={onClose}
             className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors"
+            aria-label="Close property popup"
           >
             <X size={14} />
           </button>
@@ -338,6 +339,7 @@ export function PropertyMiniCard({
           type="button"
           onClick={onRemove}
           className="p-0.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground"
+          aria-label="Remove property"
         >
           <X size={12} />
         </button>

@@ -161,6 +161,7 @@ export function ChatArea() {
                 onClick={stopStreaming}
                 className="p-2 m-1.5 rounded-xl transition-colors bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 title="Stop generating"
+                aria-label="Stop generating"
               >
                 <Square className="w-5 h-5" />
               </button>
@@ -175,6 +176,7 @@ export function ChatArea() {
                     ? "bg-primary text-primary-foreground hover:bg-primary/90"
                     : "bg-muted-foreground/20 text-muted-foreground cursor-not-allowed"
                 )}
+                aria-label="Send message"
               >
                 <Send className="w-5 h-5" />
               </button>

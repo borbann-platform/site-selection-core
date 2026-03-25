@@ -90,7 +90,7 @@ export function TopBar() {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button type="button" className="focus:outline-none">
+                <button type="button" className="focus:outline-none" aria-label="Open user menu">
                   <Avatar className="h-9 w-9 cursor-pointer ring-2 ring-transparent transition-all hover:ring-primary/30">
                     <AvatarFallback className="border border-border/70 bg-card text-sm font-semibold text-foreground">
                       {userInitials}

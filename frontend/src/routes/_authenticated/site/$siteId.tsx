@@ -280,6 +280,7 @@ function SiteInspector() {
             onClick={handleExportReport}
             className="p-2 bg-muted hover:bg-muted/80 text-foreground rounded-lg transition-colors"
             title="Export Report"
+            aria-label="Export report"
           >
             <Download size={20} />
           </button>

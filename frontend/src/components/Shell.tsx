@@ -88,6 +88,7 @@ export function Shell({ children, panelContent }: ShellProps) {
                 ? "left-80 rounded-l-none border-l-0"
                 : "left-4 rounded-lg"
             )}
+            aria-label={isPanelOpen ? "Close control panel" : "Open control panel"}
           >
             {isPanelOpen ? <ChevronLeft size={16} /> : <Menu size={16} />}
           </button>

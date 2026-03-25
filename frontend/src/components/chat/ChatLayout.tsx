@@ -100,6 +100,7 @@ export function ChatLayout({ sessionId }: ChatLayoutProps) {
             onClick={() => setSearchOpen(true)}
             className="p-1.5 hover:bg-muted rounded-lg transition-colors"
             title="Search (Cmd+K)"
+            aria-label="Search conversations"
           >
             <Search className="w-4 h-4 text-muted-foreground" />
           </button>
@@ -131,6 +132,7 @@ export function ChatLayout({ sessionId }: ChatLayoutProps) {
             onClick={toggleSidebar}
             className="p-2 hover:bg-muted rounded-lg transition-colors shrink-0"
             title={sidebarOpen ? "Hide sidebar (Cmd+B)" : "Show sidebar (Cmd+B)"}
+            aria-label={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
           >
             {sidebarOpen ? (
               <PanelLeftClose className="w-4 h-4 text-muted-foreground" />
@@ -145,6 +147,7 @@ export function ChatLayout({ sessionId }: ChatLayoutProps) {
               onClick={handleNewSession}
               className="p-2 hover:bg-muted rounded-lg transition-colors shrink-0"
               title="New chat (Cmd+N)"
+              aria-label="New chat"
             >
               <Plus className="w-4 h-4 text-muted-foreground" />
             </button>
