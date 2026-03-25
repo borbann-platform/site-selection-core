@@ -87,7 +87,7 @@ function formatFeatureValue(feature: string, value: number): string {
   return value.toFixed(2);
 }
 
-function generateMockExtendedData(
+function computeExtendedData(
   property: HousePriceItem,
   predictedPrice: number,
   nearbyProperties: (HousePriceItem & { distance_m: number })[],
@@ -365,16 +365,67 @@ function ComparableCard({ comp }: { comp: ComparableProperty }) {
 
 function LoadingState() {
   return (
-    <div className="bg-card border border-border rounded-lg p-4">
-      <div className="animate-pulse space-y-4">
-        <div className="h-6 bg-muted/50 rounded w-1/3" />
-        <div className="grid grid-cols-2 gap-4">
-          <div className="h-20 bg-muted/50 rounded" />
-          <div className="h-20 bg-muted/50 rounded" />
+    <div className="space-y-4">
+      {/* Main Price Card skeleton */}
+      <div className="bg-card border border-border rounded-lg p-4 animate-pulse">
+        {/* Title + confidence badge */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="h-5 bg-muted/50 rounded w-2/5" />
+          <div className="h-6 bg-muted/50 rounded-full w-20" />
         </div>
-        <div className="space-y-2">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={`skeleton-${i}`} className="h-8 bg-muted/50 rounded" />
+        {/* Summary text */}
+        <div className="h-4 bg-muted/50 rounded w-full mb-2" />
+        <div className="h-4 bg-muted/50 rounded w-3/4 mb-4" />
+        {/* Price Summary 2-col grid */}
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="rounded-lg p-3 bg-muted/30 space-y-2">
+            <div className="h-3 bg-muted/50 rounded w-2/3" />
+            <div className="h-7 bg-muted/50 rounded w-3/4" />
+            <div className="h-3 bg-muted/50 rounded w-1/2" />
+          </div>
+          <div className="rounded-lg p-3 bg-muted/30 space-y-2">
+            <div className="h-3 bg-muted/50 rounded w-2/3" />
+            <div className="h-7 bg-muted/50 rounded w-3/4" />
+            <div className="h-3 bg-muted/50 rounded w-1/2" />
+          </div>
+        </div>
+        {/* Market Position 2-col grid */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="rounded-lg p-3 bg-muted/30 space-y-2">
+            <div className="h-3 bg-muted/50 rounded w-1/2" />
+            <div className="h-6 bg-muted/50 rounded w-2/3" />
+          </div>
+          <div className="rounded-lg p-3 bg-muted/30 space-y-2">
+            <div className="h-3 bg-muted/50 rounded w-1/2" />
+            <div className="h-6 bg-muted/50 rounded w-2/3" />
+          </div>
+        </div>
+      </div>
+      {/* Model Signals section skeleton (collapsed) */}
+      <div className="bg-card border border-border rounded-lg p-4 animate-pulse">
+        <div className="flex items-center gap-2">
+          <div className="h-5 w-5 bg-muted/50 rounded" />
+          <div className="h-5 bg-muted/50 rounded w-1/3" />
+        </div>
+      </div>
+      {/* Comparable Properties section skeleton (expanded) */}
+      <div className="bg-card border border-border rounded-lg p-4 animate-pulse">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="h-5 w-5 bg-muted/50 rounded" />
+          <div className="h-5 bg-muted/50 rounded w-2/5" />
+        </div>
+        <div className="space-y-3">
+          {[1, 2].map((i) => (
+            <div key={`comp-load-${i}`} className="bg-muted/30 rounded-lg p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="h-4 bg-muted/50 rounded w-1/3" />
+                <div className="h-5 bg-muted/50 rounded w-20" />
+              </div>
+              <div className="flex gap-3">
+                <div className="h-3 bg-muted/50 rounded w-16" />
+                <div className="h-3 bg-muted/50 rounded w-16" />
+              </div>
+            </div>
           ))}
         </div>
       </div>
@@ -684,7 +735,7 @@ export function ComprehensivePriceReport({
   });
 
   // Fetch nearby properties for comparables
-  const { data: nearbyData } = useQuery({
+  const { data: nearbyData, isLoading: isNearbyLoading } = useQuery({
     queryKey: ["nearbyProperties", property.lat, property.lon, "comparables"],
     queryFn: () =>
       api.getNearbyProperties({
@@ -714,7 +765,7 @@ export function ComprehensivePriceReport({
   // Generate extended data based on real data
   const extendedData = useMemo(() => {
     if (!priceData || !nearbyData) return null;
-    return generateMockExtendedData(
+    return computeExtendedData(
       property,
       priceData.predicted_price,
       nearbyData.items,
@@ -941,6 +992,34 @@ export function ComprehensivePriceReport({
       </div>
 
       {/* Comparable Properties */}
+      {isNearbyLoading && !extendedData && (
+        <div className="bg-card border border-border rounded-lg p-4">
+          <SectionHeader
+            icon={Home}
+            title="Comparable Properties"
+            expandable
+            expanded={showComparables}
+            onToggle={() => setShowComparables(!showComparables)}
+          />
+          {showComparables && (
+            <div className="mt-4 space-y-3 animate-pulse">
+              {[1, 2, 3].map((i) => (
+                <div key={`comp-skeleton-${i}`} className="bg-muted/30 rounded-lg p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="h-4 bg-muted/50 rounded w-1/3" />
+                    <div className="h-5 bg-muted/50 rounded w-20" />
+                  </div>
+                  <div className="flex gap-3">
+                    <div className="h-3 bg-muted/50 rounded w-16" />
+                    <div className="h-3 bg-muted/50 rounded w-16" />
+                    <div className="h-3 bg-muted/50 rounded w-20" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       {extendedData && extendedData.comparables.length > 0 && (
         <div className="bg-card border border-border rounded-lg p-4">
           <SectionHeader
