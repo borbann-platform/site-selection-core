@@ -123,9 +123,19 @@ if grep -q 'change-me' "$ENV_FILE"; then
   exit 1
 fi
 
+# Save CLI-provided overrides before sourcing the env file
+_CLI_IMAGE_TAG="${IMAGE_TAG:-}"
+_CLI_APP_IMAGE_PULL_POLICY="${APP_IMAGE_PULL_POLICY:-}"
+_CLI_RUN_APP_BOOTSTRAP="${RUN_APP_BOOTSTRAP:-}"
+
 set -a
 source "$ENV_FILE"
 set +a
+
+# Restore CLI-provided overrides (take precedence over env file)
+[[ -n "$_CLI_IMAGE_TAG" ]] && IMAGE_TAG="$_CLI_IMAGE_TAG"
+[[ -n "$_CLI_APP_IMAGE_PULL_POLICY" ]] && APP_IMAGE_PULL_POLICY="$_CLI_APP_IMAGE_PULL_POLICY"
+[[ -n "$_CLI_RUN_APP_BOOTSTRAP" ]] && RUN_APP_BOOTSTRAP="$_CLI_RUN_APP_BOOTSTRAP"
 
 : "${BACKEND_IMAGE:?BACKEND_IMAGE is required in $ENV_FILE}"
 : "${FRONTEND_IMAGE:?FRONTEND_IMAGE is required in $ENV_FILE}"

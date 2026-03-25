@@ -180,8 +180,10 @@ jobs:
           script: |
             set -euo pipefail
             cd /opt/app
-            git checkout main
-            git pull --ff-only origin main
+            git remote set-url origin https://x-access-token:${{ secrets.GHCR_TOKEN }}@github.com/borbann-platform/site-selection-core.git
+            git fetch origin main
+            git reset --hard origin/main
+            git remote set-url origin https://github.com/borbann-platform/site-selection-core.git
             echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u "${{ secrets.GHCR_USERNAME }}" --password-stdin
             IMAGE_TAG="$IMAGE_TAG" APP_IMAGE_PULL_POLICY="$APP_IMAGE_PULL_POLICY" RUN_APP_BOOTSTRAP="$RUN_APP_BOOTSTRAP" APP_ENV_FILE=/opt/app/.env.production bash deploy/scripts/deploy.sh
 
