@@ -11,6 +11,7 @@ import {
   Layers,
   MapPin,
   Navigation,
+  Globe,
 } from "lucide-react";
 import { MapContainer } from "@/components/MapContainer";
 import { api, type HousePriceItem, type ListingItem } from "@/lib/api";
@@ -279,6 +280,18 @@ function ListingDetailPage() {
                   <Button variant="outline" size="sm">
                     <ExternalLink className="mr-2 h-4 w-4" />
                     Open Source Listing
+                  </Button>
+                </a>
+              ) : null}
+              {Number.isFinite(listing.lat) && Number.isFinite(listing.lon) ? (
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${listing.lat},${listing.lon}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Button variant="outline" size="sm">
+                    <Globe className="mr-2 h-4 w-4" />
+                    Open in Google Maps
                   </Button>
                 </a>
               ) : null}

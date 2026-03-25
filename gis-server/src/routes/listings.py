@@ -570,6 +570,207 @@ def list_listings(
     return ListingListResponse(count=total, items=items)
 
 
+@router.get("/search", response_model=ListingListResponse)
+def search_listings(
+    q: str = Query(..., min_length=1, max_length=200, description="Search query text"),
+    limit: int = Query(20, ge=1, le=100, description="Max results to return"),
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
+    db: Session = Depends(get_db_session),
+):
+    """Search listings by text across ID, title, district, building style, and village."""
+    query_trimmed = q.strip()
+
+    # Check if query looks like a numeric ID
+    is_numeric = query_trimmed.isdigit()
+    like_pattern = f"%{query_trimmed}%"
+
+    params: dict[str, Any] = {
+        "q_like": like_pattern,
+        "limit": limit,
+    }
+
+    # Build source-specific WHERE clauses
+    house_where_parts = ["h.geometry IS NOT NULL"]
+    scraped_where_parts = ["s.geometry IS NOT NULL"]
+    market_where_parts = ["r.geometry IS NOT NULL"]
+    condo_where_parts = ["c.geometry IS NOT NULL"]
+
+    if is_numeric:
+        house_where_parts.append(
+            "(h.id::text = :q_exact OR h.village ILIKE :q_like OR h.amphur ILIKE :q_like OR h.tumbon ILIKE :q_like OR h.building_style_desc ILIKE :q_like)"
+        )
+        scraped_where_parts.append(
+            "(s.id::text = :q_exact OR s.source_listing_id = :q_exact OR COALESCE(s.title, s.title_en, s.title_th) ILIKE :q_like OR s.district ILIKE :q_like OR s.subdistrict ILIKE :q_like)"
+        )
+        market_where_parts.append(
+            "(r.id::text = :q_exact OR r.title ILIKE :q_like OR r.location ILIKE :q_like OR r.property_type ILIKE :q_like)"
+        )
+        condo_where_parts.append(
+            "(c.id::text = :q_exact OR c.name ILIKE :q_like OR c.location ILIKE :q_like)"
+        )
+        params["q_exact"] = query_trimmed
+    else:
+        house_where_parts.append(
+            "(h.village ILIKE :q_like OR h.amphur ILIKE :q_like OR h.tumbon ILIKE :q_like OR h.building_style_desc ILIKE :q_like)"
+        )
+        scraped_where_parts.append(
+            "(COALESCE(s.title, s.title_en, s.title_th) ILIKE :q_like OR s.district ILIKE :q_like OR s.subdistrict ILIKE :q_like OR s.property_type ILIKE :q_like)"
+        )
+        market_where_parts.append(
+            "(r.title ILIKE :q_like OR r.location ILIKE :q_like OR r.property_type ILIKE :q_like)"
+        )
+        condo_where_parts.append("(c.name ILIKE :q_like OR c.location ILIKE :q_like)")
+
+    house_where = " AND ".join(house_where_parts)
+    scraped_where = " AND ".join(scraped_where_parts)
+    market_where = " AND ".join(market_where_parts)
+    condo_where = " AND ".join(condo_where_parts)
+
+    count_sql = text(
+        f"""
+        SELECT COUNT(*)
+        FROM (
+            SELECT h.id FROM house_prices h WHERE {house_where}
+            UNION ALL
+            SELECT s.id FROM scraped_listings s WHERE {scraped_where}
+            UNION ALL
+            SELECT r.id FROM real_estate_listings r WHERE {market_where}
+            UNION ALL
+            SELECT c.id FROM condo_projects c WHERE {condo_where}
+        ) c
+        """
+    )
+
+    data_sql = text(
+        f"""
+        SELECT *
+        FROM (
+            SELECT
+                ('house:' || h.id::text) AS listing_key,
+                'house_price' AS source_type,
+                'treasury' AS source,
+                h.id::text AS source_id,
+                COALESCE(h.village, h.amphur || ' ' || COALESCE(h.building_style_desc, 'Property')) AS title,
+                h.building_style_desc,
+                h.amphur,
+                h.tumbon,
+                h.total_price::text AS total_price,
+                h.building_area::text AS building_area,
+                h.no_of_floor::text AS no_of_floor,
+                h.building_age,
+                ST_Y(h.geometry) AS lat,
+                ST_X(h.geometry) AS lon,
+                NULL::bigint AS image_id,
+                NULL::text AS image_status,
+                NULL::text AS image_source_url,
+                NULL::text AS main_image_url,
+                NULL::text AS detail_url,
+                NULL::text AS location_text
+            FROM house_prices h
+            WHERE {house_where}
+
+            UNION ALL
+
+            SELECT
+                ('scraped:' || s.source || ':' || s.id::text) AS listing_key,
+                'scraped_project' AS source_type,
+                s.source,
+                s.source_listing_id AS source_id,
+                COALESCE(s.title, s.title_en, s.title_th) AS title,
+                s.property_type AS building_style_desc,
+                s.district AS amphur,
+                s.subdistrict AS tumbon,
+                COALESCE(s.price_start, s.price_end)::text AS total_price,
+                NULL::text AS building_area,
+                NULL::text AS no_of_floor,
+                NULL::double precision AS building_age,
+                COALESCE(s.latitude, ST_Y(s.geometry)) AS lat,
+                COALESCE(s.longitude, ST_X(s.geometry)) AS lon,
+                img.image_id,
+                img.fetch_status AS image_status,
+                img.source_url AS image_source_url,
+                s.main_image_url,
+                s.detail_url,
+                NULL::text AS location_text
+            FROM scraped_listings s
+            LEFT JOIN LATERAL (
+                SELECT
+                    i.id AS image_id,
+                    i.fetch_status,
+                    i.source_url
+                FROM scraped_listing_images i
+                WHERE i.listing_id = s.id
+                ORDER BY i.is_primary DESC, i.image_order ASC NULLS LAST, i.id ASC
+                LIMIT 1
+            ) img ON TRUE
+            WHERE {scraped_where}
+
+            UNION ALL
+
+            SELECT
+                ('market:' || r.id::text) AS listing_key,
+                'market_listing' AS source_type,
+                'baania' AS source,
+                r.id::text AS source_id,
+                r.title,
+                r.property_type AS building_style_desc,
+                NULL::text AS amphur,
+                NULL::text AS tumbon,
+                r.price::text AS total_price,
+                r.usable_area_sqm::text AS building_area,
+                r.floors::text AS no_of_floor,
+                NULL::double precision AS building_age,
+                ST_Y(r.geometry) AS lat,
+                ST_X(r.geometry) AS lon,
+                NULL::bigint AS image_id,
+                NULL::text AS image_status,
+                r.images AS image_source_url,
+                NULL::text AS main_image_url,
+                NULL::text AS detail_url,
+                r.location AS location_text
+            FROM real_estate_listings r
+            WHERE {market_where}
+
+            UNION ALL
+
+            SELECT
+                ('condo:' || c.id::text) AS listing_key,
+                'condo_project' AS source_type,
+                'hipflat' AS source,
+                c.id::text AS source_id,
+                c.name AS title,
+                'Condominium' AS building_style_desc,
+                NULL::text AS amphur,
+                NULL::text AS tumbon,
+                c.price_sale::text AS total_price,
+                NULL::text AS building_area,
+                NULL::text AS no_of_floor,
+                NULL::double precision AS building_age,
+                ST_Y(c.geometry) AS lat,
+                ST_X(c.geometry) AS lon,
+                NULL::bigint AS image_id,
+                NULL::text AS image_status,
+                c.images::text AS image_source_url,
+                NULL::text AS main_image_url,
+                c.project_base_url AS detail_url,
+                c.location AS location_text
+            FROM condo_projects c
+            WHERE {condo_where}
+        ) merged
+        ORDER BY
+            COALESCE(NULLIF(regexp_replace(total_price::text, '[^0-9.]', '', 'g'), '')::double precision, 0) DESC,
+            listing_key
+        LIMIT :limit
+        """
+    )
+
+    total = int(db.execute(count_sql, params).scalar() or 0)
+    rows = db.execute(data_sql, params).fetchall()
+    known_districts = _load_known_districts(db)
+    items = _rows_to_items(rows, known_districts)
+    return ListingListResponse(count=total, items=items)
+
+
 @router.get("/districts", response_model=list[ListingDistrictOption])
 def get_listing_districts(
     current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,

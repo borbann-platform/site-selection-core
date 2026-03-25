@@ -2,14 +2,28 @@
  * ChatArea - Main chat message display and input area
  */
 
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import { Send, Bot, User, Loader2, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
+import { Buildings, CompassRose, HouseLine } from "@phosphor-icons/react";
+import { Link } from "@tanstack/react-router";
 import { cn } from "../../lib/utils";
 import { useChatStore, type LocalMessage } from "../../stores/chatStore";
 import { StreamingMarkdown } from "../ui/markdown";
 import { AgentStepCard, AgentStepBadge } from "../AgentStepCard";
 import { AgentErrorCard } from "../AgentErrorCard";
 import { ThinkingProcess } from "../ThinkingIndicator";
+import {
+  PropertyResultsCard,
+  cleanContentFromPropertyMarkers,
+  parsePropertyResults,
+  type PropertyResult,
+} from "../ai/PropertyResultsCard";
+import {
+  extractChatEntityReferences,
+  parseStructuredPropertyReferences,
+  stripStructuredChatMarkers,
+  type ChatEntityReference,
+} from "../../lib/chatReferences";
 
 export function ChatArea() {
   const {
@@ -185,7 +199,7 @@ function MessageBubble({ message }: { message: LocalMessage }) {
   return <AssistantMessage message={message} />;
 }
 
-// Assistant Message with tool steps
+// Assistant Message with tool steps and property references
 function AssistantMessage({ message }: { message: LocalMessage }) {
   const [showSteps, setShowSteps] = useState(false);
   const hasSteps = message.steps && message.steps.length > 0;
@@ -195,6 +209,40 @@ function AssistantMessage({ message }: { message: LocalMessage }) {
     message.steps?.filter((s) => s.type === "thinking").length || 0;
   const toolCount =
     message.steps?.filter((s) => s.type === "tool_call").length || 0;
+
+  // Parse property references from message content
+  const structuredPropertyResults = message.content
+    ? parseStructuredPropertyReferences(message.content)
+    : [];
+  const propertyResults: PropertyResult[] | null =
+    structuredPropertyResults.length > 0
+      ? structuredPropertyResults.map((property) => ({
+          id: property.id,
+          listing_key: property.listing_key,
+          source_type:
+            property.source_type === "scraped_project" ||
+            property.source_type === "market_listing" ||
+            property.source_type === "condo_project"
+              ? property.source_type
+              : ("house_price" as const),
+          price: property.price ?? property.total_price ?? 0,
+          district: property.district ?? property.amphur ?? "Unknown",
+          area: property.area ?? property.building_area,
+          style: property.style ?? property.building_style_desc,
+          lat: property.lat,
+          lon: property.lon,
+        }))
+      : message.content
+        ? parsePropertyResults(message.content)
+        : null;
+  const cleanContent = message.content
+    ? stripStructuredChatMarkers(
+        cleanContentFromPropertyMarkers(message.content)
+      )
+    : "";
+  const references = useMemo(() => {
+    return extractChatEntityReferences(cleanContent, propertyResults ?? []);
+  }, [cleanContent, propertyResults]);
 
   return (
     <div className="flex gap-3">
@@ -264,15 +312,100 @@ function AssistantMessage({ message }: { message: LocalMessage }) {
         {/* Message content */}
         {message.error && <AgentErrorCard error={message.error} />}
 
-        {message.content && (
+        {cleanContent && (
           <div className="rounded-2xl px-4 py-2.5 glass border border-border/50">
             <StreamingMarkdown
-              content={message.content}
+              content={cleanContent}
               isStreaming={message.isStreaming}
             />
+
+            {/* Inline reference chips */}
+            {references.length > 0 && !message.isStreaming && (
+              <div className="mt-3 flex flex-wrap gap-1.5 border-t border-border/50 pt-3">
+                {references.map((reference) => (
+                  <ReferenceChip key={`inline-${reference.key}`} reference={reference} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Property results card */}
+        {propertyResults && propertyResults.length > 0 && !message.isStreaming && (
+          <PropertyResultsCard
+            results={propertyResults}
+            totalCount={propertyResults.length}
+            priceRange={{
+              min: Math.min(...propertyResults.map((p) => p.price)),
+              max: Math.max(...propertyResults.map((p) => p.price)),
+            }}
+          />
+        )}
+
+        {/* Referenced links section */}
+        {references.length > 0 && !message.isStreaming && (
+          <div className="rounded-xl border border-border/50 bg-muted/25 px-3 py-2">
+            <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <CompassRose className="h-3 w-3" weight="duotone" />
+              Referenced Properties
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {references.map((reference) => (
+                <ReferenceChip key={reference.key} reference={reference} />
+              ))}
+            </div>
           </div>
         )}
       </div>
     </div>
   );
+}
+
+// Reference chip component for linking to properties/listings
+function ReferenceChip({ reference }: { reference: ChatEntityReference }) {
+  const content = (
+    <>
+      {reference.kind === "listing" ? (
+        <Buildings className="h-3 w-3 text-brand" weight="duotone" />
+      ) : (
+        <HouseLine className="h-3 w-3 text-brand" weight="duotone" />
+      )}
+      <span className="max-w-[14rem] truncate">{reference.label}</span>
+      {reference.note ? (
+        <span className="truncate text-muted-foreground">{reference.note}</span>
+      ) : null}
+    </>
+  );
+
+  const chipClassName = cn(
+    "inline-flex max-w-full items-center gap-1.5 rounded-full border border-border/70 bg-card px-2.5 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-muted"
+  );
+
+  if (reference.kind === "listing" && reference.listingKey) {
+    return (
+      <Link
+        to="/listing/$listingKey"
+        params={{ listingKey: reference.listingKey }}
+        className={chipClassName}
+        title={`Open listing ${reference.listingKey}`}
+      >
+        {content}
+      </Link>
+    );
+  }
+
+  if (reference.propertyId) {
+    return (
+      <Link
+        to="/property/$propertyId"
+        params={{ propertyId: reference.propertyId }}
+        className={chipClassName}
+        title={`Open property ${reference.propertyId}`}
+      >
+        {content}
+      </Link>
+    );
+  }
+
+  return null;
 }

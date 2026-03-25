@@ -19,6 +19,7 @@ import {
   Building2,
   ArrowLeft,
   Navigation,
+  Globe,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/error-state";
@@ -289,6 +290,22 @@ function PropertyDetailPage() {
                   />
                 )}
               </div>
+
+              {/* Actions */}
+              {Number.isFinite(property.lat) && Number.isFinite(property.lon) ? (
+                <div className="mt-4">
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${property.lat},${property.lon}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Button variant="outline" size="sm">
+                      <Globe className="mr-2 h-4 w-4" />
+                      Open in Google Maps
+                    </Button>
+                  </a>
+                </div>
+              ) : null}
 
               {/* Nearby Properties */}
               {nearbyData && nearbyData.items.length > 1 && (

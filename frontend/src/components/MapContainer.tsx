@@ -13,6 +13,15 @@ type DeckTooltipHandler = NonNullable<DeckGLProps["getTooltip"]>;
 
 type SelectionMode = "none" | "location" | "bbox";
 
+export type MapTileStyle = "auto" | "dark" | "light" | "streets" | "satellite";
+
+const TILE_STYLES: Record<Exclude<MapTileStyle, "auto">, string> = {
+  dark: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+  light: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+  streets: "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
+  satellite: "https://api.maptiler.com/maps/hybrid/style.json?key=get_your_own_OpIi9ZULNHzrESv6T2vL",
+};
+
 interface MapContainerProps {
   viewState: ViewState;
   onViewStateChange: DeckViewStateChangeHandler;
@@ -21,12 +30,8 @@ interface MapContainerProps {
   onClick?: DeckClickHandler;
   getTooltip?: DeckTooltipHandler;
   selectionMode?: SelectionMode;
+  tileStyle?: MapTileStyle;
 }
-
-const MAP_STYLE_DARK =
-  "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
-const MAP_STYLE_LIGHT =
-  "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
 
 export function MapContainer({
   viewState,
@@ -36,9 +41,14 @@ export function MapContainer({
   onClick,
   getTooltip,
   selectionMode = "none",
+  tileStyle = "auto",
 }: MapContainerProps) {
   const { resolvedTheme } = useTheme();
-  const mapStyle = resolvedTheme === "dark" ? MAP_STYLE_DARK : MAP_STYLE_LIGHT;
+
+  const resolvedMapStyle =
+    tileStyle === "auto"
+      ? (resolvedTheme === "dark" ? TILE_STYLES.dark : TILE_STYLES.light)
+      : TILE_STYLES[tileStyle];
 
   // Disable drag/pan in selection modes to allow click-based selection
   const controllerOptions =
@@ -58,7 +68,7 @@ export function MapContainer({
       >
         <MapView
           {...viewState}
-          mapStyle={mapStyle}
+          mapStyle={resolvedMapStyle}
           reuseMaps
           attributionControl={false}
         >

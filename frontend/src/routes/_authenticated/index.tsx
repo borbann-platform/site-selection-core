@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { Target, SlidersHorizontal, Home, MapPin, Layers } from "lucide-react";
+import { useState, useCallback } from "react";
+import { Target, SlidersHorizontal, Home, MapPin, Layers, Map as MapIcon } from "lucide-react";
+import type { ListingItem } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { keepPreviousViewStateIfSame } from "@/lib/mapViewState";
 import { MapContainer } from "@/components/MapContainer";
@@ -10,6 +11,8 @@ import { usePropertyExplorer } from "@/hooks/usePropertyExplorer";
 import { useMapLayers } from "@/hooks/useMapLayers";
 import { ExplorerPanel } from "@/components/explorer/ExplorerPanel";
 import { OverlayControls } from "@/components/explorer/OverlayControls";
+import { TileStyleControl } from "@/components/explorer/TileStyleControl";
+import { PropertySearch } from "@/components/explorer/PropertySearch";
 import { FloatingPanel } from "@/components/ui/floating-panel";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { SourceTooltip } from "@/components/ui/source-tooltip";
@@ -57,6 +60,23 @@ function PropertyExplorer() {
   // Count hidden panels for the restore bar
   const hiddenPanels = Object.entries(panels).filter(([, v]) => !v);
 
+  const handleSearchResultClick = useCallback(
+    (listing: ListingItem) => {
+      const lat = listing.lat;
+      const lon = listing.lon;
+      if (Number.isFinite(lat) && Number.isFinite(lon)) {
+        explorer.setViewState((prev) => ({
+          ...prev,
+          latitude: lat,
+          longitude: lon,
+          zoom: 15,
+          transitionDuration: 500,
+        }));
+      }
+    },
+    [explorer]
+  );
+
   return (
     <>
       <div className="w-full h-[calc(100vh-4rem)] bg-background relative overflow-hidden">
@@ -72,6 +92,7 @@ function PropertyExplorer() {
           getTooltip={getTooltip}
           onClick={explorer.handleMapClick}
           selectionMode={explorer.selectionMode}
+          tileStyle={explorer.tileStyle}
         />
 
         {/* Floating Explorer Panel -- desktop only */}
@@ -139,21 +160,41 @@ function PropertyExplorer() {
             contentClassName="px-2 py-1"
             onClose={() => togglePanel("overlays")}
           >
-            <OverlayControls
-              overlays={explorer.overlays}
-              setOverlays={explorer.setOverlays}
-            />
+            <div className="space-y-2">
+              <OverlayControls
+                overlays={explorer.overlays}
+                setOverlays={explorer.setOverlays}
+              />
+              <div className="border-t border-border/60 pt-2">
+                <div className="text-[10px] font-medium text-muted-foreground mb-1 px-1 flex items-center gap-1">
+                  <MapIcon className="h-3 w-3" />
+                  Map Style
+                </div>
+                <TileStyleControl
+                  tileStyle={explorer.tileStyle}
+                  setTileStyle={explorer.setTileStyle}
+                />
+              </div>
+            </div>
           </FloatingPanel>
         )}
 
-        {/* Property Count Badge */}
-        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-40 bg-card/90 backdrop-blur-md border border-border rounded-full px-4 py-2 shadow-lg">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Home className="w-3 h-3" />
-            <span>
-              {explorer.listings?.count || 0} properties |{" "}
-              {explorer.listings?.items?.length || 0} shown
-            </span>
+        {/* Property Search + Count Badge */}
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-40 w-full max-w-md px-4">
+          <PropertySearch
+            className="w-full"
+            onResultClick={handleSearchResultClick}
+          />
+          <div className="mt-1.5 flex justify-center">
+            <div className="bg-card/90 backdrop-blur-md border border-border rounded-full px-3 py-1 shadow-md">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Home className="w-3 h-3" />
+                <span>
+                  {explorer.listings?.count || 0} properties |{" "}
+                  {explorer.listings?.items?.length || 0} shown
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 

@@ -17,6 +17,7 @@ import {
   buildViewportMetrics,
   resolveHouseReference,
 } from "@/lib/uiGrounding";
+import type { MapTileStyle } from "@/components/MapContainer";
 
 // ---- Type definitions ----
 
@@ -94,7 +95,10 @@ export const BANGKOK_LAT = 13.7563;
 export const BANGKOK_LON = 100.5018;
 const FILTER_DEBOUNCE_MS = 250;
 const RECENT_MAP_SELECTIONS_STORAGE_KEY = "borban.recent-map-selections";
+const MAP_VIEW_STATE_STORAGE_KEY = "borban.map-view-state";
+const MAP_TILE_STYLE_STORAGE_KEY = "borban.map-tile-style";
 const MAX_RECENT_MAP_SELECTIONS = 6;
+const VIEW_STATE_SAVE_DEBOUNCE_MS = 1000;
 
 function isAttachmentRecord(value: unknown): value is Attachment {
   if (!value || typeof value !== "object") {
@@ -159,14 +163,82 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
 // ---- Hook ----
 
 export function usePropertyExplorer(districtFromUrl?: string) {
-  // -- View State --
-  const [viewState, setViewState] = useState<ViewState>({
-    longitude: BANGKOK_LON,
-    latitude: BANGKOK_LAT,
-    zoom: 12,
-    pitch: 0,
-    bearing: 0,
+  // -- View State (restored from localStorage if available) --
+  const [viewState, setViewState] = useState<ViewState>(() => {
+    try {
+      const stored = window.localStorage.getItem(MAP_VIEW_STATE_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (
+          typeof parsed.longitude === "number" &&
+          typeof parsed.latitude === "number" &&
+          typeof parsed.zoom === "number" &&
+          Number.isFinite(parsed.longitude) &&
+          Number.isFinite(parsed.latitude) &&
+          Number.isFinite(parsed.zoom)
+        ) {
+          return {
+            longitude: parsed.longitude,
+            latitude: parsed.latitude,
+            zoom: parsed.zoom,
+            pitch: typeof parsed.pitch === "number" && Number.isFinite(parsed.pitch) ? parsed.pitch : 0,
+            bearing: typeof parsed.bearing === "number" && Number.isFinite(parsed.bearing) ? parsed.bearing : 0,
+          };
+        }
+      }
+    } catch {
+      // Ignore parse errors
+    }
+    return {
+      longitude: BANGKOK_LON,
+      latitude: BANGKOK_LAT,
+      zoom: 12,
+      pitch: 0,
+      bearing: 0,
+    };
   });
+
+  // Persist camera view state to localStorage (debounced)
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      try {
+        window.localStorage.setItem(
+          MAP_VIEW_STATE_STORAGE_KEY,
+          JSON.stringify({
+            longitude: viewState.longitude,
+            latitude: viewState.latitude,
+            zoom: viewState.zoom,
+            pitch: viewState.pitch,
+            bearing: viewState.bearing,
+          })
+        );
+      } catch {
+        // Ignore storage errors
+      }
+    }, VIEW_STATE_SAVE_DEBOUNCE_MS);
+    return () => window.clearTimeout(timeoutId);
+  }, [viewState]);
+
+  // -- Map Tile Style --
+  const [tileStyle, setTileStyle] = useState<MapTileStyle>(() => {
+    try {
+      const stored = window.localStorage.getItem(MAP_TILE_STYLE_STORAGE_KEY);
+      if (stored === "dark" || stored === "light" || stored === "streets" || stored === "satellite") {
+        return stored;
+      }
+    } catch {
+      // Ignore
+    }
+    return "auto";
+  });
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(MAP_TILE_STYLE_STORAGE_KEY, tileStyle);
+    } catch {
+      // Ignore storage errors
+    }
+  }, [tileStyle]);
 
   // -- Property Filters --
   const [propertyFilters, setPropertyFilters] = useState<PropertyFiltersState>(
@@ -850,6 +922,10 @@ export function usePropertyExplorer(districtFromUrl?: string) {
     schools,
     transitLines,
     h3Data,
+
+    // Map tile style
+    tileStyle,
+    setTileStyle,
 
     // Handlers
     handleAISubmit,

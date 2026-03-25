@@ -869,6 +869,19 @@ export const api = {
 		return res.json();
 	},
 
+	searchListings: async (
+		query: string,
+		limit = 20,
+	): Promise<ListingListResponse> => {
+		const params = new URLSearchParams();
+		params.set("q", query);
+		params.set("limit", String(limit));
+		const url = `${API_URL}/listings/search?${params}`;
+		const res = await fetch(url);
+		if (!res.ok) throw new Error("Failed to search listings");
+		return res.json();
+	},
+
 	getDistricts: async (): Promise<DistrictOption[]> => {
 		const res = await fetch(`${API_URL}/listings/districts`);
 		if (!res.ok) throw new Error("Failed to get listing districts");
