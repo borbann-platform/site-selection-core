@@ -4,6 +4,7 @@ import {
   ArrowUp,
   ChevronDown,
   ChevronUp,
+  Square,
   X,
 } from "lucide-react";
 import { BoundingBox, MapPinLine, NavigationArrow } from "@phosphor-icons/react";
@@ -40,6 +41,7 @@ interface AICommandBarProps {
   onPickBbox?: () => void;
   onRemoveAttachment?: (id: string) => void;
   onReuseRecentSelection?: (attachmentId: string) => void;
+  onStopStreaming?: () => void;
 }
 
 export function AICommandBar({
@@ -56,6 +58,7 @@ export function AICommandBar({
   onPickBbox,
   onRemoveAttachment,
   onReuseRecentSelection,
+  onStopStreaming,
 }: AICommandBarProps) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -222,19 +225,30 @@ export function AICommandBar({
                     <span>Shift + Enter for new line</span>
                   </div>
 
-                  <button
-                    type="submit"
-                    disabled={!canSend}
-                    className={cn(
-                      "inline-flex h-10 w-10 items-center justify-center rounded-full transition-all",
-                      canSend
-                        ? "bg-brand text-brand-foreground shadow-lg shadow-brand/25 hover:bg-brand/90"
-                        : "bg-muted text-muted-foreground",
-                    )}
-                    title="Send message"
-                  >
-                    <ArrowUp className="h-4.5 w-4.5" />
-                  </button>
+                  {isRunning ? (
+                    <button
+                      type="button"
+                      onClick={onStopStreaming}
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-destructive text-destructive-foreground shadow-lg shadow-destructive/25 transition-all hover:bg-destructive/90"
+                      title="Stop generating"
+                    >
+                      <Square className="h-4.5 w-4.5" />
+                    </button>
+                  ) : (
+                    <button
+                      type="submit"
+                      disabled={!canSend}
+                      className={cn(
+                        "inline-flex h-10 w-10 items-center justify-center rounded-full transition-all",
+                        canSend
+                          ? "bg-brand text-brand-foreground shadow-lg shadow-brand/25 hover:bg-brand/90"
+                          : "bg-muted text-muted-foreground",
+                      )}
+                      title="Send message"
+                    >
+                      <ArrowUp className="h-4.5 w-4.5" />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

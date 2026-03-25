@@ -262,6 +262,7 @@ export const chatApi = {
       sessionId?: string;
       attachments?: Attachment[];
       runtimeConfig?: AgentRuntimeConfig;
+      signal?: AbortSignal;
       onSessionId?: (sessionId: string) => void;
     }
   ): AsyncGenerator<AgentStreamEvent, void, unknown> {
@@ -276,6 +277,7 @@ export const chatApi = {
     const response = await fetch(`${API_URL}/chat/agent`, {
       method: "POST",
       headers,
+      signal: options?.signal,
       body: JSON.stringify({
         messages,
         session_id: options?.sessionId,
@@ -304,26 +306,34 @@ export const chatApi = {
     const decoder = new TextDecoder();
     let buffer = "";
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+    try {
+      while (true) {
+        if (options?.signal?.aborted) break;
 
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() || "";
+        const { done, value } = await reader.read();
+        if (done) break;
 
-      for (const line of lines) {
-        if (line.startsWith("data: ")) {
-          const jsonStr = line.slice(6);
-          try {
-            const event = JSON.parse(jsonStr) as AgentStreamEvent;
-            yield event;
-            if (event.event === "done") return;
-          } catch {
-            // Skip malformed JSON
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            const jsonStr = line.slice(6);
+            try {
+              const event = JSON.parse(jsonStr) as AgentStreamEvent;
+              yield event;
+              if (event.event === "done") return;
+            } catch {
+              // Skip malformed JSON
+            }
           }
         }
       }
+    } finally {
+      reader.cancel().catch(() => {
+        // Ignore cancel errors
+      });
     }
   },
 };

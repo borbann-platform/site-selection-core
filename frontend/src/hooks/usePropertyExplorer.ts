@@ -2,12 +2,10 @@ import { useState, useCallback, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { MapViewState, PickingInfo } from "@deck.gl/core";
 import { api } from "@/lib/api";
-import { chatApi } from "@/lib/chatApi";
 import { toast } from "sonner";
 import type {
   Attachment,
   SelectionMode,
-  AgentMessage,
 } from "@/components/ai";
 import type { PropertyFiltersState } from "@/components/PropertyFilters";
 import {
@@ -18,6 +16,7 @@ import {
   resolveHouseReference,
 } from "@/lib/uiGrounding";
 import type { MapTileStyle } from "@/components/MapContainer";
+import { useExplorerChatStore } from "@/stores/explorerChatStore";
 
 // ---- Type definitions ----
 
@@ -269,12 +268,15 @@ export function usePropertyExplorer(districtFromUrl?: string) {
   const [chatAttachments, setChatAttachments] = useState<Attachment[]>([]);
   const [recentMapSelections, setRecentMapSelections] = useState<Attachment[]>([]);
 
-  // -- AI state --
+  // -- AI state (global store — survives navigation) --
+  const aiMessages = useExplorerChatStore((s) => s.messages);
+  const isAIRunning = useExplorerChatStore((s) => s.isRunning);
+  const explorerSendMessage = useExplorerChatStore((s) => s.sendMessage);
+  const explorerStopStreaming = useExplorerChatStore((s) => s.stopStreaming);
+
+  // -- AI local UI state --
   const [isAIExpanded, setIsAIExpanded] = useState(false);
   const [aiInput, setAiInput] = useState("");
-  const [aiMessages, setAiMessages] = useState<AgentMessage[]>([]);
-  const [isAIRunning, setIsAIRunning] = useState(false);
-  const [agentSessionId, setAgentSessionId] = useState<string | undefined>();
 
   // -- Bbox selection (4-click polygon) --
   const [bboxCorners, setBboxCorners] = useState<[number, number][]>([]);
@@ -423,142 +425,18 @@ export function usePropertyExplorer(districtFromUrl?: string) {
   const handleAISubmit = useCallback(async () => {
     if (!aiInput.trim() || isAIRunning) return;
 
-    setIsAIRunning(true);
     setIsAIExpanded(true);
-
-    const attachmentContext = chatAttachments
-      .map((a) => `[${a.type}: ${a.label}]`)
-      .join(" ");
-
-    const fullMessage = [aiInput, attachmentContext].filter(Boolean).join(" ");
-
-    const userMsgId = `msg-${Date.now()}`;
-    const userMessage: AgentMessage = {
-      id: userMsgId,
-      role: "user",
-      content: aiInput,
-    };
-
-    const assistantMsgId = `msg-${Date.now() + 1}`;
-    const assistantMessage: AgentMessage = {
-      id: assistantMsgId,
-      role: "assistant",
-      content: "",
-      steps: [],
-      isThinking: true,
-      isStreaming: false,
-    };
-
-    setAiMessages((prev) => [...prev, userMessage, assistantMessage]);
-    setAiInput("");
 
     const attachmentsToSend =
       chatAttachments.length > 0 ? [...chatAttachments] : undefined;
 
+    const inputToSend = aiInput;
+    setAiInput("");
     setChatAttachments([]);
     setBboxCorners([]);
 
-    try {
-      const chatMessages = aiMessages
-        .filter((m) => m.role === "user" || m.role === "assistant")
-        .map((m) => ({ role: m.role, content: m.content }));
-
-      chatMessages.push({ role: "user" as const, content: fullMessage });
-
-      for await (const event of chatApi.streamAgentChatWithSession(chatMessages, {
-        sessionId: agentSessionId,
-        attachments: attachmentsToSend,
-        onSessionId: (sessionId) => {
-          setAgentSessionId((prev) => prev ?? sessionId);
-        },
-      })) {
-        setAiMessages((prev) => {
-          const updated = [...prev];
-          const lastIdx = updated.length - 1;
-          const lastMsg = { ...updated[lastIdx] };
-
-          if (event.event === "thinking") {
-            lastMsg.isThinking = event.data?.thinking ?? true;
-            if (event.data?.thinking) {
-              lastMsg.thinkingStartTime = Date.now();
-            }
-          } else if (event.event === "step" && event.data) {
-            const steps = [...(lastMsg.steps || [])];
-            const stepData = event.data;
-            const existingIdx = steps.findIndex((s) => s.id === stepData.id);
-
-            if (existingIdx >= 0) {
-              steps[existingIdx] = {
-                ...steps[existingIdx],
-                status: stepData.status as "running" | "complete" | "error" | "waiting",
-                output: stepData.output,
-                endTime: stepData.end_time,
-              };
-            } else {
-              steps.push({
-                id: stepData.id || `step-${Date.now()}`,
-                type:
-                  (stepData.type as "tool_call" | "thinking" | "waiting_user") ||
-                  "tool_call",
-                name: stepData.name || "Unknown",
-                status: (stepData.status as "running" | "complete" | "error" | "waiting"),
-                input: stepData.input,
-                output: stepData.output,
-                startTime: stepData.start_time || Date.now(),
-                endTime: stepData.end_time,
-              });
-            }
-            lastMsg.steps = steps;
-          } else if (event.event === "token" && event.data?.token) {
-            lastMsg.content += event.data.token;
-            lastMsg.isStreaming = true;
-            lastMsg.isThinking = false;
-            lastMsg.error = undefined;
-          } else if (event.event === "error" && event.data) {
-            lastMsg.error = {
-              title: event.data.title || "Model request failed",
-              message:
-                event.data.message ||
-                "The model provider returned an error. Please check your settings.",
-              statusCode: event.data.status_code,
-              providerCode: event.data.provider_code,
-              rawMessage: event.data.raw_message,
-              retryable: event.data.retryable,
-            };
-            lastMsg.isStreaming = false;
-            lastMsg.isThinking = false;
-          } else if (event.event === "done") {
-            lastMsg.isStreaming = false;
-            lastMsg.isThinking = false;
-          }
-
-          updated[lastIdx] = lastMsg;
-          return updated;
-        });
-      }
-    } catch (error) {
-      console.error("Agent stream error:", error);
-      setAiMessages((prev) => {
-        const updated = [...prev];
-        const lastIdx = updated.length - 1;
-        updated[lastIdx] = {
-          ...updated[lastIdx],
-          error: {
-            title: "Request failed",
-            message:
-              error instanceof Error
-                ? error.message
-                : "Sorry, I encountered an error. Please try again.",
-          },
-          isStreaming: false,
-          isThinking: false,
-        };
-        return updated;
-      });
-    }
-
-    setIsAIRunning(false);
-  }, [aiInput, isAIRunning, chatAttachments, aiMessages, agentSessionId]);
+    await explorerSendMessage(inputToSend, attachmentsToSend);
+  }, [aiInput, isAIRunning, chatAttachments, explorerSendMessage]);
 
   const sanitizePropertyData = useCallback(
     (data: Record<string, unknown>): Record<string, unknown> => {
@@ -902,7 +780,7 @@ export function usePropertyExplorer(districtFromUrl?: string) {
     setAiInput,
     aiMessages,
     isAIRunning,
-    agentSessionId,
+    stopStreaming: explorerStopStreaming,
 
     // Bbox
     bboxCorners,

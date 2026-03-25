@@ -353,6 +353,7 @@ function PropertyExplorer() {
           )
         }
         onReuseRecentSelection={explorer.handleReuseRecentSelection}
+        onStopStreaming={explorer.stopStreaming}
       />
 
       {/* AI Expanded Panel -- conversation history */}

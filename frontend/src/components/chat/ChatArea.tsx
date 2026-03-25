@@ -3,7 +3,7 @@
  */
 
 import { useRef, useEffect, useState, useCallback, useMemo } from "react";
-import { Send, Bot, User, Loader2, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
+import { Send, Square, Bot, User, Loader2, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
 import { Buildings, CompassRose, HouseLine } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
 import { cn } from "../../lib/utils";
@@ -32,6 +32,7 @@ export function ChatArea() {
     messagesLoading,
     isStreaming,
     sendMessage,
+    stopStreaming,
   } = useChatStore();
 
   const [input, setInput] = useState("");
@@ -154,23 +155,30 @@ export function ChatArea() {
               className="flex-1 bg-transparent px-4 py-3 text-sm resize-none focus:outline-none disabled:opacity-50 min-h-[44px] max-h-[200px]"
               style={{ height: "44px" }}
             />
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={!input.trim() || isStreaming}
-              className={cn(
-                "p-2 m-1.5 rounded-xl transition-colors",
-                input.trim() && !isStreaming
-                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                  : "bg-muted-foreground/20 text-muted-foreground cursor-not-allowed"
-              )}
-            >
-              {isStreaming ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
+            {isStreaming ? (
+              <button
+                type="button"
+                onClick={stopStreaming}
+                className="p-2 m-1.5 rounded-xl transition-colors bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                title="Stop generating"
+              >
+                <Square className="w-5 h-5" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={!input.trim()}
+                className={cn(
+                  "p-2 m-1.5 rounded-xl transition-colors",
+                  input.trim()
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                    : "bg-muted-foreground/20 text-muted-foreground cursor-not-allowed"
+                )}
+              >
                 <Send className="w-5 h-5" />
-              )}
-            </button>
+              </button>
+            )}
           </div>
           <p className="text-xs text-muted-foreground text-center mt-2">
             Press Enter to send, Shift+Enter for new line

@@ -68,6 +68,7 @@ interface ChatActions {
 
   // Message actions
   sendMessage: (content: string, attachments?: Attachment[]) => Promise<void>;
+  stopStreaming: () => void;
   clearMessages: () => void;
 
   // UI actions
@@ -83,6 +84,12 @@ interface ChatActions {
 type ChatStore = ChatState & ChatActions;
 
 // ============= Initial State =============
+
+/**
+ * Module-level AbortController for cancelling in-flight streams.
+ * Kept outside Zustand state because AbortController is not serializable.
+ */
+let activeStreamController: AbortController | null = null;
 
 const initialState: ChatState = {
   sessions: [],
@@ -336,6 +343,15 @@ export const useChatStore = create<ChatStore>()(
     sendMessage: async (content: string, attachments?: Attachment[]) => {
       const { currentSessionId, messages, currentSession } = get();
 
+      // Cancel any existing stream before starting a new one
+      if (activeStreamController) {
+        activeStreamController.abort();
+        activeStreamController = null;
+      }
+
+      const controller = new AbortController();
+      activeStreamController = controller;
+
       // Create user message
       const userMessage: LocalMessage = {
         id: `temp-${Date.now()}`,
@@ -377,12 +393,16 @@ export const useChatStore = create<ChatStore>()(
         for await (const event of chatApi.streamAgentChatWithSession(apiMessages, {
           sessionId: currentSessionId || undefined,
           attachments,
+          signal: controller.signal,
           onSessionId: (sessionId) => {
             if (!get().currentSessionId) {
               set({ currentSessionId: sessionId });
             }
           },
         })) {
+          // Check if aborted between events
+          if (controller.signal.aborted) break;
+
           const { messages: currentMessages } = get();
           const lastMessage = currentMessages[currentMessages.length - 1];
 
@@ -461,7 +481,30 @@ export const useChatStore = create<ChatStore>()(
             get().loadSessions(true);
           }
         }
+
+        // If stream was aborted mid-flight, mark the last message as not streaming
+        if (controller.signal.aborted) {
+          const { messages: currentMessages } = get();
+          set({
+            messages: currentMessages.map((m) =>
+              m.isStreaming ? { ...m, isStreaming: false } : m
+            ),
+            isStreaming: false,
+          });
+        }
       } catch (error) {
+        // Aborted streams throw — treat them as a graceful stop, not an error
+        if (error instanceof DOMException && error.name === "AbortError") {
+          const { messages: currentMessages } = get();
+          set({
+            messages: currentMessages.map((m) =>
+              m.isStreaming ? { ...m, isStreaming: false } : m
+            ),
+            isStreaming: false,
+          });
+          return;
+        }
+
         // Mark streaming as complete on error
         set({
           isStreaming: false,
@@ -483,7 +526,27 @@ export const useChatStore = create<ChatStore>()(
           ),
         });
         throw error;
+      } finally {
+        if (activeStreamController === controller) {
+          activeStreamController = null;
+        }
       }
+    },
+
+    stopStreaming: () => {
+      if (activeStreamController) {
+        activeStreamController.abort();
+        activeStreamController = null;
+      }
+      // The actual state cleanup happens in the sendMessage catch/finally block
+      // but we also set isStreaming=false eagerly for immediate UI feedback
+      const { messages: currentMessages } = get();
+      set({
+        messages: currentMessages.map((m) =>
+          m.isStreaming ? { ...m, isStreaming: false } : m
+        ),
+        isStreaming: false,
+      });
     },
 
     clearMessages: () => {
