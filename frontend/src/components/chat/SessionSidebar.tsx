@@ -3,10 +3,20 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Trash2, Pencil, MoreHorizontal, Loader2 } from "lucide-react";
+import { Trash2, Pencil, MoreHorizontal, Loader2, RefreshCw } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useChatStore } from "../../stores/chatStore";
 import { SESSION_GROUP_LABELS, type SessionGroup } from "../../lib/chatApi";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../ui/alert-dialog";
 
 interface SessionSidebarProps {
   onSelectSession: (sessionId: string) => void;
@@ -23,6 +33,7 @@ export function SessionSidebar({ onSelectSession }: SessionSidebarProps) {
     searchSessions,
     renameSession,
     deleteSession,
+    loadSessions,
     hasMore,
     loadMoreSessions,
   } = useChatStore();
@@ -30,6 +41,7 @@ export function SessionSidebar({ onSelectSession }: SessionSidebarProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
 
   // Filter groups that have sessions
@@ -63,9 +75,16 @@ export function SessionSidebar({ onSelectSession }: SessionSidebarProps) {
     setEditingTitle("");
   };
 
-  const handleDelete = async (sessionId: string) => {
+  const handleDelete = (sessionId: string) => {
     setMenuOpenId(null);
-    await deleteSession(sessionId);
+    setDeleteConfirmId(sessionId);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (deleteConfirmId) {
+      await deleteSession(deleteConfirmId);
+      setDeleteConfirmId(null);
+    }
   };
 
   useEffect(() => {
@@ -76,8 +95,17 @@ export function SessionSidebar({ onSelectSession }: SessionSidebarProps) {
 
   if (sessionsError) {
     return (
-      <div className="flex-1 flex items-center justify-center p-4">
-        <p className="text-sm text-destructive">{sessionsError}</p>
+      <div className="flex-1 flex flex-col items-center justify-center p-4 gap-3">
+        <p className="text-sm text-destructive text-center">{sessionsError}</p>
+        <button
+          type="button"
+          onClick={() => loadSessions(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-muted hover:bg-muted/80 text-foreground transition-colors"
+          aria-label="Retry loading sessions"
+        >
+          <RefreshCw size={12} />
+          Try again
+        </button>
       </div>
     );
   }
@@ -169,6 +197,7 @@ export function SessionSidebar({ onSelectSession }: SessionSidebarProps) {
                                 );
                               }}
                               className="p-1.5 hover:bg-muted rounded-md"
+                              aria-label="Session options"
                             >
                               <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
                             </button>
@@ -226,6 +255,30 @@ export function SessionSidebar({ onSelectSession }: SessionSidebarProps) {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        open={deleteConfirmId !== null}
+        onOpenChange={(open) => { if (!open) setDeleteConfirmId(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete conversation</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this conversation and all its messages. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

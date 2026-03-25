@@ -10,6 +10,16 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -64,6 +74,9 @@ function SettingsPage() {
   const [providerCatalog, setProviderCatalog] =
     useState<ProviderCatalogResponse | null>(null);
   const [isSavingProvider, setIsSavingProvider] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<
+    "sign-out" | "clear-config" | null
+  >(null);
   const [isValidatingProvider, setIsValidatingProvider] = useState(false);
   const [runtimeConfigSource, setRuntimeConfigSource] = useState<
     "database" | "environment" | "none"
@@ -245,7 +258,11 @@ function SettingsPage() {
                   End your current session on this device
                 </div>
               </div>
-              <Button variant="destructive" size="sm" onClick={logout}>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setConfirmAction("sign-out")}
+              >
                 <LogOut size={16} />
                 Sign Out
               </Button>
@@ -439,7 +456,7 @@ function SettingsPage() {
               <Button
                 type="button"
                 variant="ghost"
-                onClick={handleClearRuntimeConfig}
+                onClick={() => setConfirmAction("clear-config")}
               >
                 <Trash2 size={16} />
                 Clear
@@ -477,6 +494,47 @@ function SettingsPage() {
           </div>
         </section>
       </div>
+
+      <AlertDialog
+        open={confirmAction !== null}
+        onOpenChange={(open) => {
+          if (!open) setConfirmAction(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmAction === "sign-out"
+                ? "Sign out?"
+                : "Clear provider config?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmAction === "sign-out"
+                ? "This will end your current session. You will need to sign in again to continue."
+                : "This will remove your stored API key and provider settings. You can reconfigure them at any time."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className={
+                confirmAction === "sign-out"
+                  ? "bg-destructive text-white hover:bg-destructive/90"
+                  : undefined
+              }
+              onClick={() => {
+                if (confirmAction === "sign-out") {
+                  logout();
+                } else {
+                  handleClearRuntimeConfig();
+                }
+              }}
+            >
+              {confirmAction === "sign-out" ? "Sign Out" : "Clear Config"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
