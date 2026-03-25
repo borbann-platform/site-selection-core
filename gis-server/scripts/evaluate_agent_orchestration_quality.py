@@ -6,6 +6,7 @@ import argparse
 import asyncio
 import json
 import os
+import re
 import time
 import uuid
 from dataclasses import dataclass
@@ -304,6 +305,26 @@ async def run_judge(
             return parsed
     except json.JSONDecodeError:
         pass
+    # Strip markdown code fences and retry (some models wrap JSON in ```json ... ```)
+    stripped = re.sub(r"^```(?:json)?\s*", "", content.strip(), flags=re.M)
+    stripped = re.sub(r"```\s*$", "", stripped.strip(), flags=re.M).strip()
+    if stripped != content:
+        try:
+            parsed = json.loads(stripped)
+            if isinstance(parsed, dict):
+                return parsed
+        except json.JSONDecodeError:
+            pass
+    # Try extracting first { ... last }
+    start = stripped.find("{")
+    end = stripped.rfind("}")
+    if start != -1 and end > start:
+        try:
+            parsed = json.loads(stripped[start : end + 1])
+            if isinstance(parsed, dict):
+                return parsed
+        except json.JSONDecodeError:
+            pass
     return {
         "score": None,
         "verdict": "parse_error",

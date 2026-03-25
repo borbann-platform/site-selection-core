@@ -1,77 +1,235 @@
-"""Deterministic routing for rewritten workflows."""
+"""LLM-driven intent routing for the agent workflow engine.
+
+The router uses the same LLM the user configured (BYOK) to classify the
+user's intent into one of the supported workflows.  A lightweight keyword
+heuristic serves as an emergency fallback *only* when the LLM call fails.
+"""
 
 from __future__ import annotations
 
+import json
+import logging
 import re
+from typing import Any
+
+from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_core.messages import HumanMessage, SystemMessage
 
 from src.services.agent_contracts import (
     NormalizedAgentRequest,
     WorkflowDecision,
     WorkflowId,
 )
-from src.services.agent_subagents import has_explicit_compare_targets
+
+logger = logging.getLogger(__name__)
+
+# ── LLM routing prompt ────────────────────────────────────────────────
+_ROUTER_SYSTEM_PROMPT = """\
+You are an intent classifier for a Bangkok real-estate AI assistant.
+
+Given a user query, classify it into exactly ONE workflow and extract key entities.
+
+## Available workflows
+
+| workflow_id           | When to choose                                                                 |
+|-----------------------|-------------------------------------------------------------------------------|
+| listing_search        | User wants to find, search, or get recommendations for specific properties     |
+| comparative_scorecard | User wants to compare two or more areas, districts, projects, or transit lines |
+| financial_analysis    | User asks about DSR, loan, mortgage, affordability, ROI, yield, break-even, monthly payments, interest |
+| legal_guidance        | User asks about Thai property law, contracts, inheritance, estate admin, title deeds |
+| location_analysis     | User asks about a location's quality, walkability, catchment, neighborhood character, amenities |
+| general_guided        | Anything that does not fit the above categories                                |
+
+## Rules
+- A query about buying property AND comparing locations → comparative_scorecard
+- A query about buying property AND calculating loan/DSR → financial_analysis
+- A query mentioning "กับ" (with) comparing two places → comparative_scorecard
+- A query asking to find/search a property matching criteria → listing_search
+- Financial keywords (ดอกเบี้ย, ผ่อน, กู้, วงเงิน, DSR, ROI, yield, break-even) → financial_analysis
+- Legal keywords (กฎหมาย, สัญญา, มรดก, โฉนด, จดทะเบียน) → legal_guidance
+- If the user asks about the quality/character/amenities of ONE area → location_analysis
+- When unsure, prefer the more specific workflow over general_guided
+
+## Output format
+Return ONLY a JSON object (no markdown fences), with these exact keys:
+{
+  "workflow_id": "<one of the workflow_id values above>",
+  "confidence": <float 0.0-1.0>,
+  "reason": "<one short sentence explaining why>",
+  "extracted_entities": {
+    "locations": ["<place names mentioned>"],
+    "budget": "<budget if mentioned, e.g. '8M THB'>",
+    "property_type": "<condo/house/townhouse/land/shophouse if mentioned>"
+  }
+}
+"""
+
+
+def _parse_llm_json(raw: str) -> dict[str, Any] | None:
+    """Best-effort extraction of a JSON object from LLM text."""
+    text = raw.strip()
+    # Try raw parse first
+    try:
+        data = json.loads(text)
+        if isinstance(data, dict):
+            return data
+    except json.JSONDecodeError:
+        pass
+    # Strip markdown fences
+    text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.M)
+    text = re.sub(r"```\s*$", "", text, flags=re.M).strip()
+    try:
+        data = json.loads(text)
+        if isinstance(data, dict):
+            return data
+    except json.JSONDecodeError:
+        pass
+    # Find first { … last }
+    start = text.find("{")
+    end = text.rfind("}")
+    if start != -1 and end > start:
+        try:
+            data = json.loads(text[start : end + 1])
+            if isinstance(data, dict):
+                return data
+        except json.JSONDecodeError:
+            pass
+    return None
+
+
+_VALID_WORKFLOW_IDS = {wf.value for wf in WorkflowId}
 
 
 class RoutingEngine:
-    def route(self, request: NormalizedAgentRequest) -> WorkflowDecision:
+    """Route user queries to workflows using an LLM classifier."""
+
+    def route(
+        self,
+        request: NormalizedAgentRequest,
+        router_llm: BaseChatModel | None = None,
+    ) -> WorkflowDecision:
+        # ── Primary path: LLM classification ──
+        if router_llm is not None:
+            decision = self._route_with_llm(request, router_llm)
+            if decision is not None:
+                return decision
+            logger.warning("LLM routing failed; falling back to keyword heuristic")
+
+        # ── Fallback: lightweight keyword heuristic ──
+        return self._route_keyword_fallback(request)
+
+    # ------------------------------------------------------------------ #
+    #  LLM routing
+    # ------------------------------------------------------------------ #
+
+    def _route_with_llm(
+        self,
+        request: NormalizedAgentRequest,
+        llm: BaseChatModel,
+    ) -> WorkflowDecision | None:
+        try:
+            messages = [
+                SystemMessage(content=_ROUTER_SYSTEM_PROMPT),
+                HumanMessage(content=request.user_query),
+            ]
+            response = llm.invoke(messages)
+            raw = response.content if hasattr(response, "content") else str(response)
+            if isinstance(raw, list):
+                parts = []
+                for item in raw:
+                    if isinstance(item, str):
+                        parts.append(item)
+                    elif isinstance(item, dict):
+                        t = item.get("text")
+                        if isinstance(t, str):
+                            parts.append(t)
+                raw = "".join(parts)
+
+            parsed = _parse_llm_json(str(raw))
+            if parsed is None:
+                logger.warning(
+                    "Router LLM returned unparseable response: %s", raw[:200]
+                )
+                return None
+
+            wf_value = str(parsed.get("workflow_id", "general_guided"))
+            if wf_value not in _VALID_WORKFLOW_IDS:
+                logger.warning("Router LLM returned unknown workflow_id: %s", wf_value)
+                wf_value = "general_guided"
+
+            confidence = float(parsed.get("confidence", 0.8))
+            reason = str(parsed.get("reason", "LLM classification"))
+
+            return WorkflowDecision(
+                workflow_id=WorkflowId(wf_value),
+                confidence=min(1.0, max(0.0, confidence)),
+                reason=f"[LLM router] {reason}",
+            )
+
+        except Exception as exc:
+            logger.warning("LLM routing exception: %s", exc)
+            return None
+
+    # ------------------------------------------------------------------ #
+    #  Keyword fallback (emergency only — used when LLM is unavailable)
+    # ------------------------------------------------------------------ #
+
+    def _route_keyword_fallback(
+        self, request: NormalizedAgentRequest
+    ) -> WorkflowDecision:
         text = request.user_query.lower()
 
-        if any(
-            token in text
-            for token in ["กฎหมาย", "สัญญา", "มรดก", "inheritance", "legal"]
+        # Legal
+        if re.search(
+            r"กฎหมาย|สัญญา|มรดก|ผู้จัดการมรดก|โฉนด|จดทะเบียน|\blegal\b|\binheritance\b", text
         ):
             return WorkflowDecision(
                 workflow_id=WorkflowId.LEGAL_GUIDANCE,
-                reason="legal intent detected",
+                confidence=0.6,
+                reason="[keyword fallback] legal keywords detected",
             )
 
-        if any(
-            token in text
-            for token in [
-                "dsr",
-                "วงเงินกู้",
-                "ดอกเบี้ย",
-                "break-even",
-                "roi",
-                "yield",
-                "ผ่อน",
-            ]
+        # Financial
+        if re.search(
+            r"\bdsr\b|วงเงินกู้|ดอกเบี้ย|ผ่อน|สินเชื่อ|\broi\b|\byield\b|\bbreak-?even\b", text
         ):
             return WorkflowDecision(
                 workflow_id=WorkflowId.FINANCIAL_ANALYSIS,
-                reason="financial intent detected",
+                confidence=0.6,
+                reason="[keyword fallback] financial keywords detected",
             )
 
-        wants_compare = any(
-            token in text for token in ["compare", "เปรียบเทียบ", "versus", "vs", "กับ"]
-        )
-        if wants_compare or has_explicit_compare_targets(text):
+        # Comparative
+        if re.search(r"เปรียบเทียบ|\bcompare\b|\bversus\b|\bvs\b", text):
             return WorkflowDecision(
                 workflow_id=WorkflowId.COMPARATIVE_SCORECARD,
-                reason="comparison intent detected",
+                confidence=0.6,
+                reason="[keyword fallback] comparison keywords detected",
             )
 
-        if any(
-            token in text
-            for token in ["walkability", "catchment", "ทำเล", "location", "site"]
-        ):
+        # Location
+        if re.search(r"\bwalkability\b|\bcatchment\b|ทำเล(?:ดี|ไหม|ที่|ของ|ใน)", text):
             return WorkflowDecision(
                 workflow_id=WorkflowId.LOCATION_ANALYSIS,
-                reason="location analysis intent detected",
+                confidence=0.5,
+                reason="[keyword fallback] location analysis keywords detected",
             )
 
-        if any(
-            token in text
-            for token in ["หา", "find", "คอนโด", "บ้าน", "โครงการ", "property"]
+        # Listing search
+        if re.search(
+            r"(?:หา|ค้น|แนะนำ).*(?:คอนโด|บ้าน|ทาวน์|โครงการ|ที่ดิน)|คอนโด|บ้าน(?:เดี่ยว)?|ทาวน์เฮ้าส์|\bfind\b.*\bproperty\b",
+            text,
         ):
             return WorkflowDecision(
                 workflow_id=WorkflowId.LISTING_SEARCH,
-                reason="listing intent detected",
+                confidence=0.5,
+                reason="[keyword fallback] listing search keywords detected",
             )
 
         return WorkflowDecision(
             workflow_id=WorkflowId.GENERAL_GUIDED,
-            reason="fallback guided route",
+            confidence=0.3,
+            reason="[keyword fallback] no strong match",
         )
 
 
