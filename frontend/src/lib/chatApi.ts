@@ -2,7 +2,7 @@
  * Chat Sessions API - Functions for managing chat sessions and messages
  */
 
-import { API_URL, type ChatMessage, type Attachment, type AgentStreamEvent } from "./api";
+import { API_URL, authenticatedFetch, getAccessToken, type ChatMessage, type Attachment, type AgentStreamEvent } from "./api";
 import {
   type AgentRuntimeConfig,
   sanitizeAgentRuntimeConfig,
@@ -88,28 +88,6 @@ export interface RuntimeConfigResponse {
 
 // ============= Helper Functions =============
 
-function getAccessToken(): string | null {
-  const stored = localStorage.getItem("auth_tokens");
-  if (!stored) return null;
-  try {
-    const tokens = JSON.parse(stored);
-    return tokens.access_token || null;
-  } catch {
-    return null;
-  }
-}
-
-function getAuthHeaders(): HeadersInit {
-  const token = getAccessToken();
-  const headers: HeadersInit = {
-    "Content-Type": "application/json",
-  };
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-  return headers;
-}
-
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: "Request failed" }));
@@ -137,9 +115,7 @@ export const chatApi = {
     if (params?.include_archived) searchParams.set("include_archived", "true");
 
     const url = `${API_URL}/chat/sessions${searchParams.toString() ? `?${searchParams}` : ""}`;
-    const response = await fetch(url, {
-      headers: getAuthHeaders(),
-    });
+    const response = await authenticatedFetch(url);
     return handleResponse<SessionListResponse>(response);
   },
 
@@ -147,9 +123,9 @@ export const chatApi = {
    * Create a new chat session.
    */
   createSession: async (data?: CreateSessionRequest): Promise<ChatSession> => {
-    const response = await fetch(`${API_URL}/chat/sessions`, {
+    const response = await authenticatedFetch(`${API_URL}/chat/sessions`, {
       method: "POST",
-      headers: getAuthHeaders(),
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data || {}),
     });
     return handleResponse<ChatSession>(response);
@@ -159,9 +135,7 @@ export const chatApi = {
    * Get a chat session with all its messages.
    */
   getSession: async (sessionId: string): Promise<SessionWithMessages> => {
-    const response = await fetch(`${API_URL}/chat/sessions/${sessionId}`, {
-      headers: getAuthHeaders(),
-    });
+    const response = await authenticatedFetch(`${API_URL}/chat/sessions/${sessionId}`);
     return handleResponse<SessionWithMessages>(response);
   },
 
@@ -172,9 +146,9 @@ export const chatApi = {
     sessionId: string,
     data: UpdateSessionRequest
   ): Promise<ChatSession> => {
-    const response = await fetch(`${API_URL}/chat/sessions/${sessionId}`, {
+    const response = await authenticatedFetch(`${API_URL}/chat/sessions/${sessionId}`, {
       method: "PATCH",
-      headers: getAuthHeaders(),
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
     return handleResponse<ChatSession>(response);
@@ -184,9 +158,8 @@ export const chatApi = {
    * Delete a chat session and all its messages.
    */
   deleteSession: async (sessionId: string): Promise<void> => {
-    const response = await fetch(`${API_URL}/chat/sessions/${sessionId}`, {
+    const response = await authenticatedFetch(`${API_URL}/chat/sessions/${sessionId}`, {
       method: "DELETE",
-      headers: getAuthHeaders(),
     });
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: "Delete failed" }));
@@ -198,53 +171,47 @@ export const chatApi = {
    * Generate an AI-powered title for a session.
    */
   generateTitle: async (sessionId: string): Promise<GenerateTitleResponse> => {
-    const response = await fetch(`${API_URL}/chat/sessions/${sessionId}/generate-title`, {
+    const response = await authenticatedFetch(`${API_URL}/chat/sessions/${sessionId}/generate-title`, {
       method: "POST",
-      headers: getAuthHeaders(),
     });
     return handleResponse<GenerateTitleResponse>(response);
   },
 
   getProviderCatalog: async (): Promise<ProviderCatalogResponse> => {
-    const response = await fetch(`${API_URL}/chat/providers`, {
-      headers: getAuthHeaders(),
-    });
+    const response = await authenticatedFetch(`${API_URL}/chat/providers`);
     return handleResponse<ProviderCatalogResponse>(response);
   },
 
   validateProviderConfig: async (
     runtime: AgentRuntimeConfig
   ): Promise<ProviderValidationResponse> => {
-    const response = await fetch(`${API_URL}/chat/providers/validate`, {
+    const response = await authenticatedFetch(`${API_URL}/chat/providers/validate`, {
       method: "POST",
-      headers: getAuthHeaders(),
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ runtime }),
     });
     return handleResponse<ProviderValidationResponse>(response);
   },
 
   getRuntimeConfig: async (): Promise<RuntimeConfigResponse> => {
-    const response = await fetch(`${API_URL}/chat/runtime-config`, {
-      headers: getAuthHeaders(),
-    });
+    const response = await authenticatedFetch(`${API_URL}/chat/runtime-config`);
     return handleResponse<RuntimeConfigResponse>(response);
   },
 
   saveRuntimeConfig: async (
     runtime: AgentRuntimeConfig
   ): Promise<RuntimeConfigResponse> => {
-    const response = await fetch(`${API_URL}/chat/runtime-config`, {
+    const response = await authenticatedFetch(`${API_URL}/chat/runtime-config`, {
       method: "PUT",
-      headers: getAuthHeaders(),
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ runtime: sanitizeAgentRuntimeConfig(runtime) }),
     });
     return handleResponse<RuntimeConfigResponse>(response);
   },
 
   clearRuntimeConfig: async (): Promise<void> => {
-    const response = await fetch(`${API_URL}/chat/runtime-config`, {
+    const response = await authenticatedFetch(`${API_URL}/chat/runtime-config`, {
       method: "DELETE",
-      headers: getAuthHeaders(),
     });
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: "Delete failed" }));
