@@ -44,8 +44,12 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Load graph on startup
-    catchment_service.load_graph()
+    # Load graph on startup (best-effort; the catchment service handles
+    # graph=None gracefully, so a download/LFS failure must not crash the app).
+    try:
+        catchment_service.load_graph()
+    except Exception as exc:
+        logger.warning("Catchment graph load failed (non-fatal): %s", exc)
     listings_tile_refresh_manager.start()
     yield
     # Clean up resources if needed
