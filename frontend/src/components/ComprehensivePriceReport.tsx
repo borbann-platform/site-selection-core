@@ -949,6 +949,7 @@ export function ComprehensivePriceReport({
                 be loaded.
               </p>
             ) : null}
+            <div className="space-y-3">
             {signalShares.map((contrib) => (
               <ContributionBar
                 key={contrib.feature}
@@ -959,6 +960,7 @@ export function ComprehensivePriceReport({
                 share={contrib.share}
               />
             ))}
+            </div>
             <p className="text-xs text-muted-foreground mb-3">
               {activeSignalData.explanation_method === "local_shap"
                 ? "Local SHAP is available for this property, so the ordering reflects this specific estimate."
