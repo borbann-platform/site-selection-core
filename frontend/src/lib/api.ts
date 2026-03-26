@@ -670,6 +670,7 @@ export interface ValuationFactor {
 	impact: number;
 	direction: "positive" | "negative" | "neutral";
 	description: string;
+	contribution_pct?: number;
 }
 
 export interface ValuationComparable {
@@ -693,6 +694,7 @@ export interface ValuationResponse {
 		district_price_trend: number;
 		days_on_market_avg: number;
 	};
+	explanation_narrative?: string | null;
 }
 
 // Transit Types

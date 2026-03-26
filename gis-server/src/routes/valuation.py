@@ -26,6 +26,7 @@ from src.dependencies.auth import get_current_user_optional
 from src.models.realestate import HousePrice, UserProperty
 from src.models.user import User
 from src.services.price_prediction import get_predictor, get_available_predictors
+from src.services.explanation_narration import generate_natural_language_explanation
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +70,9 @@ class ValuationFactor(BaseModel):
     impact: float = Field(description="Impact on price in THB")
     direction: Literal["positive", "negative", "neutral"]
     description: str
+    contribution_pct: float = Field(
+        description="Relative contribution percentage (0-100)"
+    )
 
 
 class ValuationComparable(BaseModel):
@@ -100,6 +104,9 @@ class ValuationResponse(BaseModel):
     factors: list[ValuationFactor]
     comparable_properties: list[ValuationComparable]
     market_insights: MarketInsights
+    explanation_narrative: str | None = Field(
+        None, description="LLM-generated natural language summary of factors"
+    )
     # Additional metadata
     model_type: str = Field(description="ML model used for prediction")
     h3_index: str = Field(description="H3 hexagon index of location")
@@ -393,8 +400,10 @@ def get_property_valuation(
         # Calculate impact in THB (contribution as percentage of predicted price)
         # The contribution from the ML model is relative importance
         # We scale it to create a meaningful THB impact for display
-        impact_pct = contrib.contribution / 100 if contrib.contribution > 0 else 0.05
-        impact = prediction.predicted_price * impact_pct
+        contribution_pct = (
+            contrib.contribution / 100 if contrib.contribution > 0 else 0.05
+        )
+        impact = prediction.predicted_price * contribution_pct
 
         # Determine direction based on feature type
         direction: Literal["positive", "negative", "neutral"] = "neutral"
@@ -416,6 +425,7 @@ def get_property_valuation(
                 impact=round(impact),
                 direction=direction,
                 description=description,
+                contribution_pct=round(abs(contribution_pct) * 100, 2),
             )
         )
 
@@ -437,6 +447,13 @@ def get_property_valuation(
     # Override district avg from prediction if available
     if prediction.district_avg_price:
         market_insights.district_avg_price = round(prediction.district_avg_price)
+
+    # Generate LLM-backed natural language explanation (best-effort)
+    explanation_narrative: str | None = None
+    try:
+        explanation_narrative = generate_natural_language_explanation(prediction)
+    except Exception as e:
+        logger.warning("Failed to generate explanation narrative: %s", e)
 
     # Save property if requested
     property_id = None
@@ -467,6 +484,7 @@ def get_property_valuation(
         factors=factors,
         comparable_properties=comparables,
         market_insights=market_insights,
+        explanation_narrative=explanation_narrative,
         model_type=prediction.model_type,
         h3_index=prediction.h3_index,
         is_cold_start=prediction.is_cold_start,

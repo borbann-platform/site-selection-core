@@ -20,13 +20,11 @@ import {
   Info,
   Building2,
   Download,
-  Share2,
   ArrowLeft,
   Sparkles,
   Calendar,
   DollarSign,
   Loader2,
-  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
@@ -97,43 +95,48 @@ function ConfidenceBadge({ level }: { level: "high" | "medium" | "low" }) {
 
 function FactorBar({
   factor,
-  maxImpact,
+  estimatedPrice,
 }: {
   factor: ValuationResponse["factors"][0];
-  maxImpact: number;
+  estimatedPrice: number;
 }) {
-  const widthPercent = Math.min(
-    (Math.abs(factor.impact) / maxImpact) * 100,
-    100
-  );
+  const contributionPct =
+    factor.contribution_pct ?? (estimatedPrice > 0
+      ? Math.abs(factor.impact / estimatedPrice) * 100
+      : 0);
+  const widthPercent = Math.max(6, Math.min(contributionPct * 5, 100));
   const isPositive = factor.direction === "positive";
 
   return (
-    <div className="mb-3">
-      <div className="flex justify-between text-sm mb-1">
-        <span className="text-muted-foreground">{factor.display_name}</span>
-        <span
-          className={cn(
-            "font-mono",
-            isPositive ? "text-success" : "text-destructive"
-          )}
-        >
-          {isPositive ? "+" : ""}
-          {formatPrice(factor.impact)}
-        </span>
+    <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
+      <div className="mb-2 flex items-start justify-between gap-3 text-xs">
+        <span className="font-medium text-foreground">{factor.display_name}</span>
+        <span className="text-muted-foreground">{factor.description}</span>
       </div>
       <div className="flex items-center gap-2">
-        <div className="flex-1 h-5 bg-muted/50 rounded relative overflow-hidden">
+        <div className="relative h-2.5 flex-1 overflow-hidden rounded-full bg-muted/60">
           <div
             className={cn(
-              "absolute h-full rounded transition-all",
+              "absolute h-full rounded-full transition-all",
               isPositive ? "bg-success/70" : "bg-destructive/70"
             )}
             style={{ width: `${widthPercent}%` }}
           />
         </div>
+        <span
+          className={cn(
+            "min-w-14 text-right text-[11px] font-semibold",
+            isPositive ? "text-success" : "text-destructive"
+          )}
+        >
+          {contributionPct.toFixed(1)}%
+        </span>
       </div>
-      <p className="text-xs text-muted-foreground mt-1">{factor.description}</p>
+      <div className="mt-2 text-[11px] text-muted-foreground">
+        {isPositive
+          ? "Relatively stronger upward pressure"
+          : "Relatively stronger downward pressure"}
+      </div>
     </div>
   );
 }
@@ -215,12 +218,7 @@ export function ValuationReport({
   const [showComparables, setShowComparables] = useState(true);
   const [showInsights, setShowInsights] = useState(true);
   const [isDownloading, setIsDownloading] = useState(false);
-  const [shareState, setShareState] = useState<"idle" | "copied">("idle");
   const reportRef = useRef<HTMLDivElement>(null);
-
-  const maxImpact = Math.max(
-    ...valuation.factors.map((f) => Math.abs(f.impact))
-  );
 
   // Calculate if asking price is good value
   const askingPriceDiff = propertyData.asking_price
@@ -242,37 +240,31 @@ export function ValuationReport({
       ]);
 
       const element = reportRef.current;
-      
-      // Ensure element is scrolled into view and visible
-      element.scrollIntoView({ behavior: "instant", block: "start" });
-      
-      // Small delay to ensure rendering is complete
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // Capture the report element with settings optimized for dark backgrounds
+
+      // Get computed background color from the page
+      const computedBg =
+        getComputedStyle(document.documentElement).getPropertyValue(
+          "--background",
+        ) || getComputedStyle(document.body).backgroundColor;
+      const bgColor =
+        computedBg.trim().startsWith("#")
+          ? computedBg.trim()
+          : "#18181b";
+
+      // Capture the report element
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
         logging: false,
-        backgroundColor: "#18181b", // zinc-900
+        backgroundColor: bgColor,
         allowTaint: true,
         windowWidth: element.scrollWidth,
         windowHeight: element.scrollHeight,
-        // Ignore problematic elements (buttons, spinners)
+        // Only ignore interactive/animated elements
         ignoreElements: (el) => {
           if (!(el instanceof HTMLElement)) return false;
-          return el.classList?.contains('animate-spin') || 
-                 el.tagName === 'BUTTON' ||
-                 el.classList?.contains('backdrop-blur') ||
-                 el.classList?.contains('backdrop-blur-md');
+          return el.classList?.contains("animate-spin");
         },
-        onclone: (clonedDoc) => {
-          // Ensure cloned element has solid background
-          const clonedElement = clonedDoc.body.querySelector('[class*="max-w-3xl"]');
-          if (clonedElement instanceof HTMLElement) {
-            clonedElement.style.backgroundColor = '#18181b';
-          }
-        }
       });
 
       const imgData = canvas.toDataURL("image/png");
@@ -286,24 +278,22 @@ export function ValuationReport({
       const pdfHeight = pdf.internal.pageSize.getHeight();
       const imgWidth = canvas.width;
       const imgHeight = canvas.height;
-      
-      // Calculate dimensions to fit content
-      const ratio = Math.min(
-        (pdfWidth - 20) / imgWidth,  // 10mm margin on each side
-        (pdfHeight - 20) / imgHeight
-      );
-      const imgX = (pdfWidth - imgWidth * ratio) / 2;
-      const imgY = 10;
 
-      // Handle multi-page if content is too long
-      const scaledHeight = imgHeight * ratio;
-      if (scaledHeight > pdfHeight - 20) {
-        // Content is longer than one page, scale to fit width and add pages
-        const pageHeight = pdfHeight - 20;
-        const contentHeight = (imgHeight * (pdfWidth - 20)) / imgWidth;
+      // Scale to fit page width with margins
+      const contentWidth = pdfWidth - 20;
+      const contentHeight = (imgHeight * contentWidth) / imgWidth;
+      const pageHeight = pdfHeight - 20;
+
+      if (contentHeight <= pageHeight) {
+        // Single page
+        const imgX = (pdfWidth - contentWidth) / 2;
+        const imgY = 10;
+        pdf.addImage(imgData, "PNG", imgX, imgY, contentWidth, contentHeight);
+      } else {
+        // Multi-page: slice the image across pages
         let position = 0;
         let page = 0;
-        
+
         while (position < contentHeight) {
           if (page > 0) {
             pdf.addPage();
@@ -313,75 +303,28 @@ export function ValuationReport({
             "PNG",
             10,
             10 - position,
-            pdfWidth - 20,
-            contentHeight
+            contentWidth,
+            contentHeight,
           );
           position += pageHeight;
           page++;
         }
-      } else {
-        pdf.addImage(
-          imgData,
-          "PNG",
-          imgX,
-          imgY,
-          imgWidth * ratio,
-          imgHeight * ratio
-        );
       }
 
       // Generate filename with property info
       const district = propertyData.amphur || "Bangkok";
       const date = new Date().toISOString().split("T")[0];
       pdf.save(`Borban-Valuation-${district}-${date}.pdf`);
+      toast.success("PDF downloaded successfully");
     } catch (error) {
       console.error("PDF generation failed:", error);
-      // More helpful error message
-      const errorMsg = error instanceof Error ? error.message : "Unknown error";
-      toast.error(`Failed to generate PDF: ${errorMsg}. Try refreshing the page.`);
+      const errorMsg =
+        error instanceof Error ? error.message : "Unknown error";
+      toast.error(`Failed to generate PDF: ${errorMsg}`);
     } finally {
       setIsDownloading(false);
     }
   }, [isDownloading, propertyData.amphur]);
-
-  // Share functionality
-  const handleShare = useCallback(async () => {
-    const shareData = {
-      title: "Borban Property Valuation",
-      text: `Property Valuation: ${formatPrice(valuation.estimated_price)}\n` +
-        `Type: ${propertyData.building_style}\n` +
-        `Area: ${propertyData.building_area} sqm\n` +
-        `District: ${propertyData.amphur}\n` +
-        `Confidence: ${valuation.confidence.charAt(0).toUpperCase() + valuation.confidence.slice(1)}\n\n` +
-        "Powered by Borban AI",
-      url: window.location.href,
-    };
-
-    // Try native share first (mobile/modern browsers)
-    if (navigator.share && navigator.canShare?.(shareData)) {
-      try {
-        await navigator.share(shareData);
-        return;
-      } catch (error) {
-        // User cancelled or share failed, fall back to clipboard
-        if ((error as Error).name !== "AbortError") {
-          console.error("Share failed:", error);
-        }
-      }
-    }
-
-    // Fallback: copy to clipboard
-    try {
-      await navigator.clipboard.writeText(
-        `${shareData.text}\n\n${shareData.url}`
-      );
-      setShareState("copied");
-      setTimeout(() => setShareState("idle"), 2000);
-    } catch (error) {
-      console.error("Clipboard copy failed:", error);
-      toast.error("Failed to copy to clipboard.");
-    }
-  }, [valuation, propertyData]);
 
   return (
     <div ref={reportRef} className="max-w-3xl mx-auto space-y-6">
@@ -407,24 +350,7 @@ export function ValuationReport({
             ) : (
               <Download size={14} className="mr-2" />
             )}
-            {isDownloading ? "Generating..." : "Download"}
-          </Button>
-          <Button
-            variant="outline"
-            className="border-border bg-muted/50 text-foreground hover:bg-muted"
-            onClick={handleShare}
-          >
-            {shareState === "copied" ? (
-              <>
-                <Check size={14} className="mr-2 text-brand" />
-                Copied!
-              </>
-            ) : (
-              <>
-                <Share2 size={14} className="mr-2" />
-                Share
-              </>
-            )}
+            {isDownloading ? "Generating..." : "Download PDF"}
           </Button>
         </div>
       </div>
@@ -554,30 +480,43 @@ export function ValuationReport({
         </div>
       </div>
 
-      {/* Price Factors */}
+      {/* Contributing Factors */}
       <div className="bg-card border border-border rounded-lg p-6">
         <SectionHeader
           icon={Scale}
-          title="How We Calculated This"
+          title="Contributing Factors"
           expandable
           expanded={showFactors}
           onToggle={() => setShowFactors(!showFactors)}
         />
         {showFactors && (
-          <div className="mt-4">
+          <div className="mt-4 space-y-3">
+            <p className="text-sm leading-6 text-muted-foreground">
+              These factors show which inputs mattered most for this estimate. They are relative weights, not additive baht adjustments.
+            </p>
             {valuation.factors.map((factor) => (
-              <FactorBar key={factor.name} factor={factor} maxImpact={maxImpact} />
+              <FactorBar key={factor.name} factor={factor} estimatedPrice={valuation.estimated_price} />
             ))}
             <div className="flex gap-4 text-xs text-muted-foreground mt-3 pt-3 border-t border-border">
               <div className="flex items-center gap-1">
                 <div className="w-3 h-3 rounded bg-success/70" />
-                <span>Increases value</span>
+                <span>Higher relative pressure</span>
               </div>
               <div className="flex items-center gap-1">
                 <div className="w-3 h-3 rounded bg-destructive/70" />
-                <span>Decreases value</span>
+                <span>Lower relative pressure</span>
               </div>
             </div>
+            {valuation.explanation_narrative ? (
+              <div className="mt-4 rounded-lg border border-border bg-muted/40 p-3">
+                <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
+                  AI Summary
+                </div>
+                <p className="text-sm leading-6 text-foreground/90">
+                  {valuation.explanation_narrative}
+                </p>
+              </div>
+            ) : null}
           </div>
         )}
       </div>
@@ -702,35 +641,17 @@ export function ValuationReport({
         <h3 className="text-lg font-semibold text-foreground mb-4">
           What's Next?
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-card rounded-lg p-4 border border-border">
-            <h4 className="font-medium text-foreground mb-2">
-              Get Professional Appraisal
-            </h4>
-            <p className="text-sm text-muted-foreground mb-3">
-              Connect with certified appraisers for an official valuation
-              report.
-            </p>
-            <Button
-              variant="outline"
-              className="w-full border-border bg-muted/50 text-foreground hover:bg-muted"
-              onClick={() => toast.info("Coming soon!")}
-            >
-              Request Appraisal
-            </Button>
-          </div>
-          <div className="bg-card rounded-lg p-4 border border-border">
-            <h4 className="font-medium text-foreground mb-2">List Your Property</h4>
-            <p className="text-sm text-muted-foreground mb-3">
-              Ready to sell? List your property on our platform.
-            </p>
-            <Button
-              className="w-full bg-brand hover:bg-brand/90 text-black"
-              onClick={() => toast.info("Coming soon!")}
-            >
-              List Property
-            </Button>
-          </div>
+        <div className="bg-card rounded-lg p-4 border border-border">
+          <h4 className="font-medium text-foreground mb-2">List Your Property</h4>
+          <p className="text-sm text-muted-foreground mb-3">
+            Ready to sell? List your property on our platform.
+          </p>
+          <Button
+            className="w-full bg-brand hover:bg-brand/90 text-black"
+            onClick={() => toast.info("Coming soon!")}
+          >
+            List Property
+          </Button>
         </div>
       </div>
 
