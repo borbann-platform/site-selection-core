@@ -96,15 +96,19 @@ function ConfidenceBadge({ level }: { level: "high" | "medium" | "low" }) {
 function FactorBar({
   factor,
   estimatedPrice,
+  maxPct,
 }: {
   factor: ValuationResponse["factors"][0];
   estimatedPrice: number;
+  maxPct: number;
 }) {
   const contributionPct =
     factor.contribution_pct ?? (estimatedPrice > 0
       ? Math.abs(factor.impact / estimatedPrice) * 100
       : 0);
-  const widthPercent = Math.max(6, Math.min(contributionPct * 5, 100));
+  const widthPercent = maxPct > 0
+    ? Math.max(8, Math.round((contributionPct / maxPct) * 100))
+    : 8;
   const isPositive = factor.direction === "positive";
 
   return (
@@ -241,15 +245,28 @@ export function ValuationReport({
 
       const element = reportRef.current;
 
-      // Get computed background color from the page
-      const computedBg =
-        getComputedStyle(document.documentElement).getPropertyValue(
-          "--background",
-        ) || getComputedStyle(document.body).backgroundColor;
-      const bgColor =
-        computedBg.trim().startsWith("#")
-          ? computedBg.trim()
-          : "#18181b";
+      // Resolve the page background to a hex color that html2canvas can handle.
+      // Modern Tailwind CSS (v4) emits colors in oklch/oklab which html2canvas
+      // cannot parse, so we resolve through a temporary canvas pixel.
+      function resolveToHex(cssColor: string): string {
+        try {
+          const ctx = document.createElement("canvas").getContext("2d");
+          if (!ctx) return "#18181b";
+          ctx.fillStyle = cssColor;
+          ctx.fillRect(0, 0, 1, 1);
+          const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+          return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1)}`;
+        } catch {
+          return "#18181b";
+        }
+      }
+
+      const rawBg =
+        getComputedStyle(document.documentElement)
+          .getPropertyValue("--background")
+          .trim() ||
+        getComputedStyle(document.body).backgroundColor;
+      const bgColor = resolveToHex(rawBg || "#18181b");
 
       // Capture the report element
       const canvas = await html2canvas(element, {
@@ -264,6 +281,35 @@ export function ValuationReport({
         ignoreElements: (el) => {
           if (!(el instanceof HTMLElement)) return false;
           return el.classList?.contains("animate-spin");
+        },
+        // Convert oklab/oklch colors to rgb in the cloned DOM so html2canvas
+        // can parse every inline/computed style without errors.
+        onclone: (_doc, clonedEl) => {
+          const allElements = clonedEl.querySelectorAll("*");
+          const colorProps = [
+            "color",
+            "backgroundColor",
+            "borderColor",
+            "borderTopColor",
+            "borderRightColor",
+            "borderBottomColor",
+            "borderLeftColor",
+            "outlineColor",
+          ] as const;
+          for (const el of allElements) {
+            if (!(el instanceof HTMLElement)) continue;
+            const cs = getComputedStyle(el);
+            for (const prop of colorProps) {
+              const val = cs[prop];
+              if (
+                typeof val === "string" &&
+                (val.includes("oklab") || val.includes("oklch"))
+              ) {
+                (el.style as unknown as Record<string, string>)[prop] =
+                  resolveToHex(val);
+              }
+            }
+          }
         },
       });
 
@@ -494,9 +540,18 @@ export function ValuationReport({
             <p className="text-sm leading-6 text-muted-foreground">
               These factors show which inputs mattered most for this estimate. They are relative weights, not additive baht adjustments.
             </p>
-            {valuation.factors.map((factor) => (
-              <FactorBar key={factor.name} factor={factor} estimatedPrice={valuation.estimated_price} />
-            ))}
+            {(() => {
+              const maxPct = Math.max(
+                ...valuation.factors.map((f) =>
+                  f.contribution_pct ?? (valuation.estimated_price > 0
+                    ? Math.abs(f.impact / valuation.estimated_price) * 100
+                    : 0)
+                )
+              );
+              return valuation.factors.map((factor) => (
+                <FactorBar key={factor.name} factor={factor} estimatedPrice={valuation.estimated_price} maxPct={maxPct} />
+              ));
+            })()}
             <div className="flex gap-4 text-xs text-muted-foreground mt-3 pt-3 border-t border-border">
               <div className="flex items-center gap-1">
                 <div className="w-3 h-3 rounded bg-success/70" />

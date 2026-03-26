@@ -395,17 +395,15 @@ def get_property_valuation(
     price_per_sqm = round(prediction.predicted_price / request.building_area)
 
     # Convert feature contributions to valuation factors
-    factors = []
+    # First pass: compute raw values for each factor
+    raw_factors: list[
+        tuple[str, str, float, Literal["positive", "negative", "neutral"], str, float]
+    ] = []
+    total_magnitude = 0.0
     for contrib in prediction.feature_contributions:
-        # Calculate impact in THB (contribution as percentage of predicted price)
-        # The contribution from the ML model is relative importance
-        # We scale it to create a meaningful THB impact for display
-        contribution_pct = (
-            contrib.contribution / 100 if contrib.contribution > 0 else 0.05
-        )
-        impact = prediction.predicted_price * contribution_pct
+        raw_pct = contrib.contribution / 100 if contrib.contribution > 0 else 0.05
+        impact = prediction.predicted_price * raw_pct
 
-        # Determine direction based on feature type
         direction: Literal["positive", "negative", "neutral"] = "neutral"
         if contrib.direction == "positive":
             direction = "positive"
@@ -413,19 +411,35 @@ def get_property_valuation(
             direction = "negative"
             impact = -abs(impact)
 
-        # Generate description based on feature
         description = _generate_factor_description(
             contrib.feature, contrib.value, direction
         )
+        total_magnitude += abs(raw_pct)
+        raw_factors.append(
+            (
+                contrib.feature,
+                contrib.feature_display,
+                impact,
+                direction,
+                description,
+                abs(raw_pct),
+            )
+        )
 
+    # Second pass: normalize contribution_pct so all factors sum to 100%
+    factors = []
+    for name, display_name, impact, direction, description, magnitude in raw_factors:
+        normalized_pct = (
+            round(magnitude / total_magnitude * 100, 1) if total_magnitude > 0 else 0
+        )
         factors.append(
             ValuationFactor(
-                name=contrib.feature,
-                display_name=contrib.feature_display,
+                name=name,
+                display_name=display_name,
                 impact=round(impact),
                 direction=direction,
                 description=description,
-                contribution_pct=round(abs(contribution_pct) * 100, 2),
+                contribution_pct=normalized_pct,
             )
         )
 
