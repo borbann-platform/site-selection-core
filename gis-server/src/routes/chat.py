@@ -453,6 +453,8 @@ async def chat_status():
         "embedding_provider": agent_settings.EMBEDDING_PROVIDER,
         "embedding_configured": agent_settings.is_embedding_provider_configured(),
         "clarification_loop": agent_settings.AGENT_ENABLE_CLARIFICATION_LOOP,
+        "react_agent_enabled": agent_settings.REACT_AGENT_ENABLED,
+        "react_agent_max_iterations": agent_settings.REACT_AGENT_MAX_ITERATIONS,
         "supported_providers": list_supported_providers(),
         "engine": get_agent_engine_metadata(),
     }

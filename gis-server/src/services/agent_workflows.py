@@ -85,4 +85,12 @@ WORKFLOW_REGISTRY: dict[WorkflowId, WorkflowDefinition] = {
         required_tools=["retrieve_knowledge"],
         response_contract="concise",
     ),
+    WorkflowId.REACT_AGENT: WorkflowDefinition(
+        workflow_id=WorkflowId.REACT_AGENT,
+        description="LangGraph ReAct agent for complex, cross-domain, or multi-step queries",
+        required_inputs=["user_query"],
+        allowed_assumptions=["agent dynamically selects tools"],
+        required_tools=[],  # ReAct agent chooses tools dynamically
+        response_contract="concise",
+    ),
 }

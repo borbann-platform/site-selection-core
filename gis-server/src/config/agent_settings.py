@@ -30,7 +30,7 @@ class AgentSettings(BaseSettings):
     OPENAI_API_KEY: str = ""
     OPENAI_ORG_ID: str = ""
     AGENT_CREDENTIALS_ENCRYPTION_KEY: str = ""
-    EMBEDDING_MODEL: str = "models/text-embedding-004"
+    EMBEDDING_MODEL: str = "models/gemini-embedding-001"
     EMBEDDING_PROVIDER: Literal["gemini", "openai_compatible"] = "gemini"
     OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
 
@@ -39,12 +39,16 @@ class AgentSettings(BaseSettings):
     AGENT_TOOL_TIMEOUT_SECONDS: int = 30
     AGENT_MAX_TOKENS_PER_TURN: int = 4096
 
+    # ReAct agent settings
+    REACT_AGENT_ENABLED: bool = True
+    REACT_AGENT_MAX_ITERATIONS: int = 8
+
     # RAG retrieval settings
     RAG_RETRIEVAL_TOP_K: int = 5
     RAG_CHUNK_SIZE: int = 512
     RAG_CHUNK_OVERLAP: int = 50
 
-    # Embedding dimensions for Gemini text-embedding-004
+    # Embedding dimensions for Gemini gemini-embedding-001
     EMBEDDING_DIMENSIONS: int = 768
 
     class Config:

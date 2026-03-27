@@ -47,6 +47,7 @@ class RagService:
             self._embeddings = GoogleGenerativeAIEmbeddings(
                 model=agent_settings.EMBEDDING_MODEL,
                 google_api_key=agent_settings.GOOGLE_API_KEY,
+                output_dimensionality=agent_settings.EMBEDDING_DIMENSIONS,
             )
 
         # Initialize PGVector store

@@ -19,6 +19,7 @@ def _metadata_source_files() -> list[Path]:
         src_dir / "services" / "agent_composer.py",
         src_dir / "services" / "agent_verifier.py",
         src_dir / "services" / "agent_engine.py",
+        src_dir / "services" / "agent_react.py",
         src_dir / "services" / "agent_graph.py",
         src_dir / "routes" / "chat.py",
     ]

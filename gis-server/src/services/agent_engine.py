@@ -8,6 +8,7 @@ Improvements over v1:
 - Location workflow invokes geocoding + location intelligence + catchment
 - Hallucination guard: empty evidence is flagged transparently
 - Verification triggers an actual repair loop (up to 2 retries)
+- ReAct agent dispatch for complex, cross-domain queries
 """
 
 from __future__ import annotations
@@ -18,6 +19,7 @@ import re
 from collections.abc import AsyncIterator
 from typing import Any
 
+from src.config.agent_settings import agent_settings
 from src.services.agent_composer import response_composer
 from src.services.agent_contracts import (
     CriteriaAssessment,
@@ -381,6 +383,12 @@ class WorkflowEngine:
     ) -> AsyncIterator[dict[str, Any]]:
         workflow_id = state.decision.workflow_id
 
+        # ── ReAct agent path — fully async, streams its own events ──
+        if workflow_id == WorkflowId.REACT_AGENT:
+            async for event in self._run_react_workflow(state, composer_llm):
+                yield event
+            return
+
         if workflow_id == WorkflowId.FINANCIAL_ANALYSIS:
             self._run_financial_workflow(state)
         elif workflow_id == WorkflowId.LEGAL_GUIDANCE:
@@ -548,6 +556,50 @@ class WorkflowEngine:
     def _append_result(self, state: WorkflowExecutionState, result) -> None:
         state.tool_results.append(result)
         state.evidence.extend(result.evidence_items)
+
+    # ------------------------------------------------------------------ #
+    #  REACT AGENT WORKFLOW — LangGraph ReAct loop
+    # ------------------------------------------------------------------ #
+
+    async def _run_react_workflow(
+        self, state: WorkflowExecutionState, composer_llm: Any | None
+    ) -> AsyncIterator[dict[str, Any]]:
+        """Dispatch to the LangGraph ReAct agent.
+
+        The ReAct agent handles its own tool selection and response composition,
+        so we skip the deterministic compose → verify → repair loop.  Instead,
+        the agent's final output goes through relaxed verification only.
+        """
+        from src.services.agent_react import run_react_agent
+
+        if composer_llm is None:
+            yield {
+                "type": "error",
+                "content": "Model provider not configured for ReAct agent.",
+            }
+            return
+
+        # Stream events from the ReAct agent (tool_call, tool_result, final)
+        final_text = ""
+        async for event in run_react_agent(state, composer_llm):
+            event_type = event.get("type", "")
+            if event_type == "final":
+                final_text = event.get("content", "")
+            yield event
+
+        # Apply evidence guard (same as deterministic workflows)
+        self._apply_evidence_guard(state)
+
+        # Run relaxed verification on the final text
+        if final_text:
+            verification = workflow_verifier.verify(state, final_text)
+            if verification.status.value == "repair":
+                # For ReAct, we append a note but don't re-compose
+                # since the agent already produced a natural response
+                logger.info(
+                    "ReAct verification flagged REPAIR: %s", verification.message
+                )
+                state.notes.append(f"VERIFICATION_NOTE: {verification.message}")
 
     # ------------------------------------------------------------------ #
     #  FINANCIAL WORKFLOW — structured extraction, multi-tool

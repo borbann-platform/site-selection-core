@@ -156,7 +156,7 @@ GOOGLE_API_KEY=your-gemini-api-key
 
 # Optional customization
 AGENT_MODEL=gemini-2.0-flash
-EMBEDDING_MODEL=models/text-embedding-004
+EMBEDDING_MODEL=models/gemini-embedding-001
 AGENT_MAX_ITERATIONS=5
 RAG_RETRIEVAL_TOP_K=5
 ```

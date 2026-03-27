@@ -17,6 +17,7 @@ class WorkflowId(str, Enum):
     LEGAL_GUIDANCE = "legal_guidance"
     LOCATION_ANALYSIS = "location_analysis"
     GENERAL_GUIDED = "general_guided"
+    REACT_AGENT = "react_agent"
 
 
 class CriteriaStatus(str, Enum):

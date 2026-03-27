@@ -6,6 +6,7 @@ Improvements over v1:
 - Language consistency check
 - Actual REFUSE status for critical failures
 - More informative repair messages
+- Relaxed verification for ReAct agent responses
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ from src.services.agent_contracts import (
     VerificationResult,
     VerificationStatus,
     WorkflowExecutionState,
+    WorkflowId,
 )
 
 # Required sections — we accept either Thai or English variants
@@ -31,6 +33,70 @@ class WorkflowVerifier:
     def verify(
         self, state: WorkflowExecutionState, composed_text: str
     ) -> VerificationResult:
+        # ReAct agent produces natural responses — use relaxed rules
+        if state.decision.workflow_id == WorkflowId.REACT_AGENT:
+            return self._verify_react(state, composed_text)
+
+        return self._verify_deterministic(state, composed_text)
+
+    def _verify_react(
+        self, state: WorkflowExecutionState, composed_text: str
+    ) -> VerificationResult:
+        """Relaxed verification for ReAct agent responses.
+
+        Skips rigid section requirements since the ReAct agent produces
+        natural, conversational responses.  Still enforces:
+        - Minimum content length
+        - No-data warning acknowledgement
+        """
+        # Check error/warning notes first — error responses may be short
+        has_no_data_warning = any("WARNING_NO_DATA" in note for note in state.notes)
+        has_react_error = any("WARNING_REACT_ERROR" in note for note in state.notes)
+
+        if has_react_error:
+            return VerificationResult(
+                status=VerificationStatus.PARTIAL,
+                message="ReAct agent encountered an error during execution.",
+            )
+
+        # Minimum content length (checked after error notes so short error
+        # messages still get PARTIAL rather than REPAIR)
+        clean = re.sub(r"<!--.*?-->", "", composed_text)
+        if len(clean.strip()) < 50:
+            return VerificationResult(
+                status=VerificationStatus.REPAIR,
+                message="Response is too short (< 50 chars). Please provide a more detailed answer.",
+            )
+
+        if has_no_data_warning:
+            no_data_phrases = [
+                "ไม่พบข้อมูล",
+                "no data",
+                "ไม่มีข้อมูล",
+                "not found",
+                "ไม่พบ",
+                "ไม่ครบ",
+                "ไม่เพียงพอ",
+                "no results",
+                "no matching",
+                "could not find",
+            ]
+            lowered = composed_text.lower()
+            if not any(phrase in lowered for phrase in no_data_phrases):
+                return VerificationResult(
+                    status=VerificationStatus.REPAIR,
+                    message=(
+                        "Tools returned no matching data but the response doesn't acknowledge this. "
+                        "Please inform the user that the database did not have matching data."
+                    ),
+                )
+
+        return VerificationResult(status=VerificationStatus.PASS)
+
+    def _verify_deterministic(
+        self, state: WorkflowExecutionState, composed_text: str
+    ) -> VerificationResult:
+        """Standard verification for deterministic workflow responses."""
         lowered = composed_text.lower()
 
         # ── Check 1: Required sections ──
