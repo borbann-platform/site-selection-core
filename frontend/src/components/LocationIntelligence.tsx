@@ -101,7 +101,7 @@ export function LocationIntelligencePanel({
     return (
       <div className="space-y-4 p-4">
         <div className="h-6 w-48 animate-pulse rounded bg-muted" />
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {[1, 2, 3].map((n) => (
             <div
               key={`score-skeleton-${n}`}
@@ -160,7 +160,7 @@ export function LocationIntelligencePanel({
       </div>
 
       {/* Score cards grid */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <LocationScoreCard
           label="Transit"
           score={data.transit.score}

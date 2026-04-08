@@ -57,7 +57,7 @@ export function AIExpandedPanel({
   }
 
   return (
-    <div className="fixed bottom-[13.5rem] left-1/2 z-40 w-[min(calc(100vw-1.5rem),56rem)] -translate-x-1/2 sm:bottom-[14rem] sm:w-[min(calc(100vw-2rem),56rem)] lg:w-[min(calc(100vw-34rem),56rem)] xl:w-[min(calc(100vw-38rem),58rem)]">
+    <div className="fixed bottom-[17.5rem] left-1/2 z-40 w-[min(calc(100vw-1.5rem),56rem)] -translate-x-1/2 sm:bottom-[18rem] sm:w-[min(calc(100vw-2rem),56rem)] md:bottom-[13.5rem] lg:w-[min(calc(100vw-34rem),56rem)] xl:w-[min(calc(100vw-38rem),58rem)]">
       <div className="overflow-hidden rounded-2xl border border-border/90 bg-card/95 shadow-xl backdrop-blur-xl">
         <div className="flex items-start justify-between gap-4 border-b border-border/60 px-5 py-3.5">
           <div>

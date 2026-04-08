@@ -449,7 +449,7 @@ export function ValuationReport({
                   : "bg-destructive/10 border-destructive/30"
             )}
           >
-            <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <p className="text-sm text-muted-foreground">Your Asking Price</p>
                 <p className="text-xl font-bold text-foreground">
@@ -624,7 +624,7 @@ export function ValuationReport({
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-muted/50 rounded-lg p-4 text-center">
               <BarChart3
                 size={20}

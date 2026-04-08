@@ -119,7 +119,7 @@ function StepIndicator({
               </div>
               <span
                 className={cn(
-                  "text-xs mt-2 font-medium",
+                  "text-xs mt-2 font-medium hidden sm:block",
                   isActive ? "text-brand" : "text-muted-foreground"
                 )}
               >

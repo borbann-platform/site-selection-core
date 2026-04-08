@@ -108,7 +108,7 @@ function DistrictsPage() {
   return (
     <div className="min-h-full bg-background">
       {/* Page Header */}
-      <div className="border-b border-border bg-background/95 backdrop-blur-sm px-6 py-6">
+      <div className="border-b border-border bg-background/95 backdrop-blur-sm px-4 sm:px-6 py-6">
         <div className="max-w-screen-xl mx-auto">
           <div className="flex items-center gap-3 mb-1">
             <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -124,7 +124,7 @@ function DistrictsPage() {
 
           {/* Summary Stats */}
           {stats && (
-            <div className="mt-5 grid grid-cols-3 gap-4">
+            <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
               <StatCard
                 icon={Home}
                 label="Total Properties"
@@ -149,8 +149,8 @@ function DistrictsPage() {
       </div>
 
       {/* Toolbar */}
-      <div className="sticky top-16 z-10 bg-background/95 backdrop-blur-sm border-b border-border px-6 py-3">
-        <div className="max-w-screen-xl mx-auto flex items-center gap-3">
+      <div className="sticky top-16 z-10 bg-background/95 backdrop-blur-sm border-b border-border px-4 sm:px-6 py-3">
+        <div className="max-w-screen-xl mx-auto flex flex-wrap items-center gap-3">
           {/* Search */}
           <div className="relative flex-1 max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -165,8 +165,8 @@ function DistrictsPage() {
           {/* Sort dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button type="button" className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-background text-sm font-medium hover:bg-muted/50 transition-colors">
-                Sort: {activeSortLabel}
+              <button type="button" className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg border border-border bg-background text-sm font-medium hover:bg-muted/50 transition-colors whitespace-nowrap">
+                <span className="hidden sm:inline">Sort: </span>{activeSortLabel}
                 {sortOrder === "desc" ? (
                   <ArrowDown className="h-3.5 w-3.5 text-muted-foreground" />
                 ) : (
@@ -205,7 +205,7 @@ function DistrictsPage() {
       </div>
 
       {/* Content */}
-      <div className="px-6 py-6">
+      <div className="px-4 sm:px-6 py-6">
         <div className="max-w-screen-xl mx-auto">
           {isLoading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
