@@ -5,7 +5,7 @@
 
 import { useEffect, useCallback } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { PanelLeftClose, PanelLeft, Plus, Search, MessageSquare, Sparkles } from "lucide-react";
+import { PanelLeftClose, PanelLeft, Plus, Search, MessageSquare, Sparkles, X } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useChatStore } from "../../stores/chatStore";
 import { SessionSidebar } from "./SessionSidebar";
@@ -81,12 +81,24 @@ export function ChatLayout({ sessionId }: ChatLayoutProps) {
   }, [handleNewSession, searchOpen, setSearchOpen, toggleSidebar]);
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] bg-background">
+    <div className="flex h-[calc(100vh-8rem)] md:h-[calc(100vh-4rem)] bg-background">
+      {/* Mobile sidebar overlay */}
+      {sidebarOpen && (
+        <button
+          type="button"
+          className="fixed inset-0 z-40 bg-black/40 md:hidden"
+          onClick={toggleSidebar}
+          aria-label="Close sidebar"
+        />
+      )}
+
       {/* Sidebar */}
       <div
         className={cn(
           "flex flex-col border-r border-border glass transition-all duration-300",
-          sidebarOpen ? "w-72" : "w-0 overflow-hidden"
+          // Mobile: fixed overlay sidebar
+          "fixed inset-y-0 left-0 z-50 w-72 md:static md:z-auto",
+          sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0 md:w-0 md:overflow-hidden"
         )}
       >
         {/* Sidebar Header */}
@@ -95,15 +107,25 @@ export function ChatLayout({ sessionId }: ChatLayoutProps) {
             <MessageSquare className="w-4 h-4 text-primary" />
             <span className="font-semibold text-sm">Chats</span>
           </div>
-          <button
-            type="button"
-            onClick={() => setSearchOpen(true)}
-            className="p-1.5 hover:bg-muted rounded-lg transition-colors"
-            title="Search (Cmd+K)"
-            aria-label="Search conversations"
-          >
-            <Search className="w-4 h-4 text-muted-foreground" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setSearchOpen(true)}
+              className="p-1.5 hover:bg-muted rounded-lg transition-colors"
+              title="Search (Cmd+K)"
+              aria-label="Search conversations"
+            >
+              <Search className="w-4 h-4 text-muted-foreground" />
+            </button>
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              className="p-1.5 hover:bg-muted rounded-lg transition-colors md:hidden"
+              aria-label="Close sidebar"
+            >
+              <X className="w-4 h-4 text-muted-foreground" />
+            </button>
+          </div>
         </div>
 
         {/* New Chat Button */}

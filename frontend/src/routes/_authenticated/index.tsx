@@ -79,7 +79,7 @@ function PropertyExplorer() {
 
   return (
     <>
-      <div className="w-full h-[calc(100vh-4rem)] bg-background relative overflow-hidden">
+      <div className="w-full h-[calc(100vh-8rem)] md:h-[calc(100vh-4rem)] bg-background relative overflow-hidden">
         {/* Full-screen Map */}
         <MapContainer
           viewState={explorer.viewState}
@@ -121,7 +121,7 @@ function PropertyExplorer() {
         )}
 
         {/* Mobile filter sheet */}
-        <div className="md:hidden absolute bottom-20 left-4 z-40">
+        <div className="md:hidden absolute bottom-4 left-4 z-40">
           <Sheet>
             <SheetTrigger asChild>
               <button

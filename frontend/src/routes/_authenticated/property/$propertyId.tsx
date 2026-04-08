@@ -147,7 +147,7 @@ function PropertyDetailPage() {
 
   if (isPropertyError) {
     return (
-      <div className="flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center bg-background text-foreground">
+      <div className="flex min-h-[calc(100vh-8rem)] md:min-h-[calc(100vh-4rem)] flex-col items-center justify-center bg-background text-foreground">
         <ErrorState
           title="Property not found"
           message="The property you are looking for could not be loaded."
@@ -166,7 +166,7 @@ function PropertyDetailPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] flex-col md:flex-row bg-background text-foreground">
+    <div className="flex h-[calc(100vh-8rem)] md:h-[calc(100vh-4rem)] flex-col md:flex-row bg-background text-foreground">
         {/* Left Panel - Property Details */}
         <div className="w-full md:w-100 md:shrink-0 overflow-auto border-b md:border-b-0 md:border-r border-border bg-background">
           {/* Back button */}
@@ -354,7 +354,7 @@ function PropertyDetailPage() {
                 {isLocationLoading && !locationIntelligence && (
                   <div className="space-y-4">
                     <div className="h-6 w-48 animate-pulse rounded bg-muted" />
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                       {[1, 2, 3].map((n) => (
                         <div
                           key={`li-skeleton-${n}`}

@@ -224,34 +224,34 @@ function SettingsPage() {
 
   return (
     <div className="min-h-[calc(100vh-4rem)] w-full overflow-y-auto bg-background text-foreground custom-scrollbar">
-      <div className="mx-auto grid max-w-4xl gap-8 px-6 py-12">
+        <div className="mx-auto grid max-w-4xl gap-8 px-4 py-8 sm:px-6 sm:py-12">
         <section className="space-y-4">
           <h2 className="flex items-center gap-2 text-xl font-semibold">
             <User size={20} className="text-brand" />
             Profile & Account
           </h2>
           <div className="overflow-hidden rounded-2xl border border-border bg-card">
-            <div className="flex items-center justify-between border-b border-border p-6">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-border p-4 sm:p-6">
               <div>
                 <div className="font-medium">Display Name</div>
                 <div className="text-sm text-muted-foreground">
                   How your account appears in the workspace
                 </div>
               </div>
-              <div className="text-muted-foreground">
+              <div className="text-muted-foreground text-sm sm:text-base">
                 {user?.first_name} {user?.last_name}
               </div>
             </div>
-            <div className="flex items-center justify-between border-b border-border p-6">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-border p-4 sm:p-6">
               <div>
                 <div className="font-medium">Email Address</div>
                 <div className="text-sm text-muted-foreground">
                   Used for account access
                 </div>
               </div>
-              <div className="text-muted-foreground">{user?.email}</div>
+              <div className="text-muted-foreground text-sm sm:text-base break-all">{user?.email}</div>
             </div>
-            <div className="flex items-center justify-between p-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-4 sm:p-6">
               <div>
                 <div className="font-medium">Sign Out</div>
                 <div className="text-sm text-muted-foreground">
@@ -276,7 +276,7 @@ function SettingsPage() {
             AI Provider (BYOK)
           </h2>
           <div className="overflow-hidden rounded-2xl border border-border bg-card">
-            <div className="space-y-4 border-b border-border p-6">
+            <div className="space-y-4 border-b border-border p-4 sm:p-6">
               <div className="grid gap-2">
                 <div className="text-sm font-medium">Provider</div>
                 <Select
@@ -427,7 +427,7 @@ function SettingsPage() {
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 p-6">
+            <div className="flex flex-wrap items-center gap-2 p-4 sm:p-6">
               <Button
                 type="button"
                 onClick={handleSaveRuntimeConfig}
@@ -480,7 +480,7 @@ function SettingsPage() {
             Security
           </h2>
           <div className="overflow-hidden rounded-2xl border border-border bg-card">
-            <div className="flex items-center justify-between p-6">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between p-4 sm:p-6">
               <div>
                 <div className="font-medium">API Keys</div>
                 <div className="text-sm text-muted-foreground">

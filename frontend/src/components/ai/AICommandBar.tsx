@@ -91,7 +91,7 @@ export function AICommandBar({
   const canSend = input.trim().length > 0 && !isBlocked;
 
   return (
-    <div className="pointer-events-none fixed bottom-0 left-1/2 z-50 w-[min(calc(100vw-1.5rem),56rem)] -translate-x-1/2 pb-3 sm:w-[min(calc(100vw-2rem),56rem)] sm:pb-4 lg:w-[min(calc(100vw-34rem),56rem)] xl:w-[min(calc(100vw-38rem),58rem)]">
+    <div className="pointer-events-none fixed bottom-16 left-1/2 z-50 w-[min(calc(100vw-1.5rem),56rem)] -translate-x-1/2 pb-3 sm:w-[min(calc(100vw-2rem),56rem)] sm:pb-4 md:bottom-0 lg:w-[min(calc(100vw-34rem),56rem)] xl:w-[min(calc(100vw-38rem),58rem)]">
       <div className="w-full">
         {selectionMode !== "none" && (
           <div className="pointer-events-auto mb-3 animate-slide-up rounded-full border border-border/80 bg-card/95 px-4 py-2 text-xs text-foreground shadow-xl backdrop-blur-xl">
